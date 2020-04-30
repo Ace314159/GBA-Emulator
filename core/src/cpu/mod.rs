@@ -1,51 +1,97 @@
 mod registers;
 
-use crate::mmu::MMU;
+use crate::mmu::IMMU;
 use crate::mmu::Cycle;
 use registers::RegValues;
 use registers::Reg;
 
+#[cfg(test)]
+mod tests;
+
 
 pub struct CPU {
     regs: RegValues,
+    instr_buffer: [u32; 2],
+    p: bool,
 }
 
 impl CPU {
-    pub fn new() -> CPU {
-        CPU {
+    pub fn new<M>(mmu: &M) -> CPU where M: IMMU {
+        let mut cpu = CPU {
             regs: RegValues::new(),
+            instr_buffer: [0; 2],
+            p: true,
+        };
+        cpu.fill_instr_buffer(mmu);
+        cpu
+    }
+
+    fn fill_instr_buffer<M>(&mut self, mmu: &M) where M: IMMU {
+        if self.regs.get_t() {
+            unimplemented!("Thumb instruction set not implemented!");
+        } else {
+            self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
+            self.regs.pc = self.regs.pc.wrapping_add(4);
+            self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
         }
     }
 
-    pub fn emulate_instr(&mut self, mmu: &mut MMU) {
+    pub fn emulate_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
         if self.regs.get_t() { self.emulate_thumb_instr(mmu) }
         else { self.emulate_arm_instr(mmu) }
     }
 
-    pub fn emulate_thumb_instr(&mut self, mmu: &mut MMU) {
+    pub fn emulate_thumb_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
         unimplemented!("Thumb instruction set not implemented!")
     }
 
-    pub fn emulate_arm_instr(&mut self, mmu: &mut MMU) {
-        let pc = self.regs.get_pc() & !0x3; // Align pc
-        self.regs.set_pc(pc.wrapping_add(4));
-        let instr = mmu.read32(pc);
+    pub fn emulate_arm_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
+        let pc = self.regs.pc & !0x3;
+        if self.p {
+            use Reg::*;
+            println!("{:08x}    r0:{:08x} r1:{:08x} r2:{:08x} r3:{:08x} r4:{:08x} r5:{:08x} r6:{:08x} \
+            r7:{:08x} r8:{:08x} r9:{:08x} r10:{:08x} r11:{:08x} r12:{:08x} sp:{:08x} lr:{:08x}",
+            pc.wrapping_sub(8), self.regs.get_reg(R0), self.regs.get_reg(R1), self.regs.get_reg(R2),
+            self.regs.get_reg(R3), self.regs.get_reg(R4), self.regs.get_reg(R5), self.regs.get_reg(R6),
+            self.regs.get_reg(R7), self.regs.get_reg(R8), self.regs.get_reg(R9), self.regs.get_reg(R10),
+            self.regs.get_reg(R11), self.regs.get_reg(R12), self.regs.get_reg(R13), self.regs.get_reg(R14));
+        }
+        let instr = self.instr_buffer[0];
+        self.instr_buffer[0] = self.instr_buffer[1];
+        self.regs.pc = self.regs.pc.wrapping_add(4);
+        self.instr_buffer[1] = mmu.read32(pc);
 
         if self.should_exec(instr) {
-            if (instr >> 4) & 0xFFFFFF == 0b0001_0010_1111_1111_1111 { self.branch_and_exchange(instr) }
-            else if (instr >> 25) & 0x7 == 0b101 { self.branch_branch_with_link(instr) }
-            else if (instr >> 26) & 0x3 == 0b00 { self.data_proc_psr_transfer(instr) }
-            else if (instr >> 22) & 0x3F == 0b00_0000 { self.mul(instr) }
-            else if (instr >> 23) & 0x1F == 0b0_0001 { self.mul_long(instr) }
-            else if (instr >> 26) & 0x3 == 0b01 { self.single_data_transfer(instr) }
-            else if (instr >> 25) & 0x7 == 0b000 { self.halfword_and_signed_data_transfer(instr) }
-            else if (instr >> 25) & 0x7 == 0b100 { self.block_data_transfer(instr) }
-            else if (instr >> 23) & 0x1F == 0b0_0010 { self.single_data_swap(instr) }
-            else if (instr >> 24) & 0xF == 0b1111 { self.software_interrupt(instr) }
-            else if (instr >> 24) & 0xF == 0b1110 { self.coprocessor(instr) }
-            else if (instr >> 25) & 0x7 == 0b110 { self.coprocessor(instr) }
-            else if (instr >> 25) & 0x7 == 0b011 { self.undefined_instr(instr) }
-            else { panic!("Unexpected instruction") }
+            if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
+                self.branch_and_exchange(mmu);
+            } else if instr & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
+                self.mul(instr, mmu);
+            } else if instr & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
+                self.mul_long(instr, mmu);
+            } else if instr & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
+                self.single_data_swap(instr, mmu);
+            } else if instr & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
+                self.halfword_and_signed_data_transfer(instr, mmu);
+            } else if instr & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
+                self.psr_transfer(instr, mmu);
+            } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
+                self.data_proc(instr, mmu);
+            } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0100_0000_0000_0000_0000_0000_0000 {
+                self.single_data_transfer(instr, mmu);
+            } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1000_0000_0000_0000_0000_0000_0000 {
+                self.block_data_transfer(instr, mmu);
+            } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
+                self.branch_branch_with_link(instr, mmu);
+            } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
+                self.software_interrupt(instr, mmu);
+            } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
+                self.coprocessor(instr, mmu);
+            } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
+                self.coprocessor(instr, mmu);
+            } else {
+                assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
+                self.undefined_instr(instr, mmu);
+            }
         } else {
             mmu.inc_clock(1, Cycle::S, pc);
         }
@@ -74,71 +120,161 @@ impl CPU {
     }
 
     // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange(&mut self, instr: u32) {
+    fn branch_and_exchange<M>(&mut self, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.3: Branch and Exchange (BX) not implemented!");
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
-    fn branch_branch_with_link(&mut self, instr: u32) {
+    fn branch_branch_with_link<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         let opcode = (instr >> 24) & 0x1;
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
-        let pc = self.regs.get_pc();
 
-        if opcode == 1 { self.regs.set_reg(Reg::R14, pc) } // Branch with Link
-        self.regs.set_pc(pc.wrapping_add(offset * 4));
+        if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
+        mmu.inc_clock(2, Cycle::S, self.regs.pc);
+        self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
+        self.fill_instr_buffer(mmu);
+        mmu.inc_clock(1, Cycle::N, self.regs.pc);
     }
 
     // ARM.5: Data Processing
-    // ARM.6: PSR Transfer (MRS, MSR)
-    fn data_proc_psr_transfer(&mut self, instr: u32) {
-        unimplemented!("ARM.5: Data Processing and ARM.6: PSR Transfer (MRS, MSR) not implemented!");
+    fn data_proc<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+        let mut change_status = (instr >> 20) & 0x1 != 0;
+        let immediate_op2 = (instr >> 25) & 0x1 != 0;
+        let op2 = if immediate_op2 {
+            let shift = (instr >> 8) & 0xF;
+            (instr & 0xFF).rotate_right(shift * 2)
+        } else {
+            let shift_by_reg = (instr >> 4) & 0x1 != 0;
+            let shift = if shift_by_reg {
+                assert_eq!((instr >> 7) & 0x1, 0);
+                let shift = self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF;
+                if shift == 0 { change_status = false }
+                shift
+            } else {
+                (instr >> 7) & 0x1F
+            };
+            let shift_type = (instr >> 5) & 0x3;
+            let op2 = self.regs.get_reg_i(instr & 0xF);
+            if !shift_by_reg && shift == 0 {
+                match shift_type {
+                    0 => op2,
+                    1 => {
+                        if change_status { self.regs.set_c(op2 >> 31 != 0) }
+                        0
+                    },
+                    2 => {
+                        let bit = op2 >> 31 != 0;
+                        if change_status { self.regs.set_c(bit); }
+                        if bit { 0xFFFF_FFFF } else { 0 } },
+                    3 => {
+                        let new_c = op2 & 0x1 != 0;
+                        let op2 = (self.regs.get_c() as u32) << 31 | op2 >> 1;
+                        if change_status { self.regs.set_c(new_c) }
+                        op2
+                    },
+                    _ => panic!("Invalid Shift type!"),
+                }
+            } else {
+                match shift_type {
+                    0 => { if change_status { self.regs.set_c(op2 << (shift - 1) & 0x8000_0000 != 0); } op2 << shift },
+                    1 => { if change_status { self.regs.set_c(op2 >> (shift - 1) & 0x1 != 0); } op2 >> shift },
+                    2 => { if change_status { self.regs.set_c((op2 as i32) >> (shift - 1) & 0x1 != 0) };
+                            ((op2 as i32) >> shift) as u32 },
+                    3 => { if change_status { self.regs.set_c(op2 >> (shift - 1) & 0x1 != 0); } op2.rotate_right(shift) },
+                    _ => panic!("Invalid Shift type!"),
+                }
+            }
+        };
+        let opcode = (instr >> 21) & 0xF;
+        let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
+        macro_rules! arithmetic { ($op1:expr, $op2:expr, $func:ident, $sub:expr, $add_c:expr) => { {
+            let result = ($op1 as i32).$func($op2 as i32);
+            let result2 = if $add_c { result.0.overflowing_add(self.regs.get_c() as i32) }
+                            else { (result.0, false) };
+            if change_status {
+                self.regs.set_v(result.1 || result2.1);
+                let c = $op1.$func($op2).1;
+                let c = if $sub { !c } else { c };
+                self.regs.set_c(c);
+            }
+            result2.0 as u32
+        } } }
+        let result = match opcode {
+            0x0 | 0x8 => op1 & op2, // AND and TST
+            0x1 | 0x9 => op1 ^ op2, // EOR and TEQ
+            0x2 | 0xA => arithmetic!(op1, op2, overflowing_sub, true, false), // SUB and CMP
+            0x3 => arithmetic!(op2, op1, overflowing_sub, false, false), // RSB
+            0x4 | 0xB => arithmetic!(op1, op2, overflowing_add, false, false), // ADD and CMN
+            0x5 => arithmetic!(op1, op2, overflowing_add, false, true), // ADC
+            0x6 => arithmetic!(op1, !op2, overflowing_add, true, true), // SBC
+            0x7 => arithmetic!(op2, !op1, overflowing_add, true, true), // RSC
+            0xC => op1 | op2, // ORR
+            0xD => op2, // MOV
+            0xE => op1 & !op2, // BIC
+            0xF => !op2, // MVN
+            _ => panic!("Invalid opcode!"),
+        };
+        if change_status {
+            self.regs.set_z(result == 0);
+            self.regs.set_n(result & 0x8000_0000 != 0);
+        } else { assert_eq!(opcode & 0xC != 0x8, true) }
+        if opcode & 0xC != 0x8 {
+            let reg = (instr >> 12) & 0xF;
+            self.regs.set_reg_i(reg, result);
+            if reg == 15 { self.fill_instr_buffer(mmu); }
+        }
     }
 
+    // ARM.6: PSR Transfer (MRS, MSR)
+    fn psr_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+        unimplemented!("// ARM.6: PSR Transfer (MRS, MSR) not implemented!");
+    }
+    
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul(&mut self, instr: u32) {
+    fn mul<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.7: Multiply and Multiply-Accumulate (MUL, MLA) not implemented!");
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long(&mut self, instr: u32) {
+    fn mul_long<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL) not implemented!");
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
-    fn single_data_transfer(&mut self, instr: u32) {
+    fn single_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.9: Single Data Transfer (LDR, STR) not implemented!");
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer(&mut self, instr: u32) {
+    fn halfword_and_signed_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH) not implemented!");
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer(&mut self, instr: u32) {
+    fn block_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.11: Block Data Transfer (LDM,STM) not implemented!");
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap(&mut self, instr: u32) {
+    fn single_data_swap<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.12: Single Data Swap (SWP) not implemented!");
     }
 
     // ARM.13: Software Interrupt (SWI)
-    fn software_interrupt(&mut self, instr: u32) {
+    fn software_interrupt<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.13: Software Interrupt (SWI) not implemented!");
     }
 
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
-    fn coprocessor(&mut self, instr: u32) {
+    fn coprocessor<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("Coprocessor not implemented!");
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr(&mut self, instr: u32) {
+    fn undefined_instr<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
 }

@@ -1,4 +1,4 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Reg {
     R0 = 0,
     R1 = 1,
@@ -66,14 +66,15 @@ impl StatusReg {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct RegValues {
-    usr: [u32; 16],
+    usr: [u32; 15],
     fiq: [u32; 7],
     svc: [u32; 2],
     abt: [u32; 2],
     irq: [u32; 2],
     und: [u32; 2],
-    pc: u32,
+    pub pc: u32,
     cpsr: StatusReg,
     spsr: [StatusReg; 5],
 }
@@ -81,7 +82,7 @@ pub struct RegValues {
 impl RegValues {
     pub fn new() -> RegValues {
         RegValues {
-            usr: [0; 16],
+            usr: [0; 15],
             fiq: [0; 7],
             abt: [0; 2],
             svc: [0; 2],
@@ -110,7 +111,7 @@ impl RegValues {
                 Mode::UND => self.und[reg as usize - 13],
                 _ => self.usr[reg as usize],
             },
-            R15 => self.usr[15],
+            R15 => self.pc,
             CPSR => self.cpsr.bits,
             SPSR => match mode {
                 Mode::FIQ => self.spsr[0].bits(),
@@ -140,7 +141,7 @@ impl RegValues {
                 Mode::UND => self.und[reg as usize - 13] = value,
                 _ => self.usr[reg as usize] = value,
             },
-            R15 => self.usr[15] = value,
+            R15 => self.pc = value,
             CPSR => self.cpsr.bits = value,
             SPSR => match mode {
                 Mode::FIQ => self.spsr[0] = StatusReg::from_bits(value).unwrap(),
@@ -153,12 +154,35 @@ impl RegValues {
         }
     }
 
-    pub fn get_pc(&self) -> u32 {
-        self.usr[15]
+    pub fn get_reg_i(&self, reg: u32) -> u32 {
+        self.get_reg(self.get_reg_from_u32(reg))
     }
 
-    pub fn set_pc(&mut self, value: u32) {
-        self.usr[15] = value;
+    pub fn set_reg_i(&mut self, reg: u32, value: u32) {
+        self.set_reg(self.get_reg_from_u32(reg), value);
+    }
+
+    fn get_reg_from_u32(&self, reg: u32) -> Reg {
+        use Reg::*;
+        match reg {
+            0 => R0,
+            1 => R1,
+            2 => R2,
+            3 => R3,
+            4 => R4,
+            5 => R5,
+            6 => R6,
+            7 => R7,
+            8 => R8,
+            9 => R9,
+            10 => R10,
+            11 => R11,
+            12 => R12,
+            13 => R13,
+            14 => R14,
+            15 => R15,
+            _ => panic!("Invalid register!"),
+        }
     }
 
     pub fn get_n(&self) -> bool { self.cpsr.contains(StatusReg::N) }

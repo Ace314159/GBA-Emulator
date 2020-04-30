@@ -9,9 +9,10 @@ pub struct GBA {
 impl GBA {
     pub fn new(rom_file: &String) -> GBA {
         let bios = std::fs::read("gba_bios.bin").unwrap();
+        let mmu = MMU::new(bios, std::fs::read(rom_file).unwrap());
         GBA {
-            cpu: CPU::new(),
-            mmu: MMU::new(bios, std::fs::read(rom_file).unwrap())
+            cpu: CPU::new(&mmu),
+            mmu,
         }
     }
 
