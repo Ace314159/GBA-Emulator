@@ -16,7 +16,7 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn new<M>(mmu: &M) -> CPU where M: IMMU {
+    pub fn new<M>(mmu: &mut M) -> CPU where M: IMMU {
         let mut cpu = CPU {
             regs: RegValues::new(),
             instr_buffer: [0; 2],
@@ -26,13 +26,16 @@ impl CPU {
         cpu
     }
 
-    fn fill_instr_buffer<M>(&mut self, mmu: &M) where M: IMMU {
+    pub fn fill_instr_buffer<M>(&mut self, mmu: &mut M) where M: IMMU {
         if self.regs.get_t() {
             unimplemented!("Thumb instruction set not implemented!");
         } else {
             self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
+            mmu.inc_clock(1, Cycle::N, self.regs.pc & !0x3);
             self.regs.pc = self.regs.pc.wrapping_add(4);
+
             self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
+            mmu.inc_clock(1, Cycle::S, self.regs.pc & !0x3);
         }
     }
 
@@ -60,6 +63,7 @@ impl CPU {
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(4);
         self.instr_buffer[1] = mmu.read32(pc);
+        mmu.inc_clock(1, Cycle::S, pc);
 
         if self.should_exec(instr) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
@@ -92,8 +96,6 @@ impl CPU {
                 assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
                 self.undefined_instr(instr, mmu);
             }
-        } else {
-            mmu.inc_clock(1, Cycle::S, pc);
         }
     }
 
@@ -131,10 +133,8 @@ impl CPU {
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
         if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
-        mmu.inc_clock(2, Cycle::S, self.regs.pc);
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
         self.fill_instr_buffer(mmu);
-        mmu.inc_clock(1, Cycle::N, self.regs.pc);
     }
 
     // ARM.5: Data Processing
@@ -147,6 +147,7 @@ impl CPU {
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
             let shift = if shift_by_reg {
+                mmu.inc_clock(1, Cycle::I, 0);
                 assert_eq!((instr >> 7) & 0x1, 0);
                 let shift = self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF;
                 if shift == 0 { change_status = false }

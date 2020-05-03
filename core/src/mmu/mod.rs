@@ -35,6 +35,7 @@ impl IMMU for MMU {
     }
 
     fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, addr: u32) {
+        if cycle_type == Cycle::I { self.clocks_ahead += cycle_count; return }
         self.clocks_ahead += match addr {
             0x00000000 ..= 0x00003FFF => cycle_count,
             _ => unimplemented!("Clock Cycle for {:16X} not implemented!", addr),
@@ -48,6 +49,7 @@ pub trait IMMU {
     fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, addr: u32);
 }
 
+#[derive(PartialEq)]
 pub enum Cycle {
     N,
     S,

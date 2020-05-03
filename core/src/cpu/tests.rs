@@ -35,9 +35,11 @@ impl IMMU for TestMMU {
 }
 
 macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:expr),*) => { {
+    println!("{:08X}", $instr.swap_bytes());
     let mut mmu = TestMMU::new();
-    let mut cpu = CPU::new(&mmu);
-    cpu.regs.pc = cpu.regs.pc.wrapping_add(4);
+    let mut cpu = CPU::new(&mut mmu);
+    cpu.regs.pc = cpu.regs.pc.wrapping_add(4); // Add 4 to simulate incrementing pc when fetching instr
+    mmu.inc_clock(1, Cycle::S, cpu.regs.pc); // Inc to simulate reading instr
     $(
         if Reg::$reg == Reg::CPSR {
             cpu.regs.set_reg(Reg::CPSR, cpu.regs.get_reg(Reg::CPSR) | $val);
@@ -46,7 +48,6 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
         }
     )*
     cpu.$instr_name($instr, &mut mmu);
-    println!("{:08X}", $instr.swap_bytes());
     (cpu, mmu)
 } } }
 
@@ -64,10 +65,10 @@ macro_rules! assert_regs { ($regs:expr, $($reg:ident = $val:expr),*) => { {
     assert_eq!($regs, reg_values);
 } } }
 
-macro_rules! assert_cycle_times { ($mmu:expr, $n_count:expr, $s_count:expr, $i_count:expr) => { {
-    assert_eq!($mmu.n_cycle_count, $n_count);
-    assert_eq!($mmu.s_cycle_count, $s_count);
+macro_rules! assert_cycle_times { ($mmu:expr, $s_count:expr, $i_count:expr, $n_count:expr) => { {
+    assert_eq!($mmu.s_cycle_count, $s_count + 1); // 1 extra for initial instr buffer
     assert_eq!($mmu.i_cycle_count, $i_count);
+    assert_eq!($mmu.n_cycle_count, $n_count + 1); // 1 extra for initial instr buffer
 } } }
 
 
@@ -81,32 +82,32 @@ fn test_branch_branch_with_link() {
     // Offset 0
     let (cpu, mmu) = run_instr!(branch_branch_with_link, make_instr(false, 0),);
     assert_regs!(cpu.regs, R15 = 0x8);
-    assert_cycle_times!(mmu, 1, 2, 0);
+    assert_cycle_times!(mmu, 2, 0, 1);
 
     // Link Functionality
     let (cpu, mmu) = run_instr!(branch_branch_with_link, make_instr(true, 0),);
     assert_regs!(cpu.regs, R14 = 4, R15 = 0x8);
-    assert_cycle_times!(mmu, 1, 2, 0);
+    assert_cycle_times!(mmu, 2, 0, 1);
 
     // Offset 1
     let (cpu, mmu) = run_instr!(branch_branch_with_link, make_instr(false, 1),);
     assert_regs!(cpu.regs, R15 = 0xC);
-    assert_cycle_times!(mmu, 1, 2, 0);
+    assert_cycle_times!(mmu, 2, 0, 1);
 
     // Offset -1
     let (cpu, mmu) = run_instr!(branch_branch_with_link, make_instr(false, 0xFFFFFF),);
     assert_regs!(cpu.regs, R15 = 0x4);
-    assert_cycle_times!(mmu, 1, 2, 0);
+    assert_cycle_times!(mmu, 2, 0, 1);
 
     // Offset 0x7FFFFF - max offset
     let (cpu, mmu) = run_instr!(branch_branch_with_link, make_instr(false, 0x7FFFFF),);
     assert_regs!(cpu.regs, R15 = 0x7FFFFF * 4 + 8);
-    assert_cycle_times!(mmu, 1, 2, 0);
+    assert_cycle_times!(mmu, 2, 0, 1);
 
     // Offset 0x800000 - min offset
     let (cpu, mmu) = run_instr!(branch_branch_with_link, make_instr(false, 0x800000),);
     assert_regs!(cpu.regs, R15 = 0xFE0_00000u32 + 8);
-    assert_cycle_times!(mmu, 1, 2, 0);
+    assert_cycle_times!(mmu, 2, 0, 1);
 }
 
 #[test]
@@ -121,87 +122,109 @@ fn test_data_proc() {
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0, false, 0, 0, 0, 1),
     R0 = 0xFFF);
     assert_regs!(cpu.regs, R0 = 1, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // EOR
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(1, false, 0, 0, 0, 0xAC),
     R0 = 0xFF);
     assert_regs!(cpu.regs, R0 = 0x53, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // SUB
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(2, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // RSB
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(3, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // ADD
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(4, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 600, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // ADC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 600, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, false, 0, 0, 0, 100),
     R0 = 500, CPSR = 0x2000);
     assert_regs!(cpu.regs, R0 = 601, R15 = 4, CPSR = 0x2000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // SBC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 399, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, false, 0, 0, 0, 100),
     R0 = 500, CPSR = 0x2000);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x2000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // RSC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = !401 + 1, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
     R0 = 500, CPSR = 0x2000);
     assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4, CPSR = 0x2000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // TST
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(8, true, 0, 0, 0, 1),
     R0 = 0xFFF);
     assert_regs!(cpu.regs, R0 = 0xFFF, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(8, true, 0, 0, 0, 0),
     R0 = 0xFFF);
     assert_regs!(cpu.regs, R0 = 0xFFF, R15 = 4, CPSR = 0x4000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // TEQ
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(9, true, 0, 0, 0, 0xAB),
     R0 = 0xFF);
     assert_regs!(cpu.regs, R0 = 0xFF, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(9, true, 0, 0, 0, 0xAB),
     R0 = 0xAB);
     assert_regs!(cpu.regs, R0 = 0xAB, R15 = 4, CPSR = 0x4000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // CMP
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xA, true, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 500, R15 = 4, CPSR = 0x2000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xA, true, 0, 0, 0, 100),
     R0 = 100);
     assert_regs!(cpu.regs, R0 = 100, R15 = 4, CPSR = 0x6000);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // CMN
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xB, true, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 500, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // ORR
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xC, false, 0, 0, 0, 100),);
     assert_regs!(cpu.regs, R0 = 100, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // MOV
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xD, true, 0, 0, 0, 100),);
     assert_regs!(cpu.regs, R0 = 100, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // BIC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xE, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
     // MVN
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xF, false, 0, 0, 0, 100),);
     assert_regs!(cpu.regs, R0 = !100, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
 
     println!("Second Set");
     fn make_reg_instr(opcode: u32, set_status: bool, op1_reg: u32, dest: u32, shift: u32,
         shift_by_type: u32, shift_by_reg: bool, op2: u32) -> u32 {
         0b1110 << 28 | 0b00 << 26 | (false as u32) << 25 | opcode << 21 | (set_status as u32) << 20 |
-        op1_reg << 16 | dest << 12 | if shift_by_reg { shift << 8 | 1 << 7 } else { shift << 7 } |
+        op1_reg << 16 | dest << 12 | if shift_by_reg { shift << 8 | 0 << 7 } else { shift << 7 } |
         shift_by_type << 5 | (shift_by_reg as u32) << 4 | op2
     }
 
@@ -209,29 +232,35 @@ fn test_data_proc() {
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, false, 0),
     R0 = 0xA);
     assert_regs!(cpu.regs, R0 = 0xA, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
 
     // LSR #0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 1, false, 0),
     R0 = 0xFFFFFFFF);
     assert_regs!(cpu.regs, R0 = 0, R15 = 4, CPSR = 0x6000);
+    assert_cycle_times!(mmu, 1, 0, 0);
 
     // ASR #0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 2, false, 0),
     R0 = 0xFFFFFFFF);
     assert_regs!(cpu.regs, R0 = 0xFFFFFFFF, R15 = 4, CPSR = 0xA000);
+    assert_cycle_times!(mmu, 1, 0, 0);
 
     // ROR #0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 3, false, 0),
     R0 = 0xFFFFFFFF);
     assert_regs!(cpu.regs, R0 = 0x7FFFFFFF, R15 = 4, CPSR = 0x2000);
+    assert_cycle_times!(mmu, 1, 0, 0);
 
     println!("Third Set");
-    // MOV pc, r0
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 15, 0, 0, false, 0),
-    R0 = 100);
-    assert_regs!(cpu.regs, R0 = 100, R15 = 100);
+    // MOV pc, r0, LSL r0
+    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 15, 0, 0, true, 0),
+    R0 = 2);
+    assert_regs!(cpu.regs, R0 = 2, R15 = 8);
+    assert_cycle_times!(mmu, 2, 1, 1);
 
     // MOV r0, pc
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 0, 0, 0, false, 15),);
     assert_regs!(cpu.regs, R0 = 8, R15 = 4);
+    assert_cycle_times!(mmu, 1, 0, 0);
 }
