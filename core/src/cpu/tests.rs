@@ -35,7 +35,7 @@ impl IMMU for TestMMU {
 }
 
 macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:expr),*) => { {
-    println!("{:08X}", $instr.swap_bytes());
+    println!("{:08X}", $instr);
     let mut mmu = TestMMU::new();
     let mut cpu = CPU::new(&mut mmu);
     cpu.regs.pc = cpu.regs.pc.wrapping_add(4); // Add 4 to simulate incrementing pc when fetching instr
@@ -253,6 +253,10 @@ fn test_data_proc() {
     assert_cycle_times!(mmu, 1, 0, 0);
 
     println!("Third Set");
+    // MOV r0, r0 LSL r0
+    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, true, 0),);
+    assert_regs!(cpu.regs, R15 = 4, CPSR = 0x40000000);
+
     // MOV pc, r0, LSL r0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 15, 0, 0, true, 0),
     R0 = 2);

@@ -147,6 +147,7 @@ impl CPU {
                 _ => panic!("Invalid Shift type!"),
             }
         } else {
+            let change_status = change_status && shift != 0;
             match shift_type {
                 // LSL
                 0 => { if change_status { self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0); } operand << shift },
@@ -190,9 +191,7 @@ impl CPU {
             let shift = if shift_by_reg {
                 mmu.inc_clock(1, Cycle::I, 0);
                 assert_eq!((instr >> 7) & 0x1, 0);
-                let shift = self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF;
-                if shift == 0 { change_status = false }
-                shift
+                self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF
             } else {
                 (instr >> 7) & 0x1F
             };
