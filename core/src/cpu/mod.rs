@@ -122,6 +122,46 @@ impl CPU {
         }
     }
 
+    fn shift(&mut self, shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> u32 {
+        if immediate && shift == 0 {
+            match shift_type {
+                // LSL #0
+                0 => operand,
+                // LSR #32
+                1 => {
+                    if change_status { self.regs.set_c(operand >> 31 != 0) }
+                    0
+                },
+                // ASR #32
+                2 => {
+                    let bit = operand >> 31 != 0;
+                    if change_status { self.regs.set_c(bit); }
+                    if bit { 0xFFFF_FFFF } else { 0 } },
+                // RRX #1
+                3 => {
+                    let new_c = operand & 0x1 != 0;
+                    let op2 = (self.regs.get_c() as u32) << 31 | operand >> 1;
+                    if change_status { self.regs.set_c(new_c) }
+                    op2
+                },
+                _ => panic!("Invalid Shift type!"),
+            }
+        } else {
+            match shift_type {
+                // LSL
+                0 => { if change_status { self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0); } operand << shift },
+                // LSR
+                1 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand >> shift },
+                // ASR
+                2 => { if change_status { self.regs.set_c((operand as i32) >> (shift - 1) & 0x1 != 0) };
+                        ((operand as i32) >> shift) as u32 },
+                // ROR
+                3 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand.rotate_right(shift) },
+                _ => panic!("Invalid Shift type!"),
+            }
+        }
+    }
+
     // ARM.3: Branch and Exchange (BX)
     fn branch_and_exchange<M>(&mut self, mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.3: Branch and Exchange (BX) not implemented!");
@@ -158,35 +198,7 @@ impl CPU {
             };
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
-            if !shift_by_reg && shift == 0 {
-                match shift_type {
-                    0 => op2,
-                    1 => {
-                        if change_status { self.regs.set_c(op2 >> 31 != 0) }
-                        0
-                    },
-                    2 => {
-                        let bit = op2 >> 31 != 0;
-                        if change_status { self.regs.set_c(bit); }
-                        if bit { 0xFFFF_FFFF } else { 0 } },
-                    3 => {
-                        let new_c = op2 & 0x1 != 0;
-                        let op2 = (self.regs.get_c() as u32) << 31 | op2 >> 1;
-                        if change_status { self.regs.set_c(new_c) }
-                        op2
-                    },
-                    _ => panic!("Invalid Shift type!"),
-                }
-            } else {
-                match shift_type {
-                    0 => { if change_status { self.regs.set_c(op2 << (shift - 1) & 0x8000_0000 != 0); } op2 << shift },
-                    1 => { if change_status { self.regs.set_c(op2 >> (shift - 1) & 0x1 != 0); } op2 >> shift },
-                    2 => { if change_status { self.regs.set_c((op2 as i32) >> (shift - 1) & 0x1 != 0) };
-                            ((op2 as i32) >> shift) as u32 },
-                    3 => { if change_status { self.regs.set_c(op2 >> (shift - 1) & 0x1 != 0); } op2.rotate_right(shift) },
-                    _ => panic!("Invalid Shift type!"),
-                }
-            }
+            self.shift(shift_type, op2, shift, !shift_by_reg, change_status)
         };
         let opcode = (instr >> 21) & 0xF;
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
