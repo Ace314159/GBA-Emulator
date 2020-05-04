@@ -32,18 +32,18 @@ pub enum Mode {
 
 bitflags! {
     struct StatusReg: u32 {
-        const N = 0x8000;
-        const Z = 0x4000;
-        const C = 0x2000;
-        const V = 0x1000;
-        const I = 0x0080;
-        const F = 0x0040;
-        const T = 0x0020;
-        const M4 = 0x0010;
-        const M3 = 0x0008;
-        const M2 = 0x0004;
-        const M1 = 0x0002;
-        const M0 = 0x0001;
+        const N =  0x80000000;
+        const Z =  0x40000000;
+        const C =  0x20000000;
+        const V =  0x10000000;
+        const F =  0x00000040;
+        const I =  0x00000080;
+        const T =  0x00000020;
+        const M4 = 0x00000010;
+        const M3 = 0x00000008;
+        const M2 = 0x00000004;
+        const M1 = 0x00000002;
+        const M0 = 0x00000001;
     }
 }
 
