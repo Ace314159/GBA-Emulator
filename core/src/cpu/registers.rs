@@ -49,7 +49,7 @@ bitflags! {
 
 impl StatusReg {
     pub fn reset() -> StatusReg {
-        StatusReg::I | StatusReg::F | StatusReg::from_bits(Mode::SVC as u32).unwrap()
+        StatusReg::from_bits(Mode::SYS as u32).unwrap()
     }
 
     pub fn get_mode(&self) -> Mode {
@@ -81,7 +81,7 @@ pub struct RegValues {
 
 impl RegValues {
     pub fn new() -> RegValues {
-        RegValues {
+        let mut reg_values = RegValues {
             usr: [0; 15],
             fiq: [0; 7],
             abt: [0; 2],
@@ -91,7 +91,11 @@ impl RegValues {
             pc: 0,
             cpsr: StatusReg::reset(),
             spsr: [StatusReg::empty(); 5],
-        }
+        };
+        reg_values.usr[13] = 0x03007F00;
+        reg_values.irq[0] = 0x03007FA0;
+        reg_values.svc[0] = 0x03007FE0;
+        reg_values
     }
 
     pub fn get_reg(&self, reg: Reg) -> u32 {
