@@ -149,8 +149,8 @@ fn test_data_proc() {
     assert_regs!(cpu.regs, R0 = 600, R15 = 4);
     assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, false, 0, 0, 0, 100),
-    R0 = 500, CPSR = 0x2000);
-    assert_regs!(cpu.regs, R0 = 601, R15 = 4, CPSR = 0x2000);
+    R0 = 500, CPSR = 0x20000000);
+    assert_regs!(cpu.regs, R0 = 601, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     // SBC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, false, 0, 0, 0, 100),
@@ -158,8 +158,8 @@ fn test_data_proc() {
     assert_regs!(cpu.regs, R0 = 399, R15 = 4);
     assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, false, 0, 0, 0, 100),
-    R0 = 500, CPSR = 0x2000);
-    assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x2000);
+    R0 = 500, CPSR = 0x20000000);
+    assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     // RSC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
@@ -167,8 +167,8 @@ fn test_data_proc() {
     assert_regs!(cpu.regs, R0 = !401 + 1, R15 = 4);
     assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
-    R0 = 500, CPSR = 0x2000);
-    assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4, CPSR = 0x2000);
+    R0 = 500, CPSR = 0x20000000);
+    assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     // TST
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(8, true, 0, 0, 0, 1),
@@ -177,7 +177,7 @@ fn test_data_proc() {
     assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(8, true, 0, 0, 0, 0),
     R0 = 0xFFF);
-    assert_regs!(cpu.regs, R0 = 0xFFF, R15 = 4, CPSR = 0x4000);
+    assert_regs!(cpu.regs, R0 = 0xFFF, R15 = 4, CPSR = 0x40000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     // TEQ
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(9, true, 0, 0, 0, 0xAB),
@@ -186,16 +186,16 @@ fn test_data_proc() {
     assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(9, true, 0, 0, 0, 0xAB),
     R0 = 0xAB);
-    assert_regs!(cpu.regs, R0 = 0xAB, R15 = 4, CPSR = 0x4000);
+    assert_regs!(cpu.regs, R0 = 0xAB, R15 = 4, CPSR = 0x40000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     // CMP
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xA, true, 0, 0, 0, 100),
     R0 = 500);
-    assert_regs!(cpu.regs, R0 = 500, R15 = 4, CPSR = 0x2000);
+    assert_regs!(cpu.regs, R0 = 500, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xA, true, 0, 0, 0, 100),
     R0 = 100);
-    assert_regs!(cpu.regs, R0 = 100, R15 = 4, CPSR = 0x6000);
+    assert_regs!(cpu.regs, R0 = 100, R15 = 4, CPSR = 0x60000000);
     assert_cycle_times!(mmu, 1, 0, 0);
     // CMN
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xB, true, 0, 0, 0, 100),
@@ -237,19 +237,19 @@ fn test_data_proc() {
     // LSR #0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 1, false, 0),
     R0 = 0xFFFFFFFF);
-    assert_regs!(cpu.regs, R0 = 0, R15 = 4, CPSR = 0x6000);
+    assert_regs!(cpu.regs, R0 = 0, R15 = 4, CPSR = 0x60000000);
     assert_cycle_times!(mmu, 1, 0, 0);
 
     // ASR #0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 2, false, 0),
     R0 = 0xFFFFFFFF);
-    assert_regs!(cpu.regs, R0 = 0xFFFFFFFF, R15 = 4, CPSR = 0xA000);
+    assert_regs!(cpu.regs, R0 = 0xFFFFFFFF, R15 = 4, CPSR = 0xA0000000);
     assert_cycle_times!(mmu, 1, 0, 0);
 
     // ROR #0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 3, false, 0),
     R0 = 0xFFFFFFFF);
-    assert_regs!(cpu.regs, R0 = 0x7FFFFFFF, R15 = 4, CPSR = 0x2000);
+    assert_regs!(cpu.regs, R0 = 0x7FFFFFFF, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times!(mmu, 1, 0, 0);
 
     println!("Third Set");
