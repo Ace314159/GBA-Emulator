@@ -50,19 +50,20 @@ impl CPU {
 
     pub fn emulate_arm_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
         let pc = self.regs.pc & !0x3;
+        let instr = self.instr_buffer[0];
         if self.p {
             use Reg::*;
-            println!("{:08x}    r0:{:08x} r1:{:08x} r2:{:08x} r3:{:08x} r4:{:08x} r5:{:08x} r6:{:08x} \
-            r7:{:08x} r8:{:08x} r9:{:08x} r10:{:08x} r11:{:08x} r12:{:08x} sp:{:08x} lr:{:08x}",
-            pc.wrapping_sub(8), self.regs.get_reg(R0), self.regs.get_reg(R1), self.regs.get_reg(R2),
-            self.regs.get_reg(R3), self.regs.get_reg(R4), self.regs.get_reg(R5), self.regs.get_reg(R6),
-            self.regs.get_reg(R7), self.regs.get_reg(R8), self.regs.get_reg(R9), self.regs.get_reg(R10),
-            self.regs.get_reg(R11), self.regs.get_reg(R12), self.regs.get_reg(R13), self.regs.get_reg(R14));
+            println!("{:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} \
+            {:08X} {:08X} {:08X} {:08X} cpsr: {:08X} | {:08X}",
+            self.regs.get_reg(R0), self.regs.get_reg(R1), self.regs.get_reg(R2), self.regs.get_reg(R3),
+            self.regs.get_reg(R4), self.regs.get_reg(R5), self.regs.get_reg(R6), self.regs.get_reg(R7),
+            self.regs.get_reg(R8), self.regs.get_reg(R9), self.regs.get_reg(R10), self.regs.get_reg(R11),
+            self.regs.get_reg(R12), self.regs.get_reg(R13), self.regs.get_reg(R14), self.regs.get_reg(R15),
+            self.regs.get_reg(CPSR), instr);
         }
-        let instr = self.instr_buffer[0];
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(4);
-        self.instr_buffer[1] = mmu.read32(pc);
+        self.instr_buffer[1] = mmu.read32(pc.wrapping_add(4));
         mmu.inc_clock(1, Cycle::S, pc);
 
         if self.should_exec(instr) {
