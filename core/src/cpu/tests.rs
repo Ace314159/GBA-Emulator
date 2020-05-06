@@ -42,7 +42,6 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
     let mut mmu = TestMMU::new();
     let mut cpu = CPU::new(&mut mmu);
     cpu.regs.pc = cpu.regs.pc.wrapping_add(4); // Add 4 to simulate incrementing pc when fetching instr
-    mmu.inc_clock(1, Cycle::S, cpu.regs.pc); // Inc to simulate reading instr
     $(
         if Reg::$reg == Reg::CPSR {
             cpu.regs.set_reg(Reg::CPSR, cpu.regs.get_reg(Reg::CPSR) | $val);
@@ -69,9 +68,9 @@ macro_rules! assert_regs { ($regs:expr, $($reg:ident = $val:expr),*) => { {
 } } }
 
 fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
-    assert_eq!(mmu.s_cycle_count, s_count + 1); // 1 extra for initial instr buffer
+    assert_eq!(mmu.s_cycle_count, s_count + 2); // 2 extra for initial instr buffer
     assert_eq!(mmu.i_cycle_count, i_count);
-    assert_eq!(mmu.n_cycle_count, n_count + 1); // 1 extra for initial instr buffer
+    assert_eq!(mmu.n_cycle_count, n_count);
 }
 
 
@@ -269,6 +268,12 @@ fn test_data_proc() {
     R0 = 2);
     assert_regs!(cpu.regs, R0 = 2, R15 = 8);
     assert_cycle_times(mmu, 2, 1, 1);
+
+    // MOV r0, pc, LSL r0
+    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 0, 0, 0, true, 15),
+    R0 = 0);
+    assert_regs!(cpu.regs, R0 = 12, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 0);
 
     // MOV r0, pc
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 0, 0, 0, false, 15),);

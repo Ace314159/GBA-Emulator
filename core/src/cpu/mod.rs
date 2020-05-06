@@ -31,7 +31,7 @@ impl CPU {
             unimplemented!("Thumb instruction set not implemented!");
         } else {
             self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
-            mmu.inc_clock(1, Cycle::N, self.regs.pc & !0x3);
+            mmu.inc_clock(1, Cycle::S, self.regs.pc & !0x3);
             self.regs.pc = self.regs.pc.wrapping_add(4);
 
             self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
@@ -49,7 +49,6 @@ impl CPU {
     }
 
     pub fn emulate_arm_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
-        let pc = self.regs.pc & !0x3;
         let instr = self.instr_buffer[0];
         if self.p {
             use Reg::*;
@@ -63,8 +62,7 @@ impl CPU {
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(4);
-        self.instr_buffer[1] = mmu.read32(pc.wrapping_add(4));
-        mmu.inc_clock(1, Cycle::S, pc);
+        self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
 
         if self.should_exec(instr) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
@@ -97,7 +95,7 @@ impl CPU {
                 assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
                 self.undefined_instr(instr, mmu);
             }
-        }
+        } else { mmu.inc_clock(1, Cycle::N, self.regs.pc & !0x3) }
     }
 
     fn should_exec(&self, instr: u32) -> bool {
@@ -174,6 +172,7 @@ impl CPU {
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
+        mmu.inc_clock(1, Cycle::N, self.regs.pc & !0x3);
         if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
         self.fill_instr_buffer(mmu);
@@ -183,6 +182,7 @@ impl CPU {
     fn data_proc<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         let change_status = (instr >> 20) & 0x1 != 0;
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
+        let mut temp_inc_pc = false;
         let op2 = if immediate_op2 {
             let shift = (instr >> 8) & 0xF;
             (instr & 0xFF).rotate_right(shift * 2)
@@ -191,6 +191,8 @@ impl CPU {
             let shift = if shift_by_reg {
                 mmu.inc_clock(1, Cycle::I, 0);
                 assert_eq!((instr >> 7) & 0x1, 0);
+                self.regs.pc = self.regs.pc.wrapping_add(4); // Temp inc
+                temp_inc_pc = true;
                 self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF
             } else {
                 (instr >> 7) & 0x1F
@@ -228,14 +230,20 @@ impl CPU {
             0xF => !op2, // MVN
             _ => panic!("Invalid opcode!"),
         };
+        let dest_reg = (instr >> 12) & 0xF;
         if change_status {
             self.regs.set_z(result == 0);
             self.regs.set_n(result & 0x8000_0000 != 0);
         } else { assert_eq!(opcode & 0xC != 0x8, true) }
         if opcode & 0xC != 0x8 {
-            let reg = (instr >> 12) & 0xF;
-            self.regs.set_reg_i(reg, result);
-            if reg == 15 { self.fill_instr_buffer(mmu); }
+            self.regs.set_reg_i(dest_reg, result);
+            if dest_reg == 15 { self.fill_instr_buffer(mmu); }
+        }
+        if dest_reg == 15 && opcode & 0xC != 0x8 {
+            mmu.inc_clock(1, Cycle::N, self.regs.pc);
+        } else {
+            mmu.inc_clock(1, Cycle::S, self.regs.pc);
+            if temp_inc_pc { self.regs.pc = self.regs.pc.wrapping_sub(4) } // Dec after temp inc
         }
     }
 
