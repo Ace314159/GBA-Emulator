@@ -76,6 +76,35 @@ fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
 
 
 #[test]
+fn test_shift() {
+    fn run_shift(shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> (CPU, u32) {
+        let mut mmu = TestMMU::new();
+        let mut cpu = CPU::new(&mut mmu);
+        let val = cpu.shift(shift_type, operand, shift, immediate, change_status);
+        (cpu, val)
+    }
+    // LSL #0
+    let (cpu, val) = run_shift(0, 0xA, 0, true, true);
+    assert_regs!(cpu.regs, R15 = 0);
+    assert_eq!(val, 0xA);
+
+    // LSR #0
+    let (cpu, val) = run_shift(1, 0xFFFFFFFF, 0, true, true);
+    assert_regs!(cpu.regs, R15 = 0, CPSR = 0x20000000);
+    assert_eq!(val, 0);
+
+    // ASR #0
+    let (cpu, val) = run_shift(2, 0xFFFFFFFF, 0, true, true);
+    assert_regs!(cpu.regs, R15 = 0, CPSR = 0x20000000);
+    assert_eq!(val, 0xFFFFFFFF);
+
+    // ROR #0
+    let (cpu, val) = run_shift(3, 0xFFFFFFFF, 0, true, true);
+    assert_regs!(cpu.regs, R15 = 0, CPSR = 0x20000000);
+    assert_eq!(val, 0x7FFFFFFF);
+}
+
+#[test]
 // ARM.4: Branch and Branch with Link (B, BL)
 fn test_branch_branch_with_link() {
     fn make_instr(with_link: bool, offset: u32) -> u32 {
@@ -164,7 +193,7 @@ fn test_data_proc() {
     R0 = 500, CPSR = 0x20000000);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times(mmu, 1, 0, 0);
-    // RSCp
+    // RSC
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = !401 + 1, R15 = 4);
@@ -230,32 +259,6 @@ fn test_data_proc() {
         op1_reg << 16 | dest << 12 | if shift_by_reg { shift << 8 | 0 << 7 } else { shift << 7 } |
         shift_by_type << 5 | (shift_by_reg as u32) << 4 | op2
     }
-
-    // LSL #0
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, false, 0),
-    R0 = 0xA);
-    assert_regs!(cpu.regs, R0 = 0xA, R15 = 4);
-    assert_cycle_times(mmu, 1, 0, 0);
-
-    // LSR #0
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 1, false, 0),
-    R0 = 0xFFFFFFFF);
-    assert_regs!(cpu.regs, R0 = 0, R15 = 4, CPSR = 0x60000000);
-    assert_cycle_times(mmu, 1, 0, 0);
-
-    // ASR #0
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 2, false, 0),
-    R0 = 0xFFFFFFFF);
-    assert_regs!(cpu.regs, R0 = 0xFFFFFFFF, R15 = 4, CPSR = 0xA0000000);
-    assert_cycle_times(mmu, 1, 0, 0);
-
-    // ROR #0
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 3, false, 0),
-    R0 = 0xFFFFFFFF);
-    assert_regs!(cpu.regs, R0 = 0x7FFFFFFF, R15 = 4, CPSR = 0x20000000);
-    assert_cycle_times(mmu, 1, 0, 0);
-
-    println!("Third Set");
     // MOV r0, r0 LSL r0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, true, 0),);
     assert_regs!(cpu.regs, R15 = 4, CPSR = 0x40000000);
