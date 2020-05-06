@@ -262,6 +262,7 @@ fn test_data_proc() {
     // MOV r0, r0 LSL r0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, true, 0),);
     assert_regs!(cpu.regs, R15 = 4, CPSR = 0x40000000);
+    assert_cycle_times(mmu, 1, 1, 0);
 
     // MOV pc, r0, LSL r0
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 15, 0, 0, true, 0),
