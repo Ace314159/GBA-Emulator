@@ -44,7 +44,7 @@ impl CPU {
         else { self.emulate_arm_instr(mmu) }
     }
 
-    pub fn emulate_thumb_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
+    pub fn emulate_thumb_instr<M>(&mut self, _mmu: &mut M) where M: IMMU {
         unimplemented!("Thumb instruction set not implemented!")
     }
 
@@ -164,7 +164,7 @@ impl CPU {
     }
 
     // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange<M>(&mut self, mmu: &mut M) where M: IMMU {
+    fn branch_and_exchange<M>(&mut self, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.3: Branch and Exchange (BX) not implemented!");
     }
 
@@ -181,7 +181,7 @@ impl CPU {
 
     // ARM.5: Data Processing
     fn data_proc<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
-        let mut change_status = (instr >> 20) & 0x1 != 0;
+        let change_status = (instr >> 20) & 0x1 != 0;
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
         let op2 = if immediate_op2 {
             let shift = (instr >> 8) & 0xF;
@@ -240,17 +240,17 @@ impl CPU {
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn psr_transfer<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("// ARM.6: PSR Transfer (MRS, MSR) not implemented!");
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn mul<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.7: Multiply and Multiply-Accumulate (MUL, MLA) not implemented!");
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn mul_long<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL) not implemented!");
     }
 
@@ -260,34 +260,34 @@ impl CPU {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn halfword_and_signed_data_transfer<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH) not implemented!");
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn block_data_transfer<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.11: Block Data Transfer (LDM,STM) not implemented!");
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn single_data_swap<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.12: Single Data Swap (SWP) not implemented!");
     }
 
     // ARM.13: Software Interrupt (SWI)
-    fn software_interrupt<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn software_interrupt<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.13: Software Interrupt (SWI) not implemented!");
     }
 
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
-    fn coprocessor<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn coprocessor<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("Coprocessor not implemented!");
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn undefined_instr<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
 }

@@ -4,7 +4,7 @@ use memory::ROM;
 
 pub struct MMU {
     bios: ROM,
-    rom: ROM,
+    _rom: ROM,
     clocks_ahead: u32,
 }
 
@@ -12,7 +12,7 @@ impl MMU {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> MMU {
         MMU {
             bios: ROM::new(bios),
-            rom: ROM::new(rom),
+            _rom: ROM::new(rom),
             clocks_ahead: 0,
         }
     }

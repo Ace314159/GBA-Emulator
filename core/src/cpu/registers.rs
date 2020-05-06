@@ -17,7 +17,7 @@ pub enum Reg {
     R14 = 14, // LR
     R15 = 15, // PC
     CPSR,
-    SPSR,
+    _SPSR,
 }
 
 pub enum Mode {
@@ -117,7 +117,7 @@ impl RegValues {
             },
             R15 => self.pc,
             CPSR => self.cpsr.bits,
-            SPSR => match mode {
+            _SPSR => match mode {
                 Mode::FIQ => self.spsr[0].bits(),
                 Mode::SVC => self.spsr[1].bits(),
                 Mode::ABT => self.spsr[2].bits(),
@@ -147,7 +147,7 @@ impl RegValues {
             },
             R15 => self.pc = value,
             CPSR => self.cpsr.bits = value,
-            SPSR => match mode {
+            _SPSR => match mode {
                 Mode::FIQ => self.spsr[0] = StatusReg::from_bits(value).unwrap(),
                 Mode::SVC => self.spsr[1] = StatusReg::from_bits(value).unwrap(),
                 Mode::ABT => self.spsr[2] = StatusReg::from_bits(value).unwrap(),
@@ -193,14 +193,14 @@ impl RegValues {
     pub fn get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
     pub fn get_c(&self) -> bool { self.cpsr.contains(StatusReg::C) }
     pub fn get_v(&self) -> bool { self.cpsr.contains(StatusReg::V) }
-    pub fn get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
-    pub fn get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
+    pub fn _get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
+    pub fn _get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
     pub fn get_t(&self) -> bool { self.cpsr.contains(StatusReg::T) }
     pub fn set_n(&mut self, value: bool) { self.cpsr.set(StatusReg::N, value) }
     pub fn set_z(&mut self, value: bool) { self.cpsr.set(StatusReg::Z, value) }
     pub fn set_c(&mut self, value: bool) { self.cpsr.set(StatusReg::C, value) }
     pub fn set_v(&mut self, value: bool) { self.cpsr.set(StatusReg::V, value) }
-    pub fn set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
-    pub fn set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
-    pub fn set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }
+    pub fn _set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
+    pub fn _set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
+    pub fn _set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }
 }
