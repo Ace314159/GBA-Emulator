@@ -1,4 +1,5 @@
 use super::*;
+use crate::mmu::MemoryHandler;
 
 struct TestMMU {
     n_cycle_count: u32,
@@ -17,20 +18,22 @@ impl TestMMU {
 }
 
 impl IMMU for TestMMU {
-    fn read32(&self, addr: u32) -> u32 {
-        0
-    }
-
-    fn write32(&mut self, addr: u32, value: u32) {
-        unimplemented!("Test MMU writing not implemented!")
-    }
-
-    fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, addr: u32) {
+    fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, _addr: u32) {
         match cycle_type {
             Cycle::N => self.n_cycle_count += cycle_count,
             Cycle::S => self.s_cycle_count += cycle_count,
             Cycle::I => self.i_cycle_count += cycle_count,
         }
+    }
+}
+
+impl MemoryHandler for TestMMU {
+    fn read8(&self, _addr: u32) -> u8 {
+        0
+    }
+
+    fn write8(&mut self, _addr: u32, _value: u8) {
+        unimplemented!("Test MMU writing not implemented!")
     }
 }
 
@@ -161,7 +164,7 @@ fn test_data_proc() {
     R0 = 500, CPSR = 0x20000000);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times!(mmu, 1, 0, 0);
-    // RSC
+    // RSCp
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = !401 + 1, R15 = 4);
@@ -267,4 +270,10 @@ fn test_data_proc() {
     let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 0, 0, 0, false, 15),);
     assert_regs!(cpu.regs, R0 = 8, R15 = 4);
     assert_cycle_times!(mmu, 1, 0, 0);
+}
+
+#[test]
+// ARM.9: Single Data Transfer (LDR, STR)
+fn test_single_data_transfer() {
+    
 }
