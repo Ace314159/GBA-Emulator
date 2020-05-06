@@ -53,7 +53,7 @@ pub trait MemoryHandler {
         (self.read8(addr + 2) as u32) << 16 |
         (self.read8(addr + 3) as u32) << 24
     }
-    fn write_u32(&mut self, addr: u32, value: u32) {
+    fn write32(&mut self, addr: u32, value: u32) {
         self.write8(addr + 1, (value >> 0) as u8);
         self.write8(addr + 1, (value >> 8) as u8);
         self.write8(addr + 2, (value >> 16) as u8);
