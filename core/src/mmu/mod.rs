@@ -27,7 +27,7 @@ impl MMU {
 }
 
 impl IMMU for MMU {
-    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32) {
+    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, _access_width: u32) {
         if cycle_type == Cycle::I { self.clocks_ahead += 1; return }
         self.clocks_ahead += match addr {
             0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
@@ -77,7 +77,7 @@ pub trait MemoryHandler {
 }
 
 pub trait IMMU: MemoryHandler {
-    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32);
+    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
 }
 
 #[derive(PartialEq)]

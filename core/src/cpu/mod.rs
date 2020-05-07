@@ -32,11 +32,11 @@ impl CPU {
             unimplemented!("Thumb instruction set not implemented!");
         } else {
             self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
-            mmu.inc_clock(Cycle::S, self.regs.pc & !0x3);
+            mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
             self.regs.pc = self.regs.pc.wrapping_add(4);
 
             self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
-            mmu.inc_clock(Cycle::S, self.regs.pc & !0x3);
+            mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
         }
     }
 
@@ -96,7 +96,7 @@ impl CPU {
                 assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
                 self.undefined_instr(instr, mmu);
             }
-        } else { mmu.inc_clock(Cycle::N, self.regs.pc & !0x3) }
+        } else { mmu.inc_clock(Cycle::N, self.regs.pc & !0x3, 2) }
     }
 
     fn should_exec(&self, instr: u32) -> bool {
@@ -173,7 +173,7 @@ impl CPU {
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
-        mmu.inc_clock(Cycle::N, self.regs.pc & !0x3);
+        mmu.inc_clock(Cycle::N, self.regs.pc & !0x3, 2);
         if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
         self.fill_instr_buffer(mmu);
@@ -190,7 +190,7 @@ impl CPU {
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
             let shift = if shift_by_reg {
-                mmu.inc_clock(Cycle::I, 0);
+                mmu.inc_clock(Cycle::I, 0, 0);
                 assert_eq!((instr >> 7) & 0x1, 0);
                 self.regs.pc = self.regs.pc.wrapping_add(4); // Temp inc
                 temp_inc_pc = true;
@@ -241,9 +241,9 @@ impl CPU {
             if dest_reg == 15 { self.fill_instr_buffer(mmu); }
         }
         if dest_reg == 15 && opcode & 0xC != 0x8 {
-            mmu.inc_clock(Cycle::N, self.regs.pc);
+            mmu.inc_clock(Cycle::N, self.regs.pc, 2);
         } else {
-            mmu.inc_clock(Cycle::S, self.regs.pc);
+            mmu.inc_clock(Cycle::S, self.regs.pc, 2);
             if temp_inc_pc { self.regs.pc = self.regs.pc.wrapping_sub(4) } // Dec after temp inc
         }
     }
@@ -256,7 +256,7 @@ impl CPU {
         let status_reg = if instr >> 22 & 0x1 != 0 { Reg::SPSR } else { Reg::CPSR };
         let msr = instr >> 21 & 0x1 != 0;
         assert_eq!(instr >> 20 & 0b1, 0b0);
-        mmu.inc_clock(Cycle::S, self.regs.pc);
+        mmu.inc_clock(Cycle::S, self.regs.pc, 2);
 
         if msr {
             let mut mask = 0u32;
@@ -302,7 +302,7 @@ impl CPU {
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
-        mmu.inc_clock(Cycle::N, self.regs.pc);
+        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
 
         let offset = if immediate_offset {
             let shift = instr >> 0x1F;
@@ -315,17 +315,17 @@ impl CPU {
         };
 
         let mut exec = |addr| if load {
-            mmu.inc_clock(Cycle::I, 0);
+            mmu.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, if transfer_byte {
                 mmu.read8(addr) as u32
             } else { mmu.read32(addr).rotate_right((addr & 0b11) * 8) });
             if src_dest_reg == 15 {
-                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4));
+                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
                 self.fill_instr_buffer(mmu);
-            } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4)); }
+            } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
             let value = self.regs.get_reg_i(src_dest_reg);
-            mmu.inc_clock(Cycle::N, addr);
+            mmu.inc_clock(Cycle::N, addr, 2);
             if transfer_byte { mmu.write8(addr, value as u8) } else { mmu.write32(addr, value) }
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
