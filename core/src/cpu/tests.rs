@@ -29,11 +29,11 @@ impl TestMMU {
 }
 
 impl IMMU for TestMMU {
-    fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, _addr: u32) {
+    fn inc_clock(&mut self, cycle_type: Cycle, _addr: u32) {
         match cycle_type {
-            Cycle::N => self.n_cycle_count += cycle_count,
-            Cycle::S => self.s_cycle_count += cycle_count,
-            Cycle::I => self.i_cycle_count += cycle_count,
+            Cycle::N => self.n_cycle_count += 1,
+            Cycle::S => self.s_cycle_count += 1,
+            Cycle::I => self.i_cycle_count += 1,
         }
     }
 }

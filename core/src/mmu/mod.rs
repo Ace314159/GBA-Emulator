@@ -27,10 +27,11 @@ impl MMU {
 }
 
 impl IMMU for MMU {
-    fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, addr: u32) {
-        if cycle_type == Cycle::I { self.clocks_ahead += cycle_count; return }
+    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32) {
+        if cycle_type == Cycle::I { self.clocks_ahead += 1; return }
         self.clocks_ahead += match addr {
-            0x00000000 ..= 0x00003FFF => cycle_count,
+            0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
+            0x04000000 ..= 0x040003FE => 1, // IO
             _ => unimplemented!("Clock Cycle for {:08X} not implemented!", addr),
         };
     }
@@ -76,7 +77,7 @@ pub trait MemoryHandler {
 }
 
 pub trait IMMU: MemoryHandler {
-    fn inc_clock(&mut self, cycle_count: u32, cycle_type: Cycle, addr: u32);
+    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32);
 }
 
 #[derive(PartialEq)]
