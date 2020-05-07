@@ -6,6 +6,9 @@ pub struct MMU {
     bios: ROM,
     _rom: ROM,
     clocks_ahead: u32,
+
+    // Registers
+    haltcnt: u16,
 }
 
 impl MMU {
@@ -14,6 +17,9 @@ impl MMU {
             bios: ROM::new(bios),
             _rom: ROM::new(rom),
             clocks_ahead: 0,
+
+            // Registers
+            haltcnt: 0,
         }
     }
 }
@@ -32,6 +38,8 @@ impl MemoryHandler for MMU {
     fn read8(&self, addr: u32) -> u8 {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
+            0x04000300 => self.haltcnt as u8,
+            0x04000301 => (self.haltcnt >> 8) as u8,
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -39,6 +47,8 @@ impl MemoryHandler for MMU {
     fn write8(&mut self, addr: u32, value: u8) {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.write8(addr, value),
+            0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
+            0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
