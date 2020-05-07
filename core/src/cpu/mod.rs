@@ -4,6 +4,7 @@ use crate::mmu::IMMU;
 use crate::mmu::Cycle;
 use registers::RegValues;
 use registers::Reg;
+use registers::Mode;
 
 #[cfg(test)]
 mod tests;
@@ -248,8 +249,36 @@ impl CPU {
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
-        unimplemented!("// ARM.6: PSR Transfer (MRS, MSR) not implemented!");
+    fn psr_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 26 & 0b11, 0b00);
+        let immediate_operand = (instr >> 25) & 0x1 != 0;
+        assert_eq!(instr >> 23 & 0b11, 0b10);
+        let status_reg = if instr >> 22 & 0x1 != 0 { Reg::SPSR } else { Reg::CPSR };
+        let msr = instr >> 21 & 0x1 != 0;
+        assert_eq!(instr >> 20 & 0b1, 0b0);
+        mmu.inc_clock(1, Cycle::S, self.regs.pc);
+
+        if msr {
+            let mut mask = 0u32;
+            if instr >> 19 & 0x1 != 0 { mask |= 0xFF000000 } // Flags
+            if instr >> 18 & 0x1 != 0 { mask |= 0x00FF0000 } // Status
+            if instr >> 17 & 0x1 != 0 { mask |= 0x0000FF00 } // Extension
+            if self.regs.get_mode() != Mode::USR && instr >> 16 & 0x1 != 0 { mask |= 0x000000FF } // Control
+            assert_eq!(instr >> 12 & 0xF, 0xF);
+            let operand = if immediate_operand {
+                let shift = instr >> 8 & 0xF;
+                (instr & 0xFF).rotate_right(shift * 2)
+            } else {
+                assert_eq!(instr >> 4 & 0xFF, 0);
+                self.regs.get_reg_i(instr & 0xF)
+            };
+            let value = self.regs.get_reg(status_reg) & !mask | operand & mask;
+            self.regs.set_reg(status_reg, value);
+        } else {
+            assert_eq!(immediate_operand, false);
+            self.regs.set_reg_i(instr >> 12 & 0xF, self.regs.get_reg(status_reg));
+            assert_eq!(instr & 0xFFF, 0);
+        }
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)

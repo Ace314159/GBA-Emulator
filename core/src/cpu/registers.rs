@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Reg {
     R0 = 0,
     R1 = 1,
@@ -17,9 +17,9 @@ pub enum Reg {
     R14 = 14, // LR
     R15 = 15, // PC
     CPSR,
-    _SPSR,
+    SPSR,
 }
-
+#[derive(PartialEq)]
 pub enum Mode {
     USR = 0b10000,
     FIQ = 0b10001,
@@ -117,7 +117,7 @@ impl RegValues {
             },
             R15 => self.pc,
             CPSR => self.cpsr.bits,
-            _SPSR => match mode {
+            SPSR => match mode {
                 Mode::FIQ => self.spsr[0].bits(),
                 Mode::SVC => self.spsr[1].bits(),
                 Mode::ABT => self.spsr[2].bits(),
@@ -147,7 +147,7 @@ impl RegValues {
             },
             R15 => self.pc = value,
             CPSR => self.cpsr.bits = value,
-            _SPSR => match mode {
+            SPSR => match mode {
                 Mode::FIQ => self.spsr[0] = StatusReg::from_bits(value).unwrap(),
                 Mode::SVC => self.spsr[1] = StatusReg::from_bits(value).unwrap(),
                 Mode::ABT => self.spsr[2] = StatusReg::from_bits(value).unwrap(),
@@ -196,6 +196,7 @@ impl RegValues {
     pub fn _get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
     pub fn _get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
     pub fn get_t(&self) -> bool { self.cpsr.contains(StatusReg::T) }
+    pub fn get_mode(&self) -> Mode { self.cpsr.get_mode() }
     pub fn set_n(&mut self, value: bool) { self.cpsr.set(StatusReg::N, value) }
     pub fn set_z(&mut self, value: bool) { self.cpsr.set(StatusReg::Z, value) }
     pub fn set_c(&mut self, value: bool) { self.cpsr.set(StatusReg::C, value) }

@@ -308,6 +308,32 @@ fn test_data_proc() {
 }
 
 #[test]
+// ARM.6: PSR Transfer (MRS, MSR)
+fn test_psr_transfer() {
+    fn make_mrs(spsr: bool, dest_reg: u32) -> u32 {
+        0b1110 << 28 | 0b00 << 26 | (false as u32) << 25 | 0b10 << 23 | (spsr as u32) << 22 |
+        (false as u32) << 21 | 0xF << 16 | dest_reg << 12
+    }
+
+    // MRS r0, cpsr
+    let (cpu, mmu) = run_instr!(psr_transfer, make_mrs(false, 0),);
+    assert_regs!(cpu.regs, R0 = 0x1F, R15 = 4);
+    assert_cycle_times(mmu, 1, 0, 0);
+
+    fn make_msr(immediate_operand: bool, spsr: bool, f: bool, s: bool, x: bool, c: bool, operand: u32) -> u32 {
+        0b1110 << 28 | 0b00 << 26 | (immediate_operand as u32) << 25 | 0b10 << 23 | (spsr as u32) << 22 |
+        (true as u32) << 21 | (f as u32) << 19 | (s as u32) << 18 | (x as u32) << 17 | (c as u32) << 16 |
+        0xF << 12 | operand
+    }
+
+    // MSR cpsr, r0
+    let (cpu, mmu) = run_instr!(psr_transfer, make_msr(false, false, true, false, false, false, 0),
+    R0 = 0xFFFFFFFF);
+    assert_regs!(cpu.regs, R0 = 0xFFFFFFFF, R15 = 4, CPSR = 0xFF00001F);
+    assert_cycle_times(mmu, 1, 0, 0);
+}
+
+#[test]
 // ARM.9: Single Data Transfer (LDR, STR)
 fn test_single_data_transfer() {
     fn make_instr(pre_offset: bool, add_offset: bool, transfer_byte: bool, load: bool, write_back: bool,
