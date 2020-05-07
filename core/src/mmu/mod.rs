@@ -23,7 +23,7 @@ impl IMMU for MMU {
         if cycle_type == Cycle::I { self.clocks_ahead += cycle_count; return }
         self.clocks_ahead += match addr {
             0x00000000 ..= 0x00003FFF => cycle_count,
-            _ => unimplemented!("Clock Cycle for {:16X} not implemented!", addr),
+            _ => unimplemented!("Clock Cycle for {:08X} not implemented!", addr),
         };
     }
 }
@@ -32,14 +32,14 @@ impl MemoryHandler for MMU {
     fn read8(&self, addr: u32) -> u8 {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
-            _ => unimplemented!("Memory Handler for 0x{:16X} not implemented!", addr),
+            _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
 
     fn write8(&mut self, addr: u32, value: u8) {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.write8(addr, value),
-            _ => unimplemented!("Memory Handler for 0x{:16X} not implemented!", addr),
+            _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
 }
