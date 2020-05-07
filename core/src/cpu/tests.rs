@@ -1,10 +1,14 @@
 use super::*;
 use crate::mmu::MemoryHandler;
+use std::collections::HashMap;
 
 struct TestMMU {
     n_cycle_count: u32,
     s_cycle_count: u32,
     i_cycle_count: u32,
+    reading_enabled: bool,
+    writes8: HashMap<u32, u8>,
+    writes32: HashMap<u32, u32>,
 }
 
 impl TestMMU {
@@ -13,7 +17,14 @@ impl TestMMU {
             n_cycle_count: 0,
             s_cycle_count: 0,
             i_cycle_count: 0,
+            reading_enabled: false,
+            writes8: HashMap::new(),
+            writes32: HashMap::new(),
         }
+    }
+
+    pub fn enable_reading(&mut self) {
+        self.reading_enabled = true;
     }
 }
 
@@ -28,12 +39,20 @@ impl IMMU for TestMMU {
 }
 
 impl MemoryHandler for TestMMU {
-    fn read8(&self, _addr: u32) -> u8 {
-        0
+    fn read8(&self, addr: u32) -> u8 {
+        if self.reading_enabled { addr as u8 } else { 0 }
     }
 
-    fn write8(&mut self, _addr: u32, _value: u8) {
-        unimplemented!("Test MMU writing not implemented!")
+    fn read32(&self, addr: u32) -> u32 {
+        if self.reading_enabled { addr } else { 0 }
+    }
+
+    fn write8(&mut self, addr: u32, value: u8) {
+        self.writes8.insert(addr, value);
+    }
+
+    fn write32(&mut self, addr: u32, value: u32) {
+        self.writes32.insert(addr, value);
     }
 }
 
@@ -49,6 +68,7 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
             cpu.regs.set_reg(Reg::$reg, $val);
         }
     )*
+    mmu.enable_reading();
     cpu.$instr_name($instr, &mut mmu);
     (cpu, mmu)
 } } }
@@ -65,6 +85,12 @@ macro_rules! assert_regs { ($regs:expr, $($reg:ident = $val:expr),*) => { {
         }
     )*
     assert_eq!($regs, reg_values);
+} } }
+
+macro_rules! assert_writes { ($cpu_writes:expr, $($addr:expr => $val:expr),*) => { {
+    let mut writes = HashMap::new();
+    $(writes.insert($addr, $val);)*
+    assert_eq!($cpu_writes, writes);
 } } }
 
 fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
@@ -284,5 +310,68 @@ fn test_data_proc() {
 #[test]
 // ARM.9: Single Data Transfer (LDR, STR)
 fn test_single_data_transfer() {
+    fn make_instr(pre_offset: bool, add_offset: bool, transfer_byte: bool, load: bool, write_back: bool,
+        base_reg: u32, src_dest_reg: u32, offset: u32) -> u32 {
+        0b1110 << 28 | 0b01 << 26 | (false as u32) << 25 | (pre_offset as u32) << 24 | (add_offset as u32) << 23 |
+        (transfer_byte as u32) << 22 | (write_back as u32) << 21 | (load as u32) << 20 | base_reg << 16 |
+        src_dest_reg << 12 | offset
+    }
     
+    // LDRB r0, [r0]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, true, true, false, 0, 0, 0),
+    R0 = 0xABCDEFD0);
+    assert_regs!(cpu.regs, R0 = 0xD0, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r0, [r0]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, true, false, 0, 0, 0),
+    R0 = 0xABCDEFD0);
+    assert_regs!(cpu.regs, R0 = 0xABCDEFD0, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r1, [r0, #+0x10]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, true, false, 0, 1, 0x10),
+    R0 = 0xABCDEFD0);
+    assert_regs!(cpu.regs, R0 = 0xABCDEFD0u32, R1 = 0xABCDEFD0u32 + 0x10, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r1, [r0, #+0x10]!
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, true, true, 0, 1, 0x10),
+    R0 = 0xABCDEFD0);
+    assert_regs!(cpu.regs, R0 = 0xABCDEFD0u32 + 0x10, R1 = 0xABCDEFD0u32 + 0x10, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r1, [r0], #+0x10
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(false, true, false, true, false, 0, 1, 0x10),
+    R0 = 0xABCDEFD0);
+    assert_regs!(cpu.regs, R0 = 0xABCDEFD0u32 + 0x10, R1 = 0xABCDEFD0u32, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r1, [r0, #-0x4]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, false, false, true, false, 0, 1, 0x4),);
+    assert_regs!(cpu.regs, R0 = 0, R1 = 0xFFFFFFFC, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r0, [r15]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, true, false, 15, 0, 0),);
+    assert_regs!(cpu.regs, R0 = 0x8, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDR r15, [r0]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, true, false, 0, 15, 0),
+    R0 = 0x100);
+    assert_regs!(cpu.regs, R0 = 0x100, R15 = 0x100);
+    assert_cycle_times(mmu, 2, 1, 2);
+
+    // STRB r0, [r1]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, true, false, false, 1, 0, 0),
+    R0 = 0xFFFF, R1 = 0x100);
+    assert_regs!(cpu.regs, R0 = 0xFFFF, R1 = 0x100, R15 = 4);
+    assert_writes!(mmu.writes8, 0x100 => 0xFF);
+    assert_cycle_times(mmu, 0, 0, 2);
+    // STR r0, [r1]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, false, false, 1, 0, 0),
+    R0 = 0xABCDEF, R1 = 0x100);
+    assert_regs!(cpu.regs, R0 = 0xABCDEF, R1 = 0x100, R15 = 4);
+    assert_writes!(mmu.writes32, 0x100 => 0xABCDEF);
+    assert_cycle_times(mmu, 0, 0, 2);
+    // STR pc, [r1]
+    let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, false, false, 1, 15, 0),
+    R1 = 0x100);
+    assert_regs!(cpu.regs, R1 = 0x100, R15 = 4);
+    assert_writes!(mmu.writes32, 0x100 => 0x8);
+    assert_cycle_times(mmu, 0, 0, 2);
 }

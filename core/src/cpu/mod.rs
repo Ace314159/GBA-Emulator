@@ -264,7 +264,50 @@ impl CPU {
 
     // ARM.9: Single Data Transfer (LDR, STR)
     fn single_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
-        unimplemented!("ARM.9: Single Data Transfer (LDR, STR) not implemented!");
+        assert_eq!(instr >> 26 & 0b11, 0b01);
+        let immediate_offset = instr >> 25 & 0x1 != 0;
+        let pre_offset = instr >> 24 & 0x1 != 0;
+        let transfer_byte = instr >> 22 & 0x1 != 0;
+        let add_offset = instr >> 23 & 0x1 != 0;
+        let load = instr >> 20 & 0x1 != 0;
+        let base_reg = instr >> 16 & 0xF;
+        let base = self.regs.get_reg_i(base_reg);
+        let src_dest_reg = instr >> 12 & 0xF;
+        mmu.inc_clock(1, Cycle::N, self.regs.pc);
+
+        let offset = if immediate_offset {
+            let shift = instr >> 0x1F;
+            let shift_type = instr >> 5 & 0x3;
+            assert_eq!(instr >> 4 & 0x1, 0);
+            let operand = self.regs.get_reg_i(instr & 0x7);
+            self.shift(shift_type, operand, shift, false, false)
+        } else {
+            instr & 0xFFF
+        };
+
+        let mut exec = |addr| if load {
+            mmu.inc_clock(1, Cycle::I, 0);
+            self.regs.set_reg_i(src_dest_reg, if transfer_byte {
+                mmu.read8(addr) as u32
+            } else { mmu.read32(addr).rotate_right((addr & 0b11) * 8) });
+            if src_dest_reg == 15 {
+                mmu.inc_clock(1, Cycle::N, self.regs.pc.wrapping_add(4));
+                self.fill_instr_buffer(mmu);
+            } else { mmu.inc_clock(1, Cycle::S, self.regs.pc.wrapping_add(4)); }
+        } else {
+            let value = self.regs.get_reg_i(src_dest_reg);
+            mmu.inc_clock(1, Cycle::N, addr);
+            if transfer_byte { mmu.write8(addr, value as u8) } else { mmu.write32(addr, value) }
+        };
+        let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
+        if pre_offset {
+            exec(offset_applied);
+            if instr >> 21 & 0x1 != 0 { self.regs.set_reg_i(base_reg, offset_applied) }
+        } else {
+            // TOOD: Take into account privilege of access
+            exec(base);
+            self.regs.set_reg_i(base_reg, offset_applied);
+        }
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
