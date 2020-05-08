@@ -6,10 +6,6 @@ use crate::mmu::IMMU;
 use registers::RegValues;
 use registers::Reg;
 
-#[cfg(test)]
-mod tests;
-
-
 pub struct CPU {
     regs: RegValues,
     instr_buffer: [u32; 2],

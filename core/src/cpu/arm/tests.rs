@@ -1,5 +1,6 @@
 use super::*;
 use crate::mmu::MemoryHandler;
+use super::super::RegValues;
 use std::collections::HashMap;
 
 struct TestMMU {
@@ -101,11 +102,11 @@ fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
 
 
 #[test]
-fn test_shift() {
+fn test_arm_shift() {
     fn run_shift(shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> (CPU, u32) {
         let mut mmu = TestMMU::new();
         let mut cpu = CPU::new(&mut mmu);
-        let val = cpu.shift(shift_type, operand, shift, immediate, change_status);
+        let val = cpu.arm_shift(shift_type, operand, shift, immediate, change_status);
         (cpu, val)
     }
     // LSL #0

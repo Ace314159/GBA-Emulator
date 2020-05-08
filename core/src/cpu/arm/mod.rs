@@ -1,17 +1,21 @@
 use super::CPU;
 use super::IMMU;
 use super::Reg;
-use crate::mmu::Cycle;
 use super::registers::Mode;
+
+use crate::mmu::Cycle;
+
+#[cfg(test)]
+mod tests;
 
 impl CPU {
     pub(super) fn fill_arm_instr_buffer<M>(&mut self, mmu: &mut M) where M: IMMU {
         self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
-            mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
-            self.regs.pc = self.regs.pc.wrapping_add(4);
+        mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
+        self.regs.pc = self.regs.pc.wrapping_add(4);
 
-            self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
-            mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
+        self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
+        mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
     }
 
     pub(super) fn emulate_arm_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
