@@ -131,6 +131,24 @@ fn test_arm_shift() {
 }
 
 #[test]
+// ARM.3: Branch and Exchange (BX)
+fn test_branch_and_exchange() {
+    fn make_instr(operand_reg: u32) -> u32{
+        0b1110 << 28 | 0b0001_0010_1111_1111_1111_0001 << 4 | operand_reg
+    }
+
+    // Switch to thumb
+    let (cpu, mmu) = run_instr!(branch_and_exchange, make_instr(0), R0 = 0xFD);
+    assert_regs!(cpu.regs, R0 = 0xFD, R15 = 0xFC, CPSR = 0x20);
+    assert_cycle_times(mmu, 2, 0, 1);
+
+    // Stay in thumb
+    let (cpu, mmu) = run_instr!(branch_and_exchange, make_instr(0), R0 = 0xFC);
+    assert_regs!(cpu.regs, R0 = 0xFC, R15 = 0xFC);
+    assert_cycle_times(mmu, 2, 0, 1);
+}
+
+#[test]
 // ARM.4: Branch and Branch with Link (B, BL)
 fn test_branch_branch_with_link() {
     fn make_instr(with_link: bool, offset: u32) -> u32 {

@@ -132,8 +132,14 @@ impl CPU {
     }
 
     // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
-        unimplemented!("ARM.3: Branch and Exchange (BX) not implemented!")
+    fn branch_and_exchange<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        self.regs.pc = self.regs.get_reg_i(instr & 0xF);
+        if self.regs.pc & 0x1 != 0 {
+            self.regs.pc -= 1;
+            self.regs.set_t(true);
+            self.fill_thumb_instr_buffer(mmu);
+        } else { self.fill_arm_instr_buffer(mmu) }
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
