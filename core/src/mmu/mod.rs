@@ -62,6 +62,16 @@ impl MemoryHandler for MMU {
 pub trait MemoryHandler {
     fn read8(&self, addr: u32) -> u8;
     fn write8(&mut self, addr: u32, value: u8);
+
+    fn read16(&self, addr: u32) -> u16 {
+        (self.read8(addr + 0) as u16) << 0 |
+        (self.read8(addr + 1) as u16) << 8 
+    }
+    fn write16(&mut self, addr: u32, value: u16) {
+        self.write8(addr + 0, (value >> 0) as u8);
+        self.write8(addr + 1, (value >> 8) as u8);
+    }
+
     fn read32(&self, addr: u32) -> u32 {
         (self.read8(addr + 0) as u32) << 0 |
         (self.read8(addr + 1) as u32) << 8 |
@@ -69,7 +79,7 @@ pub trait MemoryHandler {
         (self.read8(addr + 3) as u32) << 24
     }
     fn write32(&mut self, addr: u32, value: u32) {
-        self.write8(addr + 1, (value >> 0) as u8);
+        self.write8(addr + 0, (value >> 0) as u8);
         self.write8(addr + 1, (value >> 8) as u8);
         self.write8(addr + 2, (value >> 16) as u8);
         self.write8(addr + 3, (value >> 24) as u8);
