@@ -153,11 +153,11 @@ impl CPU {
             0x0 | 0x8 => op1 & op2, // AND and TST
             0x1 | 0x9 => op1 ^ op2, // EOR and TEQ
             0x2 | 0xA => arithmetic!(op1, op2, overflowing_sub, true, false), // SUB and CMP
-            0x3 => arithmetic!(op2, op1, overflowing_sub, false, false), // RSB
+            0x3 => arithmetic!(op2, op1, overflowing_sub, true, false), // RSB
             0x4 | 0xB => arithmetic!(op1, op2, overflowing_add, false, false), // ADD and CMN
             0x5 => arithmetic!(op1, op2, overflowing_add, false, true), // ADC
-            0x6 => arithmetic!(op1, !op2, overflowing_add, true, true), // SBC
-            0x7 => arithmetic!(op2, !op1, overflowing_add, true, true), // RSC
+            0x6 => arithmetic!(op1, !op2, overflowing_add, false, true), // SBC
+            0x7 => arithmetic!(op2, !op1, overflowing_add, false, true), // RSC
             0xC => op1 | op2, // ORR
             0xD => op2, // MOV
             0xE => op1 & !op2, // BIC

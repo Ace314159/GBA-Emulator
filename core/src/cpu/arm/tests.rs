@@ -69,56 +69,56 @@ fn test_data_proc() {
     }
 
     // AND
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0, false, 0, 0, 0, 1),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0, true, 0, 0, 0, 1),
     R0 = 0xFFF);
     assert_regs!(cpu.regs, R0 = 1, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // EOR
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(1, false, 0, 0, 0, 0xAC),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(1, true, 0, 0, 0, 0xAC),
     R0 = 0xFF);
     assert_regs!(cpu.regs, R0 = 0x53, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // SUB
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(2, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(2, true, 0, 0, 0, 100),
     R0 = 500);
-    assert_regs!(cpu.regs, R0 = 400, R15 = 4);
+    assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times(mmu, 1, 0, 0);
     // RSB
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(3, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(3, true, 0, 0, 0, 100),
     R0 = 500);
-    assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4);
+    assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4, CPSR = 0x80000000);
     assert_cycle_times(mmu, 1, 0, 0);
     // ADD
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(4, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(4, true, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 600, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // ADC
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, true, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 600, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(5, true, 0, 0, 0, 100),
     R0 = 500, CPSR = 0x20000000);
-    assert_regs!(cpu.regs, R0 = 601, R15 = 4, CPSR = 0x20000000);
+    assert_regs!(cpu.regs, R0 = 601, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // SBC
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, true, 0, 0, 0, 100),
     R0 = 500);
-    assert_regs!(cpu.regs, R0 = 399, R15 = 4);
+    assert_regs!(cpu.regs, R0 = 399, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times(mmu, 1, 0, 0);
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(6, true, 0, 0, 0, 100),
     R0 = 500, CPSR = 0x20000000);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4, CPSR = 0x20000000);
     assert_cycle_times(mmu, 1, 0, 0);
     // RSC
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, true, 0, 0, 0, 100),
     R0 = 500);
-    assert_regs!(cpu.regs, R0 = !401 + 1, R15 = 4);
+    assert_regs!(cpu.regs, R0 = !401 + 1, R15 = 4, CPSR = 0x80000000);
     assert_cycle_times(mmu, 1, 0, 0);
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(7, true, 0, 0, 0, 100),
     R0 = 500, CPSR = 0x20000000);
-    assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4, CPSR = 0x20000000);
+    assert_regs!(cpu.regs, R0 = !400 + 1, R15 = 4, CPSR = 0x80000000);
     assert_cycle_times(mmu, 1, 0, 0);
     // TST
     let (cpu, mmu) = run_instr!(data_proc, make_immediate(8, true, 0, 0, 0, 1),
@@ -153,7 +153,7 @@ fn test_data_proc() {
     assert_regs!(cpu.regs, R0 = 500, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // ORR
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xC, false, 0, 0, 0, 100),);
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xC, true, 0, 0, 0, 100),);
     assert_regs!(cpu.regs, R0 = 100, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // MOV
@@ -161,13 +161,13 @@ fn test_data_proc() {
     assert_regs!(cpu.regs, R0 = 100, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // BIC
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xE, false, 0, 0, 0, 100),
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xE, true, 0, 0, 0, 100),
     R0 = 500);
     assert_regs!(cpu.regs, R0 = 400, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
     // MVN
-    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xF, false, 0, 0, 0, 100),);
-    assert_regs!(cpu.regs, R0 = !100, R15 = 4);
+    let (cpu, mmu) = run_instr!(data_proc, make_immediate(0xF, true, 0, 0, 0, 100),);
+    assert_regs!(cpu.regs, R0 = !100, R15 = 4, CPSR = 0x80000000);
     assert_cycle_times(mmu, 1, 0, 0);
 
     println!("Second Set");
@@ -189,13 +189,13 @@ fn test_data_proc() {
     assert_cycle_times(mmu, 2, 1, 1);
 
     // MOV r0, pc, LSL r0
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 0, 0, 0, true, 15),
+    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, true, 15),
     R0 = 0);
     assert_regs!(cpu.regs, R0 = 12, R15 = 4);
     assert_cycle_times(mmu, 1, 1, 0);
 
     // MOV r0, pc
-    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, false, 0, 0, 0, 0, false, 15),);
+    let (cpu, mmu) = run_instr!(data_proc, make_reg_instr(0xD, true, 0, 0, 0, 0, false, 15),);
     assert_regs!(cpu.regs, R0 = 8, R15 = 4);
     assert_cycle_times(mmu, 1, 0, 0);
 }
