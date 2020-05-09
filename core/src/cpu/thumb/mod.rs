@@ -105,8 +105,37 @@ impl CPU {
     }
 
     // THUMB.5: Hi register operations/branch exchange
-    fn hi_reg_bx<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.5: Hi register operations/branch exchange not implemented!")
+    fn hi_reg_bx<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 10, 0b010001);
+        let opcode = instr >> 8 & 0x3;
+        let dest_reg_msb = instr >> 7 & 0x1;
+        let src_reg_msb = instr >> 6 & 0x1;
+        let src = self.regs.get_reg_i((src_reg_msb << 3 | instr >> 3 & 0x7) as u32);
+        let dest_reg = (dest_reg_msb << 3 | instr & 0x7) as u32;
+        let dest = self.regs.get_reg_i(dest_reg);
+        let result = match opcode {
+            0b00 => self.add(dest,src, false), // ADD
+            0b01 => self.sub(dest, src, true), // CMP
+            0b10 => src,
+            0b11 => {
+                assert_eq!(dest_reg_msb, 0);
+                self.regs.pc = src;
+                mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+                if src & 0x1 != 0 { self.fill_thumb_instr_buffer(mmu) }
+                else {
+                    self.regs.pc = self.regs.pc & !0x2;
+                    self.regs.set_t(false);
+                    self.fill_arm_instr_buffer(mmu);
+                }
+                return
+            },
+            _ => panic!("Invalid Opcode!"),
+        };
+        if opcode & 0x1 == 0 { self.regs.set_reg_i(dest_reg, result) }
+        if dest_reg == 15 {
+            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+            self.fill_thumb_instr_buffer(mmu);
+        } else { mmu.inc_clock(Cycle::S, self.regs.pc, 1) }
     }
 
     // THUMB.6: load PC-relative
