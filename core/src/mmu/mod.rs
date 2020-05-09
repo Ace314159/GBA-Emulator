@@ -31,8 +31,12 @@ impl IMMU for MMU {
         if cycle_type == Cycle::I { self.clocks_ahead += 1; return }
         self.clocks_ahead += match addr {
             0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
+            0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
+            0x02040000 ..= 0x02FFFFFF => 1, // Unused Memory
+            0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
             0x04000000 ..= 0x040003FE => 1, // IO
-            _ => unimplemented!("Clock Cycle for {:08X} not implemented!", addr),
+            0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
+            _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
         };
     }
 }
@@ -41,9 +45,13 @@ impl MemoryHandler for MMU {
     fn read8(&self, addr: u32) -> u8 {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
+            0x00004000 ..= 0x01FFFFFF => { 0 }, // Unused Memory
+            0x02040000 ..= 0x02FFFFFF => { 0 }, // Unused Memory
+            0x03008000 ..= 0x03FFFFFF => { 0 }, // Unused Memory
             0x04000208 => self.ime as u8,
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
+            0x04000400 ..= 0x04FFFFFF => { 0 }, // Unused Memory
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -51,9 +59,13 @@ impl MemoryHandler for MMU {
     fn write8(&mut self, addr: u32, value: u8) {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.write8(addr, value),
+            0x00004000 ..= 0x01FFFFFF => {}, // Unused Memory
+            0x02040000 ..= 0x02FFFFFF => {}, // Unused Memory
+            0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000208 => self.ime = value & 0x1 != 0,
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
+            0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
