@@ -55,7 +55,7 @@ impl CPU {
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
                 self.branch_branch_with_link(instr, mmu);
             } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
-                self.software_interrupt(instr, mmu);
+                self.arm_software_interrupt(instr, mmu);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
                 self.coprocessor(instr, mmu);
             } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
@@ -288,7 +288,7 @@ impl CPU {
     }
 
     // ARM.13: Software Interrupt (SWI)
-    fn software_interrupt<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn arm_software_interrupt<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.13: Software Interrupt (SWI) not implemented!");
     }
 
