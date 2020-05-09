@@ -4,7 +4,7 @@ use crate::mmu::MemoryHandler;
 use std::collections::HashMap;
 
 
-pub struct TestMMU {
+pub(super) struct TestMMU {
     n_cycle_count: u32,
     s_cycle_count: u32,
     i_cycle_count: u32,
@@ -96,7 +96,7 @@ macro_rules! assert_writes { ($cpu_writes:expr, $($addr:expr => $val:expr),*) =>
     assert_eq!($cpu_writes, writes);
 } } }
 
-pub fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
+pub(super) fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
     assert_eq!(mmu.s_cycle_count, s_count + 2); // 2 extra for initial instr buffer
     assert_eq!(mmu.i_cycle_count, i_count);
     assert_eq!(mmu.n_cycle_count, n_count);
