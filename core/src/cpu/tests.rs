@@ -11,6 +11,7 @@ pub(super) struct TestMMU {
     reading_enabled: bool,
     pub writes8: HashMap<u32, u8>,
     pub writes32: HashMap<u32, u32>,
+    pub writes16: HashMap<u32, u16>,
 }
 
 impl TestMMU {
@@ -22,6 +23,7 @@ impl TestMMU {
             reading_enabled: false,
             writes8: HashMap::new(),
             writes32: HashMap::new(),
+            writes16: HashMap::new(),
         }
     }
 
@@ -45,12 +47,20 @@ impl MemoryHandler for TestMMU {
         if self.reading_enabled { addr as u8 } else { 0 }
     }
 
+    fn read16(&self, addr: u3) -> u16 {
+        if self.reading_enabled { addr as u16 } else { 0 }
+    }
+
     fn read32(&self, addr: u32) -> u32 {
         if self.reading_enabled { addr } else { 0 }
     }
 
     fn write8(&mut self, addr: u32, value: u8) {
         self.writes8.insert(addr, value);
+    }
+
+    fn write16(&mut self, addr: u32, value: u16) {
+        self.writes16.insert(addr, value);
     }
 
     fn write32(&mut self, addr: u32, value: u32) {
