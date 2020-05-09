@@ -208,8 +208,35 @@ impl CPU {
     }
 
     // THUMB.16: conditional branch
-    fn cond_branch<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.16: conditional branch not implemented!")
+    fn cond_branch<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12, 0b1101);
+        let opcode = instr >> 8 & 0xF;
+        let offset = (instr & 0xFF) as i8 as u32;
+        let condition = match opcode {
+            0x0 => self.regs.get_z(), // BEQ
+            0x1 => !self.regs.get_z(), // BNE 
+            0x2 => self.regs.get_c(), // BCS
+            0x3 => !self.regs.get_c(), // BCC
+            0x4 => self.regs.get_n(), // BMI
+            0x5 => !self.regs.get_n(), // BPL
+            0x6 => self.regs.get_v(), // BVS
+            0x7 => !self.regs.get_v(), // BVC
+            0x8 => self.regs.get_c() && !self.regs.get_z(), // BHI
+            0x9 => self.regs.get_c() || self.regs.get_z(), // BLS
+            0xA => self.regs.get_n() == self.regs.get_v(), // BGE
+            0xB => self.regs.get_n() != self.regs.get_v(), // BLT
+            0xC => !self.regs.get_z() && self.regs.get_n() == self.regs.get_v(), // BGT
+            0xD => self.regs.get_z() || self.regs.get_n() != self.regs.get_v(), // BLE
+            _ => panic!("Invalid Opcode!"),
+        };
+        if condition {
+            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+            // Sub 4 since incremented 2 for next two instructions
+            self.regs.pc = self.regs.pc.wrapping_sub(4).wrapping_add(offset);
+            self.fill_thumb_instr_buffer(mmu);
+        } else {
+            mmu.inc_clock(Cycle::S, self.regs.pc, 1);
+        }
     }
 
     // THUMB.17: software interrupt
