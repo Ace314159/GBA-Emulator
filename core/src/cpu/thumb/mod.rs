@@ -1,5 +1,6 @@
 use super::CPU;
 use super::IMMU;
+use super::registers::Reg;
 
 use crate::mmu::Cycle;
 

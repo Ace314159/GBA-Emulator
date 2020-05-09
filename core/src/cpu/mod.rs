@@ -1,10 +1,13 @@
+#[cfg(test)]
+#[macro_use]
+mod tests;
+
 mod arm;
 mod thumb;
 mod registers;
 
 use crate::mmu::IMMU;
 use registers::RegValues;
-use registers::Reg;
 
 pub struct CPU {
     regs: RegValues,

@@ -1,6 +1,6 @@
 use super::CPU;
 use super::IMMU;
-use super::Reg;
+use super::registers::Reg;
 use super::registers::Mode;
 
 use crate::mmu::Cycle;
