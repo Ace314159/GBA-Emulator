@@ -28,3 +28,15 @@ fn test_immediate() {
     assert_regs!(cpu.regs, R0 = 0xFFFFFFF0, R15 = 2, CPSR = 0xA0000020);
     assert_cycle_times(mmu, 1, 0, 0);
 }
+
+#[test]
+fn test_load_pc_rel() {
+    fn make_instr(dest_reg: u16, offset: u16) -> u16 {
+        0b01001 << 11 | dest_reg << 8 | offset
+    }
+
+    // LDR r0, [pc, #0xFF]
+    let (cpu, mmu) = run_instr!(load_pc_rel, make_instr(0, 0xFF), CPSR = 0x20);
+    assert_regs!(cpu.regs, R0 = 0x400, R15 = 2, CPSR = 0x20);
+    assert_cycle_times(mmu, 1, 1, 1);
+}

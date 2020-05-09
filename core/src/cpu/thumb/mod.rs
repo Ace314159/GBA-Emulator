@@ -103,8 +103,15 @@ impl CPU {
     }
 
     // THUMB.6: load PC-relative
-    fn load_pc_rel<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.6: load PC-relative not implemented!")
+    fn load_pc_rel<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 11, 0b01001);
+        let dest_reg = (instr >> 8 & 0x7) as u32;
+        let offset = (instr & 0xFF) as u32;
+        let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
+        self.regs.set_reg_i(dest_reg, mmu.read32(addr) as u32);
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        mmu.inc_clock(Cycle::I, 0, 0);
+        mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
     }
 
     // THUMB.7: load/store with register offset
