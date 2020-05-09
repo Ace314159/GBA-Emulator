@@ -1,36 +1,8 @@
 use super::*;
+use crate::cpu::registers::{Reg, RegValues};
 use crate::cpu::tests::*;
-use crate::cpu::registers::RegValues;
 use std::collections::HashMap;
 
-#[test]
-fn test_arm_shift() {
-    fn run_shift(shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> (CPU, u32) {
-        let mut mmu = TestMMU::new();
-        let mut cpu = CPU::new(&mut mmu);
-        let val = cpu.arm_shift(shift_type, operand, shift, immediate, change_status);
-        (cpu, val)
-    }
-    // LSL #0
-    let (cpu, val) = run_shift(0, 0xA, 0, true, true);
-    assert_regs!(cpu.regs, R15 = 0);
-    assert_eq!(val, 0xA);
-
-    // LSR #0
-    let (cpu, val) = run_shift(1, 0xFFFFFFFF, 0, true, true);
-    assert_regs!(cpu.regs, R15 = 0, CPSR = 0x20000000);
-    assert_eq!(val, 0);
-
-    // ASR #0
-    let (cpu, val) = run_shift(2, 0xFFFFFFFF, 0, true, true);
-    assert_regs!(cpu.regs, R15 = 0, CPSR = 0x20000000);
-    assert_eq!(val, 0xFFFFFFFF);
-
-    // ROR #0
-    let (cpu, val) = run_shift(3, 0xFFFFFFFF, 0, true, true);
-    assert_regs!(cpu.regs, R15 = 0, CPSR = 0x20000000);
-    assert_eq!(val, 0x7FFFFFFF);
-}
 
 #[test]
 // ARM.3: Branch and Exchange (BX)
