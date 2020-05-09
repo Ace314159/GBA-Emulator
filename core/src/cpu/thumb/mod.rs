@@ -115,8 +115,35 @@ impl CPU {
     }
 
     // THUMB.7: load/store with register offset
-    fn load_store_reg_offset<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.7: load/store with register offset not implemented!")
+    fn load_store_reg_offset<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12, 0b0101);
+        let opcode = instr >> 10 & 0x3; 
+        assert_eq!(instr >> 9 & 0x1, 0);
+        let offset_reg = (instr >> 6 & 0x7) as u32;
+        let base_reg = (instr >> 3 & 0x7) as u32;
+        let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
+        let src_dest_reg = (instr & 0x7) as u32;
+        if opcode & 0b10 != 0 { // Load
+            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+            mmu.inc_clock(Cycle::I, 0, 0);
+            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+            self.regs.set_reg_i(src_dest_reg, if opcode & 0b01 != 0 {
+                mmu.read8(addr) as u32 // LDRB
+            } else {
+                mmu.read32(addr) // LDR
+            });
+
+        } else { // Store
+            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+            let access_width = if opcode & 0b01 != 0 { // STRB
+                mmu.write8(addr, self.regs.get_reg_i(src_dest_reg) as u8);
+                1
+            } else { // STR
+                mmu.write32(addr, self.regs.get_reg_i(src_dest_reg));
+                0
+            };
+            mmu.inc_clock(Cycle::N, addr, access_width);
+        }
     }
 
     // THUMB.8: load/store sign-extended byte/halfword
