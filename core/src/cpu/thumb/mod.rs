@@ -61,8 +61,29 @@ impl CPU {
     }
 
     // THUMB.2: add/subtract
-    fn add_sub<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.2: add/subtract not implemented!")
+    fn add_sub<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 11, 0b00011);
+        let sub = instr >> 9 & 0x1 != 0;
+        let operand = (instr >> 6 & 0x7) as u32;
+        let operand = if instr >> 10 & 0x1 != 0 { operand } else { self.regs.get_reg_i(operand) };
+        let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let dest_reg = (instr & 0x7) as u32;
+
+        let result = if sub {
+            let result = src.overflowing_sub(operand);
+            self.regs.set_c(!result.1);
+            self.regs.set_v((src as i32).overflowing_sub(operand as i32).1);
+            result.0
+        } else {
+            let result = src.overflowing_add(operand);
+            self.regs.set_v((src as i32).overflowing_add(operand as i32).1);
+            self.regs.set_c(result.1);
+            result.0
+        };
+        self.regs.set_n(result & 0x8000_0000 != 0);
+        self.regs.set_z(result == 0);
+        self.regs.set_reg_i(dest_reg, result);
+        mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
 
     // THUMB.3: move/compare/add/subtract immediate
