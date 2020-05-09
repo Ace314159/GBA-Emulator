@@ -47,7 +47,7 @@ impl MemoryHandler for TestMMU {
         if self.reading_enabled { addr as u8 } else { 0 }
     }
 
-    fn read16(&self, addr: u3) -> u16 {
+    fn read16(&self, addr: u32) -> u16 {
         if self.reading_enabled { addr as u16 } else { 0 }
     }
 
