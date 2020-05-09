@@ -71,4 +71,43 @@ impl CPU {
             }
         }
     }
+
+    pub(self) fn add(&mut self, op1: u32, op2: u32, change_status: bool) -> u32 {
+        let result = op1.overflowing_add(op2);
+        if change_status {
+            self.regs.set_c(result.1);
+            self.regs.set_v((op1 as i32).overflowing_add(op2 as i32).1);
+            self.regs.set_z(result.0 == 0);
+            self.regs.set_n(result.0 & 0x8000_0000 != 0);
+        }
+        result.0
+    }
+
+    pub(self) fn adc(&mut self, op1: u32, op2: u32, change_status: bool) -> u32 {
+        let result = op1.overflowing_add(op2);
+        let result2 = result.0.overflowing_add(self.regs.get_c() as u32);
+        if change_status {
+            self.regs.set_c(result.1 || result2.1);
+            let result = (op1 as i32).overflowing_add(op2 as i32);
+            if result.1 { self.regs.set_v(true); }
+            else {
+                self.regs.set_v(result.0.overflowing_add(self.regs.get_c() as i32).1);
+            }
+            self.regs.set_z(result2.0 == 0);
+            self.regs.set_n(result2.0 & 0x8000_0000 != 0);
+        }
+        result2.0 as u32
+    }
+
+    pub(self) fn sub(&mut self, op1: u32, op2: u32, change_status: bool) -> u32 {
+        let old_c = self.regs.get_c();
+        self.regs.set_c(true);
+        let result = self.adc(op1, !op2, change_status); // Simulate adding op1 + !op2 + 1
+        if !change_status { self.regs.set_c(old_c) }
+        result
+    }
+
+    pub(self) fn sbc(&mut self, op1: u32, op2: u32, change_status: bool) -> u32 {
+        self.adc(op1, !op2, change_status)
+    }
 }

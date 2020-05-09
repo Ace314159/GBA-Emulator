@@ -70,18 +70,10 @@ impl CPU {
         let dest_reg = (instr & 0x7) as u32;
 
         let result = if sub {
-            let result = src.overflowing_sub(operand);
-            self.regs.set_c(!result.1);
-            self.regs.set_v((src as i32).overflowing_sub(operand as i32).1);
-            result.0
+            self.sub(src, operand, true)
         } else {
-            let result = src.overflowing_add(operand);
-            self.regs.set_v((src as i32).overflowing_add(operand as i32).1);
-            self.regs.set_c(result.1);
-            result.0
+            self.add(src, operand, true)
         };
-        self.regs.set_n(result & 0x8000_0000 != 0);
-        self.regs.set_z(result == 0);
         self.regs.set_reg_i(dest_reg, result);
         mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
@@ -92,22 +84,16 @@ impl CPU {
         let opcode = instr >> 11 & 0x3;
         let dest_reg = instr >> 8 & 0x7;
         let immediate = (instr & 0xFF) as u32;
-        macro_rules! arithmetic { ($op1:expr, $op2:expr, $func:ident, $sub:expr) => { {
-            let result = $op1.$func($op2);
-            if $sub { self.regs.set_c(!result.1) } else { self.regs.set_c(result.1) }
-            self.regs.set_v(($op1 as i32).$func($op2 as i32).1);
-            result.0 as u32
-        } } }
         let op1 = self.regs.get_reg_i(dest_reg as u32);
         let result = match opcode {
             0b00 => immediate, // MOV
-            0b01 => arithmetic!(op1, immediate, overflowing_sub, true), // CMP
-            0b10 => arithmetic!(op1, immediate, overflowing_add, false), // ADD
-            0b11 => arithmetic!(op1, immediate, overflowing_sub, true), // SUB
+            0b01 => self.sub(op1, immediate, true), // CMP
+            0b10 => self.add(op1, immediate, true), // ADD
+            0b11 => self.sub(op1, immediate, true), // SUB
             _ => panic!("Invalid opcode!"),
         };
-        self.regs.set_n(result & 0x8000_0000 != 0);
         self.regs.set_z(result == 0);
+        self.regs.set_n(result & 0x8000_0000 != 0);
 
         if opcode != 0b01 { self.regs.set_reg_i(dest_reg as u32, result) }
         mmu.inc_clock(Cycle::S, self.regs.pc, 1);

@@ -137,27 +137,15 @@ impl CPU {
         };
         let opcode = (instr >> 21) & 0xF;
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
-        macro_rules! arithmetic { ($op1:expr, $op2:expr, $func:ident, $sub:expr, $add_c:expr) => { {
-            let result = ($op1 as i32).$func($op2 as i32);
-            let result2 = if $add_c { result.0.overflowing_add(self.regs.get_c() as i32) }
-                            else { (result.0, false) };
-            if change_status {
-                self.regs.set_v(result.1 || result2.1);
-                let c = $op1.$func($op2).1;
-                let c = if $sub { !c } else { c };
-                self.regs.set_c(c);
-            }
-            result2.0 as u32
-        } } }
         let result = match opcode {
             0x0 | 0x8 => op1 & op2, // AND and TST
             0x1 | 0x9 => op1 ^ op2, // EOR and TEQ
-            0x2 | 0xA => arithmetic!(op1, op2, overflowing_sub, true, false), // SUB and CMP
-            0x3 => arithmetic!(op2, op1, overflowing_sub, true, false), // RSB
-            0x4 | 0xB => arithmetic!(op1, op2, overflowing_add, false, false), // ADD and CMN
-            0x5 => arithmetic!(op1, op2, overflowing_add, false, true), // ADC
-            0x6 => arithmetic!(op1, !op2, overflowing_add, false, true), // SBC
-            0x7 => arithmetic!(op2, !op1, overflowing_add, false, true), // RSC
+            0x2 | 0xA => self.sub(op1, op2, change_status), // SUB and CMP
+            0x3 => self.sub(op2, op1, change_status), // RSB
+            0x4 | 0xB => self.add(op1, op2, change_status), // ADD and CMN
+            0x5 => self.adc(op1, op2, change_status), // ADC
+            0x6 => self.sbc(op1, op2, change_status), // SBC
+            0x7 => self.sbc(op2, op1, change_status), // RSC
             0xC => op1 | op2, // ORR
             0xD => op2, // MOV
             0xE => op1 & !op2, // BIC
@@ -169,6 +157,7 @@ impl CPU {
             self.regs.set_z(result == 0);
             self.regs.set_n(result & 0x8000_0000 != 0);
         } else { assert_eq!(opcode & 0xC != 0x8, true) }
+        if !change_status { assert_eq!(opcode & 0xC != 0x8, true); }
         if opcode & 0xC != 0x8 {
             self.regs.set_reg_i(dest_reg, result);
             if dest_reg == 15 { self.fill_arm_instr_buffer(mmu); }
