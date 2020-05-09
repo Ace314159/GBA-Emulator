@@ -4,6 +4,9 @@ use super::registers::Reg;
 
 use crate::mmu::Cycle;
 
+#[cfg(test)]
+mod tests;
+
 impl CPU {
     pub(super) fn fill_thumb_instr_buffer<M>(&mut self, mmu: &mut M) where M: IMMU {
         self.instr_buffer[0] = mmu.read16(self.regs.pc & !0x1) as u32;
@@ -63,8 +66,30 @@ impl CPU {
     }
 
     // THUMB.3: move/compare/add/subtract immediate
-    fn immediate<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.3: move/compare/add/subtract immediate not implemented!")
+    fn immediate<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 13, 0b001);
+        let opcode = instr >> 11 & 0x3;
+        let dest_reg = instr >> 8 & 0x7;
+        let immediate = (instr & 0xFF) as u32;
+        macro_rules! arithmetic { ($op1:expr, $op2:expr, $func:ident, $sub:expr) => { {
+            let result = $op1.$func($op2);
+            if $sub { self.regs.set_c(!result.1) } else { self.regs.set_c(result.1) }
+            self.regs.set_v(($op1 as i32).$func($op2 as i32).1);
+            result.0 as u32
+        } } }
+        let op1 = self.regs.get_reg_i(dest_reg as u32);
+        let result = match opcode {
+            0b00 => immediate, // MOV
+            0b01 => arithmetic!(op1, immediate, overflowing_sub, true), // CMP
+            0b10 => arithmetic!(op1, immediate, overflowing_add, false), // ADD
+            0b11 => arithmetic!(op1, immediate, overflowing_sub, true), // SUB
+            _ => panic!("Invalid opcode!"),
+        };
+        self.regs.set_n(result & 0x8000_0000 != 0);
+        self.regs.set_z(result == 0);
+
+        if opcode != 0b01 { self.regs.set_reg_i(dest_reg as u32, result) }
+        mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
 
     // THUMB.4: ALU operations
