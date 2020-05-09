@@ -62,7 +62,6 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
     println!("{:08X}", $instr);
     let mut mmu = TestMMU::new();
     let mut cpu = CPU::new(&mut mmu);
-    cpu.regs.pc = cpu.regs.pc.wrapping_add(4); // Add 4 to simulate incrementing pc when fetching instr
     $(
         if Reg::$reg == Reg::CPSR {
             cpu.regs.set_reg(Reg::CPSR, cpu.regs.get_reg(Reg::CPSR) | $val);
@@ -70,6 +69,8 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
             cpu.regs.set_reg(Reg::$reg, $val);
         }
     )*
+    let instr_len = if cpu.regs.get_t() { cpu.regs.pc = 2; 2 } else { 4 };
+    cpu.regs.pc = cpu.regs.pc.wrapping_add(instr_len); // Add instr_len to simulate incrementing pc when fetching instr
     mmu.enable_reading();
     cpu.$instr_name($instr, &mut mmu);
     (cpu, mmu)
