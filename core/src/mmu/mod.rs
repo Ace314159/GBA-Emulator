@@ -1,9 +1,11 @@
 mod memory;
 
 use memory::ROM;
+use memory::RAM;
 
 pub struct MMU {
     bios: ROM,
+    wram_32: RAM,
     _rom: ROM,
     clocks_ahead: u32,
 
@@ -16,6 +18,7 @@ impl MMU {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> MMU {
         MMU {
             bios: ROM::new(bios),
+            wram_32: RAM::new(0x03000000, 0x8000),
             _rom: ROM::new(rom),
             clocks_ahead: 0,
 
@@ -33,6 +36,7 @@ impl IMMU for MMU {
             0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
             0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
             0x02040000 ..= 0x02FFFFFF => 1, // Unused Memory
+            0x03000000 ..= 0x03007FFF => 1,
             0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
             0x04000000 ..= 0x040003FE => 1, // IO
             0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
@@ -47,6 +51,7 @@ impl MemoryHandler for MMU {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
             0x00004000 ..= 0x01FFFFFF => { 0 }, // Unused Memory
             0x02040000 ..= 0x02FFFFFF => { 0 }, // Unused Memory
+            0x03000000 ..= 0x03007FFF => self.wram_32.read8(addr),
             0x03008000 ..= 0x03FFFFFF => { 0 }, // Unused Memory
             0x04000208 => self.ime as u8,
             0x04000300 => self.haltcnt as u8,
@@ -61,6 +66,7 @@ impl MemoryHandler for MMU {
             0x00000000 ..= 0x00003FFF => self.bios.write8(addr, value),
             0x00004000 ..= 0x01FFFFFF => {}, // Unused Memory
             0x02040000 ..= 0x02FFFFFF => {}, // Unused Memory
+            0x03000000 ..= 0x03007FFF => self.wram_32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000208 => self.ime = value & 0x1 != 0,
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
