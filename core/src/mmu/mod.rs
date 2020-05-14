@@ -1,13 +1,18 @@
 mod memory;
+mod ppu;
 
 use memory::ROM;
 use memory::RAM;
+use ppu::PPU;
 
 pub struct MMU {
     bios: ROM,
     wram_32: RAM,
     _rom: ROM,
     clocks_ahead: u32,
+
+    // IO
+    ppu: PPU,
 
     // Registers
     ime: bool,
@@ -21,6 +26,9 @@ impl MMU {
             wram_32: RAM::new(0x03000000, 0x8000),
             _rom: ROM::new(rom),
             clocks_ahead: 0,
+
+            // IO
+            ppu: PPU::new(),
 
             // Registers
             ime: false,
@@ -49,14 +57,15 @@ impl MemoryHandler for MMU {
     fn read8(&self, addr: u32) -> u8 {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
-            0x00004000 ..= 0x01FFFFFF => { 0 }, // Unused Memory
-            0x02040000 ..= 0x02FFFFFF => { 0 }, // Unused Memory
+            0x00004000 ..= 0x01FFFFFF => 0, // Unused Memory
+            0x02040000 ..= 0x02FFFFFF => 0, // Unused Memory
             0x03000000 ..= 0x03007FFF => self.wram_32.read8(addr),
-            0x03008000 ..= 0x03FFFFFF => { 0 }, // Unused Memory
+            0x03008000 ..= 0x03FFFFFF => 0, // Unused Memory
+            0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
             0x04000208 => self.ime as u8,
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
-            0x04000400 ..= 0x04FFFFFF => { 0 }, // Unused Memory
+            0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -68,6 +77,7 @@ impl MemoryHandler for MMU {
             0x02040000 ..= 0x02FFFFFF => {}, // Unused Memory
             0x03000000 ..= 0x03007FFF => self.wram_32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
+            0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
             0x04000208 => self.ime = value & 0x1 != 0,
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
