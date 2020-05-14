@@ -208,8 +208,14 @@ impl CPU {
     }
 
     // THUMB.13: add offset to stack pointer
-    fn add_offset_sp<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.13: add offset to stack pointer not implemented!")
+    fn add_offset_sp<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 8 & 0xFF, 0b10110000);
+        let sub = instr >> 7 & 0x1 != 0;
+        let offset = ((instr & 0x7F) * 4) as u32;
+        let sp = self.regs.get_reg(Reg::R13);
+        let value = if sub { sp.wrapping_sub(offset) } else { sp.wrapping_add(offset) };
+        self.regs.set_reg(Reg::R13, value);
+        mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
 
     // THUMB.14: push/pop registers
