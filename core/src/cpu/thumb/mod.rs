@@ -353,8 +353,14 @@ impl CPU {
     }
 
     // THUMB.18: unconditional branch
-    fn uncond_branch<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.18: unconditional branch not implemented!")
+    fn uncond_branch<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 11, 0b11100);
+        let offset = (instr & 0x7FF) as u32;
+        let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
+
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        self.regs.pc = self.regs.pc.wrapping_add(offset << 1);
+        self.fill_thumb_instr_buffer(mmu);
     }
 
     // THUMB.19: long branch with link
