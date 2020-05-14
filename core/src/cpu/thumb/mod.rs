@@ -60,7 +60,7 @@ impl CPU {
     // THUMB.1: move shifted register
     fn move_shifted_reg<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
         assert_eq!(instr >> 13, 0b000);
-        let opcode = (instr >> 12 & 0x3) as u32;
+        let opcode = (instr >> 11 & 0x3) as u32;
         let offset = (instr >> 6 & 0x1F) as u32;
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let dest_reg = (instr & 0x7) as u32;
