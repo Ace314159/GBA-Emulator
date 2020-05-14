@@ -100,8 +100,36 @@ impl CPU {
     }
 
     // THUMB.4: ALU operations
-    fn alu<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.4: ALU operations not implemented!")
+    fn alu<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 10 & 0x3F, 0b010000);
+        let opcode = instr >> 6 & 0xF;
+        let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let dest_reg = (instr & 0x7) as u32;
+        let dest = self.regs.get_reg_i(dest_reg);
+        let result = match opcode {
+            0x0 => dest & src, // AND
+            0x1 => dest ^ src, // XOR 
+            0x2 => self.shift(mmu, 0, dest, src & 0xFF, false, true), // LSL
+            0x3 => self.shift(mmu, 1, dest, src & 0xFF, false, true), // LSR
+            0x4 => self.shift(mmu, 2, dest, src, false, true), // ASR
+            0x5 => self.adc(dest, src, true), // ADC
+            0x6 => self.sbc(dest, src, true), // SBC
+            0x7 => self.shift(mmu, 3, dest, src & 0xFF, false, true), // ROR
+            0x8 => dest & (src & 0xFF), // TST
+            0x9 => self.sub(0, dest, true), // NEG
+            0xA => self.sub(dest, src, true), // CMP
+            0xB => self.add(dest, src, true), // CMN
+            0xC => dest | src, // ORR
+            0xD => self.mul(mmu, dest, src), // MUL
+            0xE => dest & !src, // BIC
+            0xF => !src, // MVN
+            _ => panic!("Invalid opcode!"),
+        };
+        self.regs.set_n(result & 0x8000_0000 != 0);
+        self.regs.set_z(result == 0);
+
+        if ![0x8, 0xA, 0xB].contains(&opcode) { self.regs.set_reg_i(dest_reg, result) }
+        mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
 
     // THUMB.5: Hi register operations/branch exchange
