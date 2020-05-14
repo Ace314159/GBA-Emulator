@@ -22,12 +22,14 @@ impl CPU {
         if self.p {
             use Reg::*;
             println!("{:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} \
-            {:08X} {:08X} {:08X} {:08X} cpsr: {:08X} |     {:04X}",
+            {:08X} {:08X} {:08X} {:08X} cpsr: {:08X} | {}",
             self.regs.get_reg(R0), self.regs.get_reg(R1), self.regs.get_reg(R2), self.regs.get_reg(R3),
             self.regs.get_reg(R4), self.regs.get_reg(R5), self.regs.get_reg(R6), self.regs.get_reg(R7),
             self.regs.get_reg(R8), self.regs.get_reg(R9), self.regs.get_reg(R10), self.regs.get_reg(R11),
             self.regs.get_reg(R12), self.regs.get_reg(R13), self.regs.get_reg(R14), self.regs.get_reg(R15),
-            self.regs.get_reg(CPSR), instr);
+            self.regs.get_reg(CPSR), if instr & 0b1111_1000_0000_0000 == 0b1111_0000_0000_0000 {
+                format!("{:04X}{:04X}", instr, self.instr_buffer[1])
+            } else { format!("    {:04X}", instr) });
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(2);
@@ -348,7 +350,20 @@ impl CPU {
     }
 
     // THUMB.19: long branch with link
-    fn branch_with_link<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.19: long branch with link not implemented!")
+    fn branch_with_link<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12, 0xF);
+        let offset = (instr & 0x7FF) as u32;
+        let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
+        if instr >> 11 & 0x1 != 0 { // Second Instruction
+            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+            let next_instr_pc = self.regs.pc.wrapping_sub(2);
+            self.regs.pc = self.regs.get_reg(Reg::R14).wrapping_add(offset << 1);
+            self.regs.set_reg(Reg::R14, next_instr_pc | 0x1);
+            self.fill_thumb_instr_buffer(mmu);
+        } else { // First Instruction
+            assert_eq!(instr >> 11, 0b11110);
+            self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_add(offset << 12));
+            mmu.inc_clock(Cycle::S, self.regs.pc, 1);
+        }
     }
 }
