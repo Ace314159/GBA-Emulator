@@ -6,8 +6,8 @@ mod arm;
 mod thumb;
 mod registers;
 
-use crate::mmu::IMMU;
-use registers::RegValues;
+use crate::mmu::{IMMU, Cycle};
+use registers::{Reg, RegValues};
 
 pub struct CPU {
     regs: RegValues,
@@ -109,5 +109,22 @@ impl CPU {
 
     pub(self) fn sbc(&mut self, op1: u32, op2: u32, change_status: bool) -> u32 {
         self.adc(op1, !op2, change_status)
+    }
+
+    pub(self) fn stack_pop<M>(&mut self, mmu: &mut M, last_access: bool) -> u32 where M: IMMU {
+        let sp = self.regs.get_reg(Reg::R13);
+        let value = mmu.read32(sp);
+        self.regs.set_reg(Reg::R13, sp.wrapping_add(4));
+        if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
+        else { mmu.inc_clock(Cycle::S, sp, 2) }
+        value
+    }
+
+    pub(self) fn stack_push<M>(&mut self, mmu: &mut M, value: u32, last_access: bool) where M: IMMU {
+        let sp = self.regs.get_reg(Reg::R13).wrapping_sub(4);
+        self.regs.set_reg(Reg::R13, sp);
+        mmu.write32(sp, value);
+        if last_access { mmu.inc_clock(Cycle::N, sp, 2) }
+        else { mmu.inc_clock(Cycle::S, sp, 2) }
     }
 }

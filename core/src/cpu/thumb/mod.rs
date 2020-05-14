@@ -213,8 +213,44 @@ impl CPU {
     }
 
     // THUMB.14: push/pop registers
-    fn push_pop_regs<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.14: push/pop registers not implemented!")
+    fn push_pop_regs<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12 & 0xF, 0b1011);
+        let pop = instr >> 11 & 0x1 != 0;
+        assert_eq!(instr >> 9 & 0x3, 0b10);
+        let pc_lr = instr >> 8 & 0x1 != 0;
+        let mut r_list = (instr & 0xFF) as u8;
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        if pop {
+            let mut reg = 0;
+            while r_list != 0 {
+                if r_list & 0x1 != 0 {
+                    let value = self.stack_pop(mmu, r_list == 1 && !pc_lr);
+                    self.regs.set_reg_i(reg, value);
+                }
+                reg += 1;
+                r_list >>= 1;
+            }
+        } else {
+            let mut reg = 8;
+            while r_list != 0 {
+                reg -= 1;
+                if r_list & 0x80 != 0 {
+                    self.stack_push(mmu, self.regs.get_reg_i(reg), r_list == 0x80 && !pc_lr);
+                }
+                r_list <<= 1;
+            }
+        }
+        if pc_lr {
+            if pop {
+                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(2), 1);
+                self.regs.pc = self.stack_pop(mmu, true) & !0x1;
+                self.fill_thumb_instr_buffer(mmu);
+            } else {
+                self.stack_push(mmu, self.regs.get_reg(Reg::R14), true);
+            }
+        } else if pop {
+            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+        }
     }
 
     // THUMB.15: multiple load/store
