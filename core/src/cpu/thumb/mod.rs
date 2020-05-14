@@ -233,8 +233,23 @@ impl CPU {
     }
 
     // THUMB.10: load/store halfword
-    fn load_store_halfword<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.10: load/store halfword not implemented!")
+    fn load_store_halfword<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12, 0b1000);
+        let load = instr >> 1 & 0x1 != 0;
+        let offset = (instr >> 6 & 0x1F) as u32;
+        let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let src_dest_reg = (instr & 0x7) as u32;
+        let addr = base + offset * 2;
+
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        if load {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+            self.regs.set_reg_i(src_dest_reg, mmu.read16(addr) as u32);
+        } else {
+            mmu.inc_clock(Cycle::N, addr, 1);
+            mmu.write16(addr, self.regs.get_reg_i(src_dest_reg) as u16);
+        }
     }
 
     // THUMB.11: load/store SP-relative
