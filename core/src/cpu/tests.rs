@@ -118,7 +118,7 @@ fn test_shift() {
     fn run_shift(shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> (CPU, u32) {
         let mut mmu = TestMMU::new();
         let mut cpu = CPU::new(&mut mmu);
-        let val = cpu.shift(shift_type, operand, shift, immediate, change_status);
+        let val = cpu.shift(&mut mmu, shift_type, operand, shift, immediate, change_status);
         (cpu, val)
     }
     // LSL #0

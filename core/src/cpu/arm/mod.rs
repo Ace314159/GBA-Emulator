@@ -123,7 +123,6 @@ impl CPU {
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
             let shift = if shift_by_reg {
-                mmu.inc_clock(Cycle::I, 0, 0);
                 assert_eq!((instr >> 7) & 0x1, 0);
                 self.regs.pc = self.regs.pc.wrapping_add(4); // Temp inc
                 temp_inc_pc = true;
@@ -133,7 +132,7 @@ impl CPU {
             };
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
-            self.shift(shift_type, op2, shift, !shift_by_reg, change_status)
+            self.shift(mmu, shift_type, op2, shift, !shift_by_reg, change_status)
         };
         let opcode = (instr >> 21) & 0xF;
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
@@ -231,7 +230,7 @@ impl CPU {
             let shift_type = instr >> 5 & 0x3;
             assert_eq!(instr >> 4 & 0x1, 0);
             let operand = self.regs.get_reg_i(instr & 0x7);
-            self.shift(shift_type, operand, shift, true, false)
+            self.shift(mmu, shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
         };

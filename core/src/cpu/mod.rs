@@ -31,7 +31,8 @@ impl CPU {
         else { self.emulate_arm_instr(mmu) }
     }
 
-    pub(self) fn shift(&mut self, shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> u32 {
+    pub(self) fn shift<M>(&mut self, mmu: &mut M, shift_type: u32, operand: u32, shift: u32,
+        immediate: bool, change_status: bool) -> u32 where M: IMMU{
         if immediate && shift == 0 {
             match shift_type {
                 // LSL #0
@@ -56,6 +57,7 @@ impl CPU {
                 _ => panic!("Invalid Shift type!"),
             }
         } else {
+            if !immediate { mmu.inc_clock(Cycle::I, 0, 0) }
             let change_status = change_status && shift != 0;
             match shift_type {
                 // LSL
