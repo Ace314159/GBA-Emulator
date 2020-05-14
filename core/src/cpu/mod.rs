@@ -113,6 +113,16 @@ impl CPU {
         self.adc(op1, !op2, change_status)
     }
 
+    pub(self) fn mul<M>(&mut self, mmu: &mut M, op1: u32, op2: u32) -> u32 where M: IMMU {
+        let mut mask = 0xFF_FF_FF_00;
+        loop {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            if mask == 0 || [0, mask].contains(&(op1 & mask)) { break }
+            mask <<= 8;
+        }
+        op1.wrapping_mul(op2)
+    }
+
     pub(self) fn stack_pop<M>(&mut self, mmu: &mut M, last_access: bool) -> u32 where M: IMMU {
         let sp = self.regs.get_reg(Reg::R13);
         let value = mmu.read32(sp);

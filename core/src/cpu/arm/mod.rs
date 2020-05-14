@@ -37,7 +37,7 @@ impl CPU {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
                 self.branch_and_exchange(instr, mmu);
             } else if instr & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.mul(instr, mmu);
+                self.mul_mula(instr, mmu);
             } else if instr & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
                 self.mul_long(instr, mmu);
             } else if instr & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
@@ -203,7 +203,7 @@ impl CPU {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn mul_mula<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
         unimplemented!("ARM.7: Multiply and Multiply-Accumulate (MUL, MLA) not implemented!");
     }
 
