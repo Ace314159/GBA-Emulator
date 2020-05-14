@@ -198,8 +198,21 @@ impl CPU {
     }
 
     // THUMB.11: load/store SP-relative
-    fn load_store_sp_rel<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.11: load/store SP-relative not implemented!")
+    fn load_store_sp_rel<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12 & 0xF, 0b1001);
+        let load = instr >> 11 & 0x1 != 0;
+        let src_dest_reg = (instr >> 8 & 0x7) as u32;
+        let offset = (instr & 0xFF) * 4;
+        let addr = self.regs.get_reg(Reg::R13).wrapping_add(offset as u32);
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        if load {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            self.regs.set_reg_i(src_dest_reg, mmu.read32(addr));
+            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+        } else {
+            mmu.inc_clock(Cycle::N, addr, 2);
+            mmu.write32(addr, self.regs.get_reg_i(src_dest_reg));
+        }
     }
 
     // THUMB.12: get relative address
