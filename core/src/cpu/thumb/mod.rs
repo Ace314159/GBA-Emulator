@@ -58,8 +58,19 @@ impl CPU {
     }
     
     // THUMB.1: move shifted register
-    fn move_shifted_reg<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.1: move shifted register not implemented!")
+    fn move_shifted_reg<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 13, 0b000);
+        let opcode = (instr >> 12 & 0x3) as u32;
+        let offset = (instr >> 6 & 0x1F) as u32;
+        let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let dest_reg = (instr & 0x7) as u32;
+        assert_ne!(opcode, 0b11);
+        let result = self.shift(mmu, opcode, src, offset, true, true);
+
+        self.regs.set_n(result & 0x8000_0000 != 0);
+        self.regs.set_z(result == 0);
+        self.regs.set_reg_i(dest_reg, result);
+        mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
 
     // THUMB.2: add/subtract
