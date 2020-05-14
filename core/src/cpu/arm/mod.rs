@@ -216,7 +216,7 @@ impl CPU {
     // ARM.9: Single Data Transfer (LDR, STR)
     fn single_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
         assert_eq!(instr >> 26 & 0b11, 0b01);
-        let immediate_offset = instr >> 25 & 0x1 != 0;
+        let shifted_reg_offset = instr >> 25 & 0x1 != 0;
         let pre_offset = instr >> 24 & 0x1 != 0;
         let transfer_byte = instr >> 22 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
@@ -226,12 +226,12 @@ impl CPU {
         let src_dest_reg = instr >> 12 & 0xF;
         mmu.inc_clock(Cycle::N, self.regs.pc, 2);
 
-        let offset = if immediate_offset {
+        let offset = if shifted_reg_offset {
             let shift = instr >> 0x1F;
             let shift_type = instr >> 5 & 0x3;
             assert_eq!(instr >> 4 & 0x1, 0);
             let operand = self.regs.get_reg_i(instr & 0x7);
-            self.shift(shift_type, operand, shift, false, false)
+            self.shift(shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
         };
