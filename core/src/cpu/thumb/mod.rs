@@ -200,8 +200,8 @@ impl CPU {
         let base_reg = (instr >> 3 & 0x7) as u32;
         let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
         let src_dest_reg = (instr & 0x7) as u32;
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
         if opcode & 0b10 != 0 { // Load
-            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
             mmu.inc_clock(Cycle::I, 0, 0);
             mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
             self.regs.set_reg_i(src_dest_reg, if opcode & 0b01 != 0 {
@@ -211,7 +211,6 @@ impl CPU {
             });
 
         } else { // Store
-            mmu.inc_clock(Cycle::N, self.regs.pc, 1);
             let access_width = if opcode & 0b01 != 0 { // STRB
                 mmu.write8(addr, self.regs.get_reg_i(src_dest_reg) as u8);
                 1
