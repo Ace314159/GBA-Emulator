@@ -31,6 +31,28 @@ impl CPU {
         else { self.emulate_arm_instr(mmu) }
     }
 
+    pub(self) fn should_exec(&self, condition: u32) -> bool {
+        match condition {
+            0x0 => self.regs.get_z(),
+            0x1 => !self.regs.get_z(),
+            0x2 => self.regs.get_c(),
+            0x3 => !self.regs.get_c(),
+            0x4 => self.regs.get_n(),
+            0x5 => !self.regs.get_n(),
+            0x6 => self.regs.get_v(),
+            0x7 => !self.regs.get_v(),
+            0x8 => self.regs.get_c() && !self.regs.get_z(),
+            0x9 => !self.regs.get_c() | self.regs.get_z(),
+            0xA => self.regs.get_n() == self.regs.get_v(),
+            0xB => self.regs.get_n() != self.regs.get_v(),
+            0xC => !self.regs.get_z() && self.regs.get_n() == self.regs.get_v(),
+            0xD => self.regs.get_z() || self.regs.get_n() != self.regs.get_v(),
+            0xE => true,
+            0xF => false,
+            _ => panic!("Unexpected condition!"),
+        }
+    }
+
     pub(self) fn shift<M>(&mut self, mmu: &mut M, shift_type: u32, operand: u32, shift: u32,
         immediate: bool, change_status: bool) -> u32 where M: IMMU{
         if immediate && shift == 0 {

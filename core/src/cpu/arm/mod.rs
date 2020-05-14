@@ -33,7 +33,7 @@ impl CPU {
         self.regs.pc = self.regs.pc.wrapping_add(4);
         self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
 
-        if self.should_exec(instr) {
+        if self.should_exec((instr >> 28) & 0xF) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
                 self.branch_and_exchange(instr, mmu);
             } else if instr & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
@@ -65,28 +65,6 @@ impl CPU {
                 self.undefined_instr(instr, mmu);
             }
         } else { mmu.inc_clock(Cycle::N, self.regs.pc & !0x3, 2) }
-    }
-
-    fn should_exec(&self, instr: u32) -> bool {
-        match (instr >> 28) & 0xF {
-            0x0 => self.regs.get_z(),
-            0x1 => !self.regs.get_z(),
-            0x2 => self.regs.get_c(),
-            0x3 => !self.regs.get_c(),
-            0x4 => self.regs.get_n(),
-            0x5 => !self.regs.get_n(),
-            0x6 => self.regs.get_v(),
-            0x7 => !self.regs.get_v(),
-            0x8 => self.regs.get_c() && !self.regs.get_z(),
-            0x9 => !self.regs.get_c() | self.regs.get_z(),
-            0xA => self.regs.get_n() == self.regs.get_v(),
-            0xB => self.regs.get_n() != self.regs.get_v(),
-            0xC => !self.regs.get_z() && self.regs.get_n() == self.regs.get_v(),
-            0xD => self.regs.get_z() || self.regs.get_n() != self.regs.get_v(),
-            0xE => true,
-            0xF => false,
-            _ => panic!("Unexpected instruction condition"),
-        }
     }
 
     // ARM.3: Branch and Exchange (BX)
