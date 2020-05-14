@@ -83,7 +83,8 @@ fn test_push_pop_regs() {
     assert_cycle_times(mmu, 7, 0, 2);
 
     // PUSH {LR}
-    let (cpu, mmu) = run_instr!(push_pop_regs, make_instr(false, true, 0), R14 = 100);
+    let (cpu, mmu) = run_instr!(push_pop_regs, make_instr(false, true, 0), R14 = 100, CPSR = 0x20);
+    assert_regs!(cpu.regs, R13 = 0x3007F00 - 4, R14 = 100, R15 = 2, CPSR = 0x20);
     assert_writes!(mmu.writes32, 0x3007F00 - 4 => 100);
     assert_cycle_times(mmu, 0, 0, 2);
 }
