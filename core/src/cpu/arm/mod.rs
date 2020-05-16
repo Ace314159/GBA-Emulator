@@ -244,8 +244,70 @@ impl CPU {
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
-        unimplemented!("ARM.11: Block Data Transfer (LDM,STM) not implemented!");
+    fn block_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 25 & 0x7, 0b100);
+        let pre_offset = instr >> 24 & 0x1 != 0;
+        let add_offset = instr >> 23 & 0x1 != 0;
+        let psr_force_usr = instr >> 22 & 0x1 != 0;
+        let write_back = instr >> 21 & 0x1 != 0;
+        let load = instr >> 20 & 0x1 != 0;
+        let base_reg = instr >> 16 & 0xF;
+        assert_ne!(base_reg, 0xF);
+        let mut base = self.regs.get_reg_i(base_reg);
+        let mut r_list = (instr & 0xFFFF) as u16;
+        let actual_mode = self.regs.get_mode();
+        if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
+
+        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        let apply_offset = |base| if add_offset { base + 4 } else { base - 4 };
+        let mut calc_addr = || if pre_offset { base = apply_offset(base); (base, base) }
+        else { let old_base = base; base = apply_offset(base); (old_base, base) };
+        let mut loaded_pc = false;
+        let mut exec = |reg, last_access| {
+            let (addr, new_base) = calc_addr();
+            if load {
+                if write_back { self.regs.set_reg_i(base_reg, new_base) }
+                self.regs.set_reg_i(reg, mmu.read32(addr));
+                if reg == 15 {
+                    if psr_force_usr { self.regs.restore_cpsr() }
+                    loaded_pc = true;
+                    self.fill_arm_instr_buffer(mmu);
+                }
+                if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
+                else { mmu.inc_clock(Cycle::S, addr, 2) }
+            } else {
+                let value = self.regs.get_reg_i(reg);
+                mmu.write32(addr, if reg == 15 { value.wrapping_sub(4) } else { value });
+                if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
+                else { mmu.inc_clock(Cycle::S, addr, 2) }
+                if write_back { self.regs.set_reg_i(base_reg, new_base) }
+            };
+        };
+        if add_offset {
+            let mut reg = 0;
+            while r_list != 0x1 {
+                if r_list & 0x1 != 0 {
+                    exec(reg, false);
+                }
+                reg += 1;
+                r_list >>= 1;
+            }
+            exec(reg, true);
+        } else {
+            let mut reg = 15;
+            while r_list != 0x8000 {
+                if r_list & 0x8000 != 0 {
+                    exec(reg, false);
+                }
+                reg -= 1;
+                r_list <<= 1;
+            }
+            exec(reg, true);
+        }
+
+        self.regs.set_mode(actual_mode);
+        if loaded_pc { mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2) }
+        else if load { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2) }
     }
 
     // ARM.12: Single Data Swap (SWP)

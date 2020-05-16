@@ -294,3 +294,75 @@ fn test_single_data_transfer() {
     assert_writes!(mmu.writes32, 0x100 => 0x8);
     assert_cycle_times(mmu, 0, 0, 2);
 }
+
+#[test]
+// ARM.11: Block Data Transfer (LDM,STM)
+fn test_block_data_transfer() {
+    fn make_instr(pre_offset: bool, add_offset: bool, psr_force_usr: bool, write_back: bool, load: bool,
+        base_reg: u32, r_list: u32) -> u32 {
+        0b1110 << 28 | 0b100 << 25 | (pre_offset as u32) << 24 | (add_offset as u32) << 23 |
+        (psr_force_usr as u32) << 22 | (write_back as u32) << 21 | (load as u32) << 20 | base_reg << 16 | r_list
+    }
+
+    // Load
+    // LDMFA R0, {R0}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(false, false, false, false, true,
+    0, 1 << 0), R0 = 0x20);
+    assert_regs!(cpu.regs, R0 = 0x20, R15 = 4);
+    assert_cycle_times(mmu, 1, 1, 1);
+    // LDMFD R0, {R1, R2}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(false, true, false, false, true,
+    0, (1 << 2) | (1 << 1)), R0 = 0x20);
+    assert_regs!(cpu.regs, R0 = 0x20, R1 = 0x20, R2 = 0x24, R15 = 4);
+    assert_cycle_times(mmu, 2, 1, 1);
+    // LDMEA R0, {R15}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(true, false, false, false, true,
+    0, 1 << 15), R0 = 0x20);
+    assert_regs!(cpu.regs, R0 = 0x20, R15 = 0x1C);
+    assert_cycle_times(mmu, 2, 1, 2);
+    // LDMFA R0, {R7, R12, R15}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(true, false, false, false, true,
+    0, (1 << 15) | (1 << 12) | (1 << 7)), R0 = 0x20);
+    assert_regs!(cpu.regs, R0 = 0x20, R7 = 0x14, R12 = 0x18, R15 = 0x1C);
+    assert_cycle_times(mmu, 4, 1, 2);
+
+    // Store
+    // STMFA R0, {R0}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(true, true, false, false, false,
+    0, 1 << 0), R0 = 0x60);
+    assert_regs!(cpu.regs, R0 = 0x60, R15 = 4);
+    assert_writes!(mmu.writes32, 0x64 => 0x60);
+    assert_cycle_times(mmu, 0, 0, 2);
+    // STMFD R0, {R1, R2}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(true, false, false, false, false,
+    0, (1 << 2) | (1 << 1)), R1 = 1, R2 = 2, R0 = 0x60);
+    assert_regs!(cpu.regs, R0 = 0x60, R1 = 1, R2 = 2, R15 = 4);
+    assert_writes!(mmu.writes32, 0x58 => 1, 0x5C => 2);
+    assert_cycle_times(mmu, 1, 0, 2);
+    // STMEA R0, {R15}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(false, true, false, false, false,
+    0, 1 << 15), R0 = 0x60);
+    assert_regs!(cpu.regs, R0 = 0x60, R15 = 4);
+    assert_writes!(mmu.writes32, 0x60 => 4);
+    assert_cycle_times(mmu, 0, 0, 2);
+    // STMFA R0, {R7, R12, R15}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(true, true, false, false, false,
+    0, (1 << 15) | (1 << 12) | (1 << 7)), R0 = 0x60, R7 = 7, R12 = 12);
+    assert_regs!(cpu.regs, R0 = 0x60, R0 = 0x60, R7 = 7, R12 = 12, R15 = 4);
+    assert_writes!(mmu.writes32, 0x64 => 7, 0x68 => 12, 0x6C => 4);
+    assert_cycle_times(mmu, 2, 0, 2);
+
+    // Writeback
+    // STMEA R0!, {R1}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(false, true, false, true, false,
+    0, 1 << 1), R0 = 0x60, R1 = 1);
+    assert_regs!(cpu.regs, R0 = 0x64, R1 = 1, R15 = 4);
+    assert_writes!(mmu.writes32, 0x60 => 1);
+    assert_cycle_times(mmu, 0, 0, 2);
+    // STMEA R0!, {R0, R1}
+    let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(false, true, false, true, false,
+    0, (1 << 1) | (1 << 0)), R0 = 0x60, R1 = 1);
+    assert_regs!(cpu.regs, R0 = 0x68, R1 = 1, R15 = 4);
+    assert_writes!(mmu.writes32, 0x60 => 0x60, 0x64 => 1);
+    assert_cycle_times(mmu, 1, 0, 2);
+}
