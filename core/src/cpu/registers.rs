@@ -64,6 +64,10 @@ impl StatusReg {
             _ => panic!("Invalid Mode"),
         }
     }
+
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.bits = (self.bits() & !0x1F) | mode as u32;
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -204,4 +208,5 @@ impl RegValues {
     pub fn _set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
     pub fn _set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
     pub fn set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }
+    pub fn set_mode(&mut self, mode: Mode) { self.cpsr.set_mode(mode) }
 }
