@@ -94,7 +94,7 @@ impl RegValues {
             und: [0; 2],
             pc: 0,
             cpsr: StatusReg::reset(),
-            spsr: [StatusReg::empty(); 5],
+            spsr: [StatusReg::reset(); 5],
         };
         reg_values.usr[13] = 0x03007F00;
         reg_values.irq[0] = 0x03007FA0;
@@ -160,6 +160,10 @@ impl RegValues {
                 _ => panic!("No SPSR for SYS and USR"),
             },
         }
+    }
+
+    pub fn restore_cpsr(&mut self) {
+        self.cpsr.bits = self.get_reg(Reg::SPSR);
     }
 
     pub fn get_reg_i(&self, reg: u32) -> u32 {
