@@ -162,8 +162,10 @@ impl CPU {
                 assert_eq!(dest_reg_msb, 0);
                 self.regs.pc = src;
                 mmu.inc_clock(Cycle::N, self.regs.pc, 1);
-                if src & 0x1 != 0 { self.fill_thumb_instr_buffer(mmu) }
-                else {
+                if src & 0x1 != 0 {
+                    self.regs.pc = self.regs.pc & !0x1;
+                    self.fill_thumb_instr_buffer(mmu);
+                } else {
                     self.regs.pc = self.regs.pc & !0x2;
                     self.regs.set_t(false);
                     self.fill_arm_instr_buffer(mmu);
