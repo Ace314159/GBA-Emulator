@@ -223,8 +223,25 @@ impl CPU {
     }
 
     // THUMB.8: load/store sign-extended byte/halfword
-    fn load_store_sign_ext<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.8: load/store sign-extended byte/halfword not implemented!")
+    fn load_store_sign_ext<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12, 0b0101);
+        let opcode = instr >> 10 & 0x3;
+        assert_eq!(instr >> 9 & 0x1, 1);
+        let offset_reg = (instr >> 6 & 0x7) as u32;
+        let base_reg = (instr >> 3 & 0x7) as u32;
+        let src_dest_reg = (instr & 0x7) as u32;
+        let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
+
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        if opcode == 0 { // STRH
+            mmu.inc_clock(Cycle::N, addr, 1);
+            mmu.write16(addr, self.regs.get_reg_i(src_dest_reg) as u16);
+        } else { // Load
+            mmu.inc_clock(Cycle::I, 0, 0);
+            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+            let value = if opcode == 1 { mmu.read8(addr) as i8 as u32 } else { mmu.read16(addr) as u32 };
+            self.regs.set_reg_i(src_dest_reg, if opcode == 3 { value as u16 as i16 as u32 } else { value })
+        }
     }
 
     // THUMB.9: load/store with immediate offset
