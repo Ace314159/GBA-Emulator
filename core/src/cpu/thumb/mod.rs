@@ -340,35 +340,48 @@ impl CPU {
         let mut r_list = (instr & 0xFF) as u8;
         mmu.inc_clock(Cycle::N, self.regs.pc, 1);
         if pop {
+            let mut stack_pop = |sp, last_access| {
+                let value = mmu.read32(sp);
+                if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
+                else { mmu.inc_clock(Cycle::S, sp, 2) }
+                value
+            };
             let mut reg = 0;
+            let mut sp = self.regs.get_reg(Reg::R13);
             while r_list != 0 {
                 if r_list & 0x1 != 0 {
-                    let value = self.stack_pop(mmu, r_list == 1 && !pc_lr);
+                    let value = stack_pop(sp, r_list == 1 && !pc_lr);
                     self.regs.set_reg_i(reg, value);
+                    sp += 4;
                 }
                 reg += 1;
                 r_list >>= 1;
             }
+            if pc_lr {
+                self.regs.pc = stack_pop(sp, true) & !0x1;
+                sp += 4;
+                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(2), 1);
+                self.fill_thumb_instr_buffer(mmu);
+            } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1); }
+            self.regs.set_reg(Reg::R13, sp);
         } else {
+            let mut stack_push = |sp, value, last_access| {
+                mmu.write32(sp, value);
+                if last_access { mmu.inc_clock(Cycle::N, sp, 2) }
+                else { mmu.inc_clock(Cycle::S, sp, 2) }
+            };
             let mut reg = 8;
+            let mut sp = self.regs.get_reg(Reg::R13);
             while r_list != 0 {
                 reg -= 1;
                 if r_list & 0x80 != 0 {
-                    self.stack_push(mmu, self.regs.get_reg_i(reg), r_list == 0x80 && !pc_lr);
+                    sp -= 4;
+                    stack_push(sp, self.regs.get_reg_i(reg), r_list == 0x80 && !pc_lr);
                 }
                 r_list <<= 1;
             }
-        }
-        if pc_lr {
-            if pop {
-                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(2), 1);
-                self.regs.pc = self.stack_pop(mmu, true) & !0x1;
-                self.fill_thumb_instr_buffer(mmu);
-            } else {
-                self.stack_push(mmu, self.regs.get_reg(Reg::R14), true);
-            }
-        } else if pop {
-            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+            if pc_lr { sp -= 4; stack_push(sp, self.regs.get_reg(Reg::R14), true); }
+            self.regs.set_reg(Reg::R13, sp);
         }
     }
 
