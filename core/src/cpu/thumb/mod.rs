@@ -372,15 +372,15 @@ impl CPU {
             };
             let mut reg = 8;
             let mut sp = self.regs.get_reg(Reg::R13);
+            if pc_lr { sp -= 4; stack_push(sp, self.regs.get_reg(Reg::R14), true); }
             while r_list != 0 {
                 reg -= 1;
                 if r_list & 0x80 != 0 {
                     sp -= 4;
-                    stack_push(sp, self.regs.get_reg_i(reg), r_list == 0x80 && !pc_lr);
+                    stack_push(sp, self.regs.get_reg_i(reg), r_list == 0x80);
                 }
                 r_list <<= 1;
             }
-            if pc_lr { sp -= 4; stack_push(sp, self.regs.get_reg(Reg::R14), true); }
             self.regs.set_reg(Reg::R13, sp);
         }
     }
