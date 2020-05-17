@@ -118,6 +118,11 @@ pub trait IMMU: MemoryHandler {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
 }
 
+pub trait IORegister {
+    fn read(&self) -> u16;
+    fn write(&mut self, mask: u16, value: u16);
+}
+
 #[derive(PartialEq)]
 pub enum Cycle {
     N,
