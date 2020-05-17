@@ -10,7 +10,7 @@ use interrupt_controller::InterruptController;
 pub struct MMU {
     bios: ROM,
     wram32: RAM,
-    _rom: ROM,
+    rom: ROM,
     clocks_ahead: u32,
 
     // IO
@@ -25,9 +25,9 @@ pub struct MMU {
 impl MMU {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> MMU {
         MMU {
-            bios: ROM::new(bios),
+            bios: ROM::new(0, bios),
             wram32: RAM::new(0x03000000, 0x8000),
-            _rom: ROM::new(rom),
+            rom: ROM::new(0x08000000, rom),
             clocks_ahead: 0,
 
             // IO
@@ -82,6 +82,7 @@ impl MemoryHandler for MMU {
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
+            0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr),
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -107,6 +108,7 @@ impl MemoryHandler for MMU {
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
+            0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
