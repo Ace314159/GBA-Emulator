@@ -9,6 +9,7 @@ use interrupt_controller::InterruptController;
 
 pub struct MMU {
     bios: ROM,
+    wram256: RAM,
     wram32: RAM,
     rom: ROM,
     clocks_ahead: u32,
@@ -26,6 +27,7 @@ impl MMU {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> MMU {
         MMU {
             bios: ROM::new(0, bios),
+            wram256: RAM::new(0x02000000, 0x40000),
             wram32: RAM::new(0x03000000, 0x8000),
             rom: ROM::new(0x08000000, rom),
             clocks_ahead: 0,
@@ -47,8 +49,9 @@ impl IMMU for MMU {
         self.clocks_ahead += match addr {
             0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
             0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
+            0x02000000 ..= 0x0203FFFF => [3, 3, 6][access_width as usize], // WRAM - On-board 256K
             0x02040000 ..= 0x02FFFFFF => 1, // Unused Memory
-            0x03000000 ..= 0x03007FFF => 1,
+            0x03000000 ..= 0x03007FFF => 1, // WRAM - In-chip 32K
             0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
             0x04000000 ..= 0x040003FE => 1, // IO
             0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
