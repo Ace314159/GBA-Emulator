@@ -10,7 +10,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/target/debug/gba-emulator.exe",
-            // "args": [">", "ROMs/stdout.log"],
+            "args": [">", "ROMs/stdout.log"],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [{"name": "RUST_BACKTRACE", "value": "0"}],
