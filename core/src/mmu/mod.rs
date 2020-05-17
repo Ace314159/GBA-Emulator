@@ -75,8 +75,10 @@ impl MemoryHandler for MMU {
             0x04000203 => (self.interrupt_controller.request.read() >> 8) as u8,
             0x04000204 => (self.waitcnt.read() >> 0) as u8,
             0x04000205 => (self.waitcnt.read() >> 8) as u8,
+            0x04000206 ..= 0x04000207 => 0, // Unused IO Register
             0x04000208 => (self.interrupt_controller.master_enable.read() >> 0) as u8,
             0x04000209 => (self.interrupt_controller.master_enable.read() >> 8) as u8,
+            0x0400020A ..= 0x040002FF => 0, // Unused IO Register
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
@@ -98,8 +100,10 @@ impl MemoryHandler for MMU {
             0x04000203 => self.interrupt_controller.request.write( 0xFF00, (value as u16) << 0),
             0x04000204 => self.waitcnt.write(0x00FF, (value as u16) << 0),
             0x04000205 => self.waitcnt.write(0xFF00, (value as u16) << 8),
+            0x04000206 ..= 0x04000207 => {}, // Unused IO Register
             0x04000208 => self.interrupt_controller.master_enable.write(0x00FF, (value as u16) << 0),
             0x04000209 => self.interrupt_controller.master_enable.write(0xFF00, (value as u16) << 8),
+            0x0400020A ..= 0x040002FF => {}, // Unused IO Register
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
