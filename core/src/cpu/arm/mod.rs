@@ -95,9 +95,13 @@ impl CPU {
         let change_status = (instr >> 20) & 0x1 != 0;
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
         let mut temp_inc_pc = false;
+        let opcode = (instr >> 21) & 0xF;
         let op2 = if immediate_op2 {
             let shift = (instr >> 8) & 0xF;
-            (instr & 0xFF).rotate_right(shift * 2)
+            let operand = instr & 0xFF;
+            if (opcode < 0x5 || opcode > 0x7) && shift != 0 {
+                self.shift(mmu, 3, operand, shift * 2, true, change_status)
+            } else { operand.rotate_right(shift * 2) }
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
             let shift = if shift_by_reg {
@@ -112,7 +116,6 @@ impl CPU {
             let op2 = self.regs.get_reg_i(instr & 0xF);
             self.shift(mmu, shift_type, op2, shift, !shift_by_reg, change_status)
         };
-        let opcode = (instr >> 21) & 0xF;
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
         let result = match opcode {
             0x0 | 0x8 => op1 & op2, // AND and TST
