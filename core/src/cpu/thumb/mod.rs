@@ -371,8 +371,37 @@ impl CPU {
     }
 
     // THUMB.15: multiple load/store
-    fn multiple_load_store<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.15: multiple load/store not implemented!")
+    fn multiple_load_store<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 12, 0b1100);
+        let load = instr >> 11 & 0x1 != 0;
+        let base_reg = (instr >> 8 & 0x7) as u32;
+        let mut base = self.regs.get_reg_i(base_reg);
+        let mut r_list = (instr & 0xFF) as u8;
+    
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        let mut reg = 0;
+        let mut exec = |reg, last_access| {
+            let addr = base;
+            base = base.wrapping_add(4);
+            if load {
+                self.regs.set_reg_i(reg, mmu.read32(addr));
+                if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
+                else { mmu.inc_clock(Cycle::S, addr, 2) }
+            } else {
+                if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
+                else { mmu.inc_clock(Cycle::S, addr, 2) }
+            }
+        };
+        while r_list != 0x1 {
+            if r_list & 0x1 != 0 {
+                exec(reg, false);
+            }
+            reg += 1;
+            r_list >>= 1;
+        }
+        exec(reg, true);
+        if load { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2) }
+        self.regs.set_reg_i(base_reg, base);
     }
 
     // THUMB.16: conditional branch
