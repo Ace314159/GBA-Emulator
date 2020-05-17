@@ -9,7 +9,7 @@ use interrupt_controller::InterruptController;
 
 pub struct MMU {
     bios: ROM,
-    wram_32: RAM,
+    wram32: RAM,
     _rom: ROM,
     clocks_ahead: u32,
 
@@ -26,7 +26,7 @@ impl MMU {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> MMU {
         MMU {
             bios: ROM::new(bios),
-            wram_32: RAM::new(0x03000000, 0x8000),
+            wram32: RAM::new(0x03000000, 0x8000),
             _rom: ROM::new(rom),
             clocks_ahead: 0,
 
@@ -66,7 +66,7 @@ impl MemoryHandler for MMU {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
             0x00004000 ..= 0x01FFFFFF => 0, // Unused Memory
             0x02040000 ..= 0x02FFFFFF => 0, // Unused Memory
-            0x03000000 ..= 0x03007FFF => self.wram_32.read8(addr),
+            0x03000000 ..= 0x03007FFF => self.wram32.read8(addr),
             0x03008000 ..= 0x03FFFFFF => 0, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
             0x04000200 => (self.interrupt_controller.enable.read() >> 0) as u8,
@@ -91,7 +91,7 @@ impl MemoryHandler for MMU {
             0x00000000 ..= 0x00003FFF => self.bios.write8(addr, value),
             0x00004000 ..= 0x01FFFFFF => {}, // Unused Memory
             0x02040000 ..= 0x02FFFFFF => {}, // Unused Memory
-            0x03000000 ..= 0x03007FFF => self.wram_32.write8(addr, value),
+            0x03000000 ..= 0x03007FFF => self.wram32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
             0x04000200 => self.interrupt_controller.enable.write( 0x00FF, (value as u16) << 0),
