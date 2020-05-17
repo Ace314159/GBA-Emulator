@@ -245,8 +245,34 @@ impl CPU {
     }
 
     // THUMB.9: load/store with immediate offset
-    fn load_store_imm_offset<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
-        unimplemented!("THUMB.9: load/store with immediate offset not implemented!")
+    fn load_store_imm_offset<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+        assert_eq!(instr >> 13, 0b011);
+        let load = instr >> 11 & 0x1 != 0;
+        let byte = instr >> 12 & 0x1 != 0;
+        let offset = (instr >> 6 & 0x1F) as u32;
+        let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
+        let src_dest_reg = (instr & 0x7) as u32;
+
+        mmu.inc_clock(Cycle::N, self.regs.pc, 1);
+        if load {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
+            self.regs.set_reg_i(src_dest_reg, if byte {
+                mmu.read8(base.wrapping_add(offset)) as u32
+            } else { mmu.read32(base.wrapping_add(offset)) });
+        } else {
+            let value = self.regs.get_reg_i(src_dest_reg);
+            let addr = if byte {
+                let addr = base.wrapping_add(offset);
+                mmu.write8(addr, value as u8);
+                addr
+            } else {
+                let addr = base.wrapping_add(offset << 2);
+                mmu.write32(addr, value);
+                addr
+            };
+            mmu.inc_clock(Cycle::N, addr, 1);
+        }
     }
 
     // THUMB.10: load/store halfword
