@@ -441,7 +441,6 @@ impl CPU {
     fn branch_with_link<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
         assert_eq!(instr >> 12, 0xF);
         let offset = (instr & 0x7FF) as u32;
-        let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
         if instr >> 11 & 0x1 != 0 { // Second Instruction
             mmu.inc_clock(Cycle::N, self.regs.pc, 1);
             let next_instr_pc = self.regs.pc.wrapping_sub(2);
@@ -449,6 +448,7 @@ impl CPU {
             self.regs.set_reg(Reg::R14, next_instr_pc | 0x1);
             self.fill_thumb_instr_buffer(mmu);
         } else { // First Instruction
+            let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
             assert_eq!(instr >> 11, 0b11110);
             self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_add(offset << 12));
             mmu.inc_clock(Cycle::S, self.regs.pc, 1);
