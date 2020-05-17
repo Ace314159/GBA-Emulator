@@ -18,7 +18,7 @@ pub struct CPU {
 impl CPU {
     pub fn new<M>(mmu: &mut M) -> CPU where M: IMMU {
         let mut cpu = CPU {
-            regs: RegValues::new(),
+            regs: RegValues::no_bios(),
             instr_buffer: [0; 2],
             p: true,
         };
