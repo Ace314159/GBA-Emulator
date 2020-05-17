@@ -8,6 +8,7 @@ pub struct PPU {
     // Registers
     dispcnt: DISPCNT,
     dispstat: DISPSTAT,
+    vcount: u8,
 }
 
 impl PPU {
@@ -15,6 +16,7 @@ impl PPU {
         PPU {
             dispcnt: DISPCNT::new(),
             dispstat: DISPSTAT::new(),
+            vcount: 0, 
         }
     }
 }
@@ -27,6 +29,8 @@ impl MemoryHandler for PPU {
             0x001 => (self.dispcnt.read() >> 8) as u8,
             0x004 => (self.dispstat.read() >> 0) as u8,
             0x005 => (self.dispstat.read() >> 8) as u8,
+            0x006 => self.vcount as u8,
+            0x007 => 0, // Unused area of VCOUNT
             _ => unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -38,6 +42,8 @@ impl MemoryHandler for PPU {
             0x001 => self.dispcnt.write(0xFF00, (value as u16) << 8),
             0x004 => self.dispstat.write(0x00FF, (value as u16) << 0),
             0x005 => self.dispstat.write(0xFF00, (value as u16) << 8),
+            0x006 => {},
+            0x007 => {},
             _ => unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
