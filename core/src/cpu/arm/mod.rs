@@ -114,7 +114,8 @@ impl CPU {
             };
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
-            self.shift(mmu, shift_type, op2, shift, !shift_by_reg, change_status)
+            self.shift(mmu, shift_type, op2, shift, !shift_by_reg,
+                change_status && (opcode < 0x5 || opcode > 0x7))
         };
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
         let result = match opcode {
