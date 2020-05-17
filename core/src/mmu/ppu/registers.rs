@@ -1,22 +1,5 @@
 use super::IORegister;
 
-bitflags! {
-    pub struct DISPCNTFlags: u16 {
-        const CGB_MODE = 1 << 3;
-        const DISPLAY_FRAME_SELECT = 1 << 4;
-        const HBLANK_INTERVAL_FREE = 1 << 5;
-        const OBJ_CHAR_MAPPING = 1 << 6;
-        const FORCED_BLANK = 1 << 7;
-        const DISPLAY_BG0 = 1 << 8;
-        const DISPLAY_BG1 = 1 << 9;
-        const DISPLAY_BG2 = 1 << 10;
-        const DISPLAY_BG3 = 1 << 11;
-        const DISPLAY_OBJ = 1 << 12;
-        const DISPLAY_WINDOW0 = 1 << 13;
-        const DISPLAY_WINDOW1 = 1 << 14;
-        const DISPLAY_OBJ_WINDOW = 1 << 15;
-    }
-}
 #[derive(Clone, Copy)]
 pub enum BGMode {
     Mode0 = 0,
@@ -39,6 +22,24 @@ impl BGMode {
             5 => Mode5,
             _ => panic!("Invalid BG Mode!"),
         }
+    }
+}
+
+bitflags! {
+    pub struct DISPCNTFlags: u16 {
+        const CGB_MODE = 1 << 3;
+        const DISPLAY_FRAME_SELECT = 1 << 4;
+        const HBLANK_INTERVAL_FREE = 1 << 5;
+        const OBJ_CHAR_MAPPING = 1 << 6;
+        const FORCED_BLANK = 1 << 7;
+        const DISPLAY_BG0 = 1 << 8;
+        const DISPLAY_BG1 = 1 << 9;
+        const DISPLAY_BG2 = 1 << 10;
+        const DISPLAY_BG3 = 1 << 11;
+        const DISPLAY_OBJ = 1 << 12;
+        const DISPLAY_WINDOW0 = 1 << 13;
+        const DISPLAY_WINDOW1 = 1 << 14;
+        const DISPLAY_OBJ_WINDOW = 1 << 15;
     }
 }
 
