@@ -403,6 +403,7 @@ impl CPU {
                 if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
                 else { mmu.inc_clock(Cycle::S, addr, 2) }
             } else {
+                mmu.write32(addr, self.regs.get_reg_i(reg));
                 if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
                 else { mmu.inc_clock(Cycle::S, addr, 2) }
             }
