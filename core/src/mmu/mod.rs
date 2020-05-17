@@ -1,9 +1,11 @@
 mod memory;
 mod ppu;
+mod interrupt_controller;
 
 use memory::ROM;
 use memory::RAM;
 use ppu::PPU;
+use interrupt_controller::InterruptController;
 
 pub struct MMU {
     bios: ROM,
@@ -13,9 +15,9 @@ pub struct MMU {
 
     // IO
     ppu: PPU,
+    interrupt_controller: InterruptController,
 
     // Registers
-    ime: bool,
     haltcnt: u16,
 }
 
@@ -29,9 +31,9 @@ impl MMU {
 
             // IO
             ppu: PPU::new(),
+            interrupt_controller: InterruptController::new(),
 
             // Registers
-            ime: false,
             haltcnt: 0,
         }
     }
@@ -62,7 +64,12 @@ impl MemoryHandler for MMU {
             0x03000000 ..= 0x03007FFF => self.wram_32.read8(addr),
             0x03008000 ..= 0x03FFFFFF => 0, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
-            0x04000208 => self.ime as u8,
+            0x04000200 => (self.interrupt_controller.enable.read() >> 0) as u8,
+            0x04000201 => (self.interrupt_controller.enable.read() >> 8) as u8,
+            0x04000202 => (self.interrupt_controller.request.read() >> 0) as u8,
+            0x04000203 => (self.interrupt_controller.request.read() >> 8) as u8,
+            0x04000208 => (self.interrupt_controller.master_enable.read() >> 0) as u8,
+            0x04000209 => (self.interrupt_controller.master_enable.read() >> 8) as u8,
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
@@ -78,7 +85,12 @@ impl MemoryHandler for MMU {
             0x03000000 ..= 0x03007FFF => self.wram_32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
-            0x04000208 => self.ime = value & 0x1 != 0,
+            0x04000200 => self.interrupt_controller.enable.write( 0x00FF, (value as u16) << 0),
+            0x04000201 => self.interrupt_controller.enable.write( 0xFF00, (value as u16) << 8),
+            0x04000202 => self.interrupt_controller.request.write( 0x00FF, (value as u16) << 0),
+            0x04000203 => self.interrupt_controller.request.write( 0xFF00, (value as u16) << 0),
+            0x04000208 => self.interrupt_controller.master_enable.write(0x00FF, (value as u16) << 0),
+            0x04000209 => self.interrupt_controller.master_enable.write(0xFF00, (value as u16) << 8),
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
