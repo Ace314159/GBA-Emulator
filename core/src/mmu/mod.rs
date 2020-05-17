@@ -68,6 +68,7 @@ impl MemoryHandler for MMU {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
             0x00004000 ..= 0x01FFFFFF => 0, // Unused Memory
+            0x02000000 ..= 0x0203FFFF => self.wram256.read8(addr),
             0x02040000 ..= 0x02FFFFFF => 0, // Unused Memory
             0x03000000 ..= 0x03007FFF => self.wram32.read8(addr),
             0x03008000 ..= 0x03FFFFFF => 0, // Unused Memory
@@ -94,6 +95,7 @@ impl MemoryHandler for MMU {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.write8(addr, value),
             0x00004000 ..= 0x01FFFFFF => {}, // Unused Memory
+            0x02000000 ..= 0x0203FFFF => self.wram256.write8(addr, value),
             0x02040000 ..= 0x02FFFFFF => {}, // Unused Memory
             0x03000000 ..= 0x03007FFF => self.wram32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
