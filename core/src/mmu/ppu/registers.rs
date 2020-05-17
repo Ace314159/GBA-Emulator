@@ -68,3 +68,40 @@ impl IORegister for DISPCNT {
         self.mode = BGMode::get(value & 0x7);
     }
 }
+
+bitflags! {
+    pub struct DISPSTATFlags: u16 {
+        const VBLANK = 1 << 0;
+        const HBLANK = 1 << 1;
+        const VCOUNTER = 1 << 2;
+        const VBLANK_IRQ_ENABLE = 1 << 3;
+        const HBLANK_IRQ_ENABLE = 1 << 4;
+        const VCOUNTER_IRQ_ENALBE = 1 << 5;
+    }
+}
+
+pub struct DISPSTAT {
+    pub flags: DISPSTATFlags,
+    pub vcount_setting: u8,
+}
+
+impl DISPSTAT {
+    pub fn new() -> DISPSTAT {
+        DISPSTAT {
+            flags: DISPSTATFlags::empty(),
+            vcount_setting: 0,
+        }
+    }
+}
+
+impl IORegister for DISPSTAT {
+    fn read(&self) -> u16 {
+        self.flags.bits | (self.vcount_setting as u16)
+    }
+
+    fn write(&mut self, mask: u16, value: u16) {
+        let value = value & mask;
+        self.flags.bits = value & DISPCNTFlags::all().bits();
+        self.vcount_setting = value as u8;
+    }
+}
