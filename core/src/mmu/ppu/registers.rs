@@ -1,3 +1,5 @@
+use super::IORegister;
+
 bitflags! {
     pub struct DISPCNTFlags: u16 {
         const CGB_MODE = 1 << 3;
@@ -52,13 +54,16 @@ impl DISPCNT {
             mode: BGMode::Mode0,
         }
     }
+}
 
-    pub fn update(&mut self, value: u16) {
-        self.flags.bits = value & !0x7;
-        self.mode = BGMode::get(value & 0x7);
+impl IORegister for DISPCNT {
+    fn read(&self) -> u16 {
+        self.flags.bits | (self.mode as u16)
     }
 
-    pub fn bits(&self) -> u16 {
-        self.flags.bits | (self.mode as u16)
+    fn write(&mut self, mask: u16, value: u16) {
+        let value = value & mask;
+        self.flags.bits = value & DISPCNTFlags::all().bits();
+        self.mode = BGMode::get(value & 0x7);
     }
 }
