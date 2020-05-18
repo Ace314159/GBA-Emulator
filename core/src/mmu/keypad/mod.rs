@@ -10,7 +10,7 @@ pub struct Keypad {
 impl Keypad {
     pub fn new() -> Keypad {
         Keypad {
-            keyinput: KEYINPUT::empty(),
+            keyinput: KEYINPUT::all(),
             keycnt: KEYCNT::empty(),
         }
     }
