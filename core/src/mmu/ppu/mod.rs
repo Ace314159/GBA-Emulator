@@ -14,6 +14,9 @@ pub struct PPU {
     // Palettes
     bg_colors: [u16; 0x100],
     obj_colors: [u16; 0x100],
+
+    // Important Rendering Variables
+    dot: u16,
 }
 
 impl PPU {
@@ -28,6 +31,9 @@ impl PPU {
             // Palettes
             bg_colors: [0; 0x100],
             obj_colors: [0; 0x100],
+
+            // Important Rendering Variables
+            dot: 0,
         }
     }
 
@@ -50,6 +56,25 @@ impl PPU {
             colors[index] = colors[index] & !0x00FF | (value as u16) << 0;
         } else {
             colors[index] = colors[index] & !0xFF00 | (value as u16) << 8;
+        }
+    }
+
+    pub fn emulate_dot(&mut self) {
+        if self.dot < 240 { // Visible
+            self.dispstat.flags.remove(DISPSTATFlags::HBLANK);
+        } else { // HBlank
+            self.dispstat.flags.insert(DISPSTATFlags::HBLANK);
+        }
+        if self.vcount < 160 { // Visible
+            self.dispstat.flags.remove(DISPSTATFlags::VBLANK);
+        } else { // VBlank
+            self.dispstat.flags.insert(DISPSTATFlags::VBLANK);
+        }
+
+        self.dot += 1;
+        if self.dot == 308 {
+            self.dot = 0;
+            self.vcount = (self.vcount + 1) % 228;
         }
     }
 }

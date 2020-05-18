@@ -61,6 +61,11 @@ impl IMMU for MMU {
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
             _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
         };
+
+        while self.clocks_ahead >= 4 {
+            self.clocks_ahead -= 4;
+            self.ppu.emulate_dot();
+        }
     }
 }
 
