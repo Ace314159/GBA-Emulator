@@ -1,10 +1,12 @@
 mod memory;
 mod ppu;
+mod keypad;
 mod interrupt_controller;
 
 use memory::ROM;
 use memory::RAM;
 use ppu::PPU;
+use keypad::Keypad;
 use interrupt_controller::InterruptController;
 
 pub struct MMU {
@@ -16,6 +18,7 @@ pub struct MMU {
 
     // IO
     ppu: PPU,
+    keypad: Keypad,
     interrupt_controller: InterruptController,
 
     // Registers
@@ -34,6 +37,7 @@ impl MMU {
 
             // IO
             ppu: PPU::new(),
+            keypad: Keypad::new(),
             interrupt_controller: InterruptController::new(),
 
             // Registers
@@ -80,6 +84,10 @@ impl MemoryHandler for MMU {
             0x03000000 ..= 0x03007FFF => self.wram32.read8(addr),
             0x03008000 ..= 0x03FFFFFF => 0, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
+            0x04000130 => (self.keypad.keyinput.read() >> 0) as u8,
+            0x04000131 => (self.keypad.keyinput.read() >> 8) as u8,
+            0x04000132 => (self.keypad.keycnt.read() >> 0) as u8,
+            0x04000133 => (self.keypad.keycnt.read() >> 8) as u8,
             0x04000200 => (self.interrupt_controller.enable.read() >> 0) as u8,
             0x04000201 => (self.interrupt_controller.enable.read() >> 8) as u8,
             0x04000202 => (self.interrupt_controller.request.read() >> 0) as u8,
@@ -109,6 +117,10 @@ impl MemoryHandler for MMU {
             0x03000000 ..= 0x03007FFF => self.wram32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
+            0x04000130 => self.keypad.keyinput.write(0x00FF, (value as u16) << 0),
+            0x04000131 => self.keypad.keyinput.write(0xFF00, (value as u16) << 8),
+            0x04000132 => self.keypad.keycnt.write(0x00FF, (value as u16) << 0),
+            0x04000133 => self.keypad.keycnt.write(0xFF00, (value as u16) << 8),
             0x04000200 => self.interrupt_controller.enable.write( 0x00FF, (value as u16) << 0),
             0x04000201 => self.interrupt_controller.enable.write( 0xFF00, (value as u16) << 8),
             0x04000202 => self.interrupt_controller.request.write( 0x00FF, (value as u16) << 0),
