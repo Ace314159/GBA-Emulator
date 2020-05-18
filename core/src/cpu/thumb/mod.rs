@@ -35,30 +35,30 @@ impl CPU {
         self.regs.pc = self.regs.pc.wrapping_add(2);
         self.instr_buffer[1] = mmu.read16(self.regs.pc & !0x1) as u32;
 
-        if instr & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { self.add_sub(instr, mmu) }
-        else if instr & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { self.move_shifted_reg(instr, mmu) }
-        else if instr & 0b1110_0000_0000_0000 == 0b0010_0000_0000_0000 { self.immediate(instr, mmu) }
-        else if instr & 0b1111_1100_0000_0000 == 0b0100_0000_0000_0000 { self.alu(instr, mmu) }
-        else if instr & 0b1111_1100_0000_0000 == 0b0100_0100_0000_0000 { self.hi_reg_bx(instr, mmu) }
-        else if instr & 0b1111_1000_0000_0000 == 0b0100_1000_0000_0000 { self.load_pc_rel(instr, mmu) }
-        else if instr & 0b1111_1001_0000_0000 == 0b0101_0000_0000_0000 { self.load_store_reg_offset(instr, mmu) }
-        else if instr & 0b1111_1001_0000_0000 == 0b0101_0010_0000_0000 { self.load_store_sign_ext(instr, mmu) }
-        else if instr & 0b1110_0000_0000_0000 == 0b0110_0000_0000_0000 { self.load_store_imm_offset(instr, mmu) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1000_0000_0000_0000 { self.load_store_halfword(instr, mmu) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1001_0000_0000_0000 { self.load_store_sp_rel(instr, mmu) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1010_0000_0000_0000 { self.get_rel_addr(instr, mmu) }
-        else if instr & 0b1111_1111_0000_0000 == 0b1011_0000_0000_0000 { self.add_offset_sp(instr, mmu) }
-        else if instr & 0b1111_0110_0000_0000 == 0b1011_0100_0000_0000 { self.push_pop_regs(instr, mmu) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1100_0000_0000_0000 { self.multiple_load_store(instr, mmu) }
-        else if instr & 0b1111_1111_0000_0000 == 0b1101_1111_0000_0000 { self.thumb_software_interrupt(instr, mmu) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1101_0000_0000_0000 { self.cond_branch(instr, mmu) }
-        else if instr & 0b1111_1000_0000_0000 == 0b1110_0000_0000_0000 { self.uncond_branch(instr, mmu) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1111_0000_0000_0000 { self.branch_with_link(instr, mmu) }
+        if instr & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { self.add_sub(mmu, instr) }
+        else if instr & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { self.move_shifted_reg(mmu, instr) }
+        else if instr & 0b1110_0000_0000_0000 == 0b0010_0000_0000_0000 { self.immediate(mmu, instr) }
+        else if instr & 0b1111_1100_0000_0000 == 0b0100_0000_0000_0000 { self.alu(mmu, instr) }
+        else if instr & 0b1111_1100_0000_0000 == 0b0100_0100_0000_0000 { self.hi_reg_bx(mmu, instr) }
+        else if instr & 0b1111_1000_0000_0000 == 0b0100_1000_0000_0000 { self.load_pc_rel(mmu, instr) }
+        else if instr & 0b1111_1001_0000_0000 == 0b0101_0000_0000_0000 { self.load_store_reg_offset(mmu, instr) }
+        else if instr & 0b1111_1001_0000_0000 == 0b0101_0010_0000_0000 { self.load_store_sign_ext(mmu, instr) }
+        else if instr & 0b1110_0000_0000_0000 == 0b0110_0000_0000_0000 { self.load_store_imm_offset(mmu, instr) }
+        else if instr & 0b1111_0000_0000_0000 == 0b1000_0000_0000_0000 { self.load_store_halfword(mmu, instr) }
+        else if instr & 0b1111_0000_0000_0000 == 0b1001_0000_0000_0000 { self.load_store_sp_rel(mmu, instr) }
+        else if instr & 0b1111_0000_0000_0000 == 0b1010_0000_0000_0000 { self.get_rel_addr(mmu, instr) }
+        else if instr & 0b1111_1111_0000_0000 == 0b1011_0000_0000_0000 { self.add_offset_sp(mmu, instr) }
+        else if instr & 0b1111_0110_0000_0000 == 0b1011_0100_0000_0000 { self.push_pop_regs(mmu, instr) }
+        else if instr & 0b1111_0000_0000_0000 == 0b1100_0000_0000_0000 { self.multiple_load_store(mmu, instr) }
+        else if instr & 0b1111_1111_0000_0000 == 0b1101_1111_0000_0000 { self.thumb_software_interrupt(mmu, instr) }
+        else if instr & 0b1111_0000_0000_0000 == 0b1101_0000_0000_0000 { self.cond_branch(mmu, instr) }
+        else if instr & 0b1111_1000_0000_0000 == 0b1110_0000_0000_0000 { self.uncond_branch(mmu, instr) }
+        else if instr & 0b1111_0000_0000_0000 == 0b1111_0000_0000_0000 { self.branch_with_link(mmu, instr) }
         else { panic!("Unexpected Instruction: {:08X}", instr) }
     }
     
     // THUMB.1: move shifted register
-    fn move_shifted_reg<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn move_shifted_reg<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 13, 0b000);
         let opcode = (instr >> 11 & 0x3) as u32;
         let offset = (instr >> 6 & 0x1F) as u32;
@@ -74,7 +74,7 @@ impl CPU {
     }
 
     // THUMB.2: add/subtract
-    fn add_sub<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn add_sub<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 11, 0b00011);
         let sub = instr >> 9 & 0x1 != 0;
         let operand = (instr >> 6 & 0x7) as u32;
@@ -92,7 +92,7 @@ impl CPU {
     }
 
     // THUMB.3: move/compare/add/subtract immediate
-    fn immediate<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn immediate<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 13, 0b001);
         let opcode = instr >> 11 & 0x3;
         let dest_reg = instr >> 8 & 0x7;
@@ -113,7 +113,7 @@ impl CPU {
     }
 
     // THUMB.4: ALU operations
-    fn alu<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn alu<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 10 & 0x3F, 0b010000);
         let opcode = instr >> 6 & 0xF;
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
@@ -146,7 +146,7 @@ impl CPU {
     }
 
     // THUMB.5: Hi register operations/branch exchange
-    fn hi_reg_bx<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn hi_reg_bx<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 10, 0b010001);
         let opcode = instr >> 8 & 0x3;
         let dest_reg_msb = instr >> 7 & 0x1;
@@ -182,7 +182,7 @@ impl CPU {
     }
 
     // THUMB.6: load PC-relative
-    fn load_pc_rel<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn load_pc_rel<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 11, 0b01001);
         let dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) as u32;
@@ -194,7 +194,7 @@ impl CPU {
     }
 
     // THUMB.7: load/store with register offset
-    fn load_store_reg_offset<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn load_store_reg_offset<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0b0101);
         let opcode = instr >> 10 & 0x3; 
         assert_eq!(instr >> 9 & 0x1, 0);
@@ -225,7 +225,7 @@ impl CPU {
     }
 
     // THUMB.8: load/store sign-extended byte/halfword
-    fn load_store_sign_ext<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn load_store_sign_ext<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0b0101);
         let opcode = instr >> 10 & 0x3;
         assert_eq!(instr >> 9 & 0x1, 1);
@@ -247,7 +247,7 @@ impl CPU {
     }
 
     // THUMB.9: load/store with immediate offset
-    fn load_store_imm_offset<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn load_store_imm_offset<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 13, 0b011);
         let load = instr >> 11 & 0x1 != 0;
         let byte = instr >> 12 & 0x1 != 0;
@@ -278,7 +278,7 @@ impl CPU {
     }
 
     // THUMB.10: load/store halfword
-    fn load_store_halfword<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn load_store_halfword<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0b1000);
         let load = instr >> 1 & 0x1 != 0;
         let offset = (instr >> 6 & 0x1F) as u32;
@@ -298,7 +298,7 @@ impl CPU {
     }
 
     // THUMB.11: load/store SP-relative
-    fn load_store_sp_rel<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn load_store_sp_rel<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12 & 0xF, 0b1001);
         let load = instr >> 11 & 0x1 != 0;
         let src_dest_reg = (instr >> 8 & 0x7) as u32;
@@ -316,12 +316,12 @@ impl CPU {
     }
 
     // THUMB.12: get relative address
-    fn get_rel_addr<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
+    fn get_rel_addr<M>(&mut self, _mmu: &mut M, _instr: u16) where M: IMMU {
         unimplemented!("THUMB.12: get relative address not implemented!")
     }
 
     // THUMB.13: add offset to stack pointer
-    fn add_offset_sp<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn add_offset_sp<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 8 & 0xFF, 0b10110000);
         let sub = instr >> 7 & 0x1 != 0;
         let offset = ((instr & 0x7F) * 4) as u32;
@@ -332,7 +332,7 @@ impl CPU {
     }
 
     // THUMB.14: push/pop registers
-    fn push_pop_regs<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn push_pop_regs<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12 & 0xF, 0b1011);
         let pop = instr >> 11 & 0x1 != 0;
         assert_eq!(instr >> 9 & 0x3, 0b10);
@@ -386,7 +386,7 @@ impl CPU {
     }
 
     // THUMB.15: multiple load/store
-    fn multiple_load_store<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn multiple_load_store<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0b1100);
         let load = instr >> 11 & 0x1 != 0;
         let base_reg = (instr >> 8 & 0x7) as u32;
@@ -421,7 +421,7 @@ impl CPU {
     }
 
     // THUMB.16: conditional branch
-    fn cond_branch<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn cond_branch<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0b1101);
         let condition = instr >> 8 & 0xF;
         assert_eq!(condition < 0xE, true);
@@ -436,12 +436,12 @@ impl CPU {
     }
 
     // THUMB.17: software interrupt
-    fn thumb_software_interrupt<M>(&mut self, _instr: u16, _mmu: &mut M) where M: IMMU {
+    fn thumb_software_interrupt<M>(&mut self, _mmu: &mut M, _instr: u16) where M: IMMU {
         unimplemented!("THUMB.17: software interrupt not implemented!")
     }
 
     // THUMB.18: unconditional branch
-    fn uncond_branch<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn uncond_branch<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 11, 0b11100);
         let offset = (instr & 0x7FF) as u32;
         let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
@@ -452,7 +452,7 @@ impl CPU {
     }
 
     // THUMB.19: long branch with link
-    fn branch_with_link<M>(&mut self, instr: u16, mmu: &mut M) where M: IMMU {
+    fn branch_with_link<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0xF);
         let offset = (instr & 0x7FF) as u32;
         if instr >> 11 & 0x1 != 0 { // Second Instruction

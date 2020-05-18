@@ -35,40 +35,40 @@ impl CPU {
 
         if self.should_exec((instr >> 28) & 0xF) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
-                self.branch_and_exchange(instr, mmu);
+                self.branch_and_exchange(mmu, instr);
             } else if instr & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.mul_mula(instr, mmu);
+                self.mul_mula(mmu, instr);
             } else if instr & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
-                self.mul_long(instr, mmu);
+                self.mul_long(mmu, instr);
             } else if instr & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
-                self.single_data_swap(instr, mmu);
+                self.single_data_swap(mmu, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.halfword_and_signed_data_transfer(instr, mmu);
+                self.halfword_and_signed_data_transfer(mmu, instr);
             } else if instr & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
-                self.psr_transfer(instr, mmu);
+                self.psr_transfer(mmu, instr);
             } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
-                self.data_proc(instr, mmu);
+                self.data_proc(mmu, instr);
             } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0100_0000_0000_0000_0000_0000_0000 {
-                self.single_data_transfer(instr, mmu);
+                self.single_data_transfer(mmu, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1000_0000_0000_0000_0000_0000_0000 {
-                self.block_data_transfer(instr, mmu);
+                self.block_data_transfer(mmu, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
-                self.branch_branch_with_link(instr, mmu);
+                self.branch_branch_with_link(mmu, instr);
             } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
-                self.arm_software_interrupt(instr, mmu);
+                self.arm_software_interrupt(mmu, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
-                self.coprocessor(instr, mmu);
+                self.coprocessor(mmu, instr);
             } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
-                self.coprocessor(instr, mmu);
+                self.coprocessor(mmu, instr);
             } else {
                 assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
-                self.undefined_instr(instr, mmu);
+                self.undefined_instr(mmu, instr);
             }
         } else { mmu.inc_clock(Cycle::N, self.regs.pc & !0x3, 2) }
     }
 
     // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn branch_and_exchange<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         mmu.inc_clock(Cycle::N, self.regs.pc, 2);
         self.regs.pc = self.regs.get_reg_i(instr & 0xF);
         if self.regs.pc & 0x1 != 0 {
@@ -79,7 +79,7 @@ impl CPU {
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
-    fn branch_branch_with_link<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn branch_branch_with_link<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         let opcode = (instr >> 24) & 0x1;
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
@@ -91,7 +91,7 @@ impl CPU {
     }
 
     // ARM.5: Data Processing
-    fn data_proc<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn data_proc<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         let change_status = (instr >> 20) & 0x1 != 0;
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
         let mut temp_inc_pc = false;
@@ -152,7 +152,7 @@ impl CPU {
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn psr_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         assert_eq!(instr >> 26 & 0b11, 0b00);
         let immediate_operand = (instr >> 25) & 0x1 != 0;
         assert_eq!(instr >> 23 & 0b11, 0b10);
@@ -185,17 +185,17 @@ impl CPU {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul_mula<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn mul_mula<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("ARM.7: Multiply and Multiply-Accumulate (MUL, MLA) not implemented!");
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn mul_long<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL) not implemented!");
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
-    fn single_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn single_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         assert_eq!(instr >> 26 & 0b11, 0b01);
         let shifted_reg_offset = instr >> 25 & 0x1 != 0;
         let pre_offset = instr >> 24 & 0x1 != 0;
@@ -243,12 +243,12 @@ impl CPU {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn halfword_and_signed_data_transfer<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH) not implemented!");
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer<M>(&mut self, instr: u32, mmu: &mut M) where M: IMMU {
+    fn block_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         assert_eq!(instr >> 25 & 0x7, 0b100);
         let pre_offset = instr >> 24 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
@@ -315,24 +315,24 @@ impl CPU {
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn single_data_swap<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("ARM.12: Single Data Swap (SWP) not implemented!");
     }
 
     // ARM.13: Software Interrupt (SWI)
-    fn arm_software_interrupt<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn arm_software_interrupt<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("ARM.13: Software Interrupt (SWI) not implemented!");
     }
 
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
-    fn coprocessor<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn coprocessor<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("Coprocessor not implemented!");
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr<M>(&mut self, _instr: u32, _mmu: &mut M) where M: IMMU {
+    fn undefined_instr<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
 }

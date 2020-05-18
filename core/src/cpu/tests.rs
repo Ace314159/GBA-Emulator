@@ -82,7 +82,7 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
     let instr_len = if cpu.regs.get_t() { cpu.regs.pc = 2; 2 } else { 4 };
     cpu.regs.pc = cpu.regs.pc.wrapping_add(instr_len); // Add instr_len to simulate incrementing pc when fetching instr
     mmu.enable_reading();
-    cpu.$instr_name($instr, &mut mmu);
+    cpu.$instr_name(&mut mmu, $instr);
     (cpu, mmu)
 } } }
 
