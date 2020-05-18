@@ -96,12 +96,12 @@ impl DISPSTAT {
 
 impl IORegister for DISPSTAT {
     fn read(&self) -> u16 {
-        self.flags.bits | (self.vcount_setting as u16)
+        (self.vcount_setting as u16) << 8 | self.flags.bits
     }
 
     fn write(&mut self, mask: u16, value: u16) {
         let value = value & mask;
         self.flags.bits = value & DISPCNTFlags::all().bits();
-        self.vcount_setting = value as u8;
+        self.vcount_setting = (value >> 8) as u8;
     }
 }
