@@ -10,15 +10,46 @@ pub struct PPU {
     green_swap: bool,
     dispstat: DISPSTAT,
     vcount: u8,
+
+    // Palettes
+    bg_colors: [u16; 0x100],
+    obj_colors: [u16; 0x100],
 }
 
 impl PPU {
     pub fn new() -> PPU {
         PPU {
+            // Registers
             dispcnt: DISPCNT::new(),
             green_swap: false,
             dispstat: DISPSTAT::new(),
             vcount: 0, 
+
+            // Palettes
+            bg_colors: [0; 0x100],
+            obj_colors: [0; 0x100],
+        }
+    }
+
+    pub fn read_palette_ram(&self, addr: u32) -> u8 {
+        let addr = (addr & 0x3FF) as usize;
+        let colors = if addr < 0x200 { &self.bg_colors } else { &self.obj_colors };
+        let index = (addr & 0xFF) / 2;
+        if addr % 2 == 0 {
+            (colors[index] >> 0) as u8
+        } else {
+            (colors[index] >> 8) as u8
+        }
+    }
+
+    pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
+        let addr = (addr & 0x3FF) as usize;
+        let colors = if addr < 0x200 { &mut self.bg_colors } else { &mut self.obj_colors };
+        let index = (addr & 0xFF) / 2;
+        if addr % 2 == 0 {
+            colors[index] = colors[index] & !0x00FF | (value as u16) << 0;
+        } else {
+            colors[index] = colors[index] & !0xFF00 | (value as u16) << 8;
         }
     }
 }
