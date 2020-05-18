@@ -56,6 +56,7 @@ impl IMMU for MMU {
             0x04000000 ..= 0x040003FE => 1, // IO
             0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
             0x05000000 ..= 0x050003FF => if access_width < 2 { 1 } else { 2 },
+            0x06000000 ..= 0x06017FFF => if access_width < 2 { 1 } else { 2 },
             0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
             0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
@@ -93,6 +94,7 @@ impl MemoryHandler for MMU {
             0x04000301 => (self.haltcnt >> 8) as u8,
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.read_palette_ram(addr),
+            0x06000000 ..= 0x06017FFF => self.ppu.read_vram(addr),
             0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr),
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
@@ -121,6 +123,7 @@ impl MemoryHandler for MMU {
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.write_palette_ram(addr, value),
+            0x06000000 ..= 0x06017FFF => self.ppu.write_vram(addr, value),
             0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }

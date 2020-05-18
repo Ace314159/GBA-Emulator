@@ -14,6 +14,8 @@ pub struct PPU {
     // Palettes
     bg_colors: [u16; 0x100],
     obj_colors: [u16; 0x100],
+    // VRAM
+    vram: [u8; 0x18000],
 
     // Important Rendering Variables
     dot: u16,
@@ -31,6 +33,8 @@ impl PPU {
             // Palettes
             bg_colors: [0; 0x100],
             obj_colors: [0; 0x100],
+            // VRAM
+            vram: [0; 0x18000],
 
             // Important Rendering Variables
             dot: 0,
@@ -57,6 +61,14 @@ impl PPU {
         } else {
             colors[index] = colors[index] & !0xFF00 | (value as u16) << 8;
         }
+    }
+
+    pub fn read_vram(&self, addr: u32) -> u8 {
+        self.vram[(addr - 0x06000000) as usize]
+    }
+
+    pub fn write_vram(&mut self, addr: u32, value: u8) {
+        self.vram[(addr - 0x06000000) as usize] = value;
     }
 
     pub fn emulate_dot(&mut self) {
