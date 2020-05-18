@@ -243,8 +243,55 @@ impl CPU {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
-        unimplemented!("ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH) not implemented!");
+    fn halfword_and_signed_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+        assert_eq!(instr >> 25 & 0x7, 0b000);
+        let pre_offset = instr >> 24 & 0x1 != 0;
+        let add_offset = instr >> 23 & 0x1 != 0;
+        let immediate_offset = instr >> 22 & 0x1 != 0;
+        let write_back = instr >> 21 & 0x1 != 0;
+        let load = instr >> 20 & 0x1 != 0;
+        let base_reg = instr >> 16 & 0xF;
+        let base = self.regs.get_reg_i(base_reg);
+        let src_dest_reg = instr >> 12 & 0xF;
+        let offset_hi = instr >> 8 & 0xF;
+        assert_eq!(instr >> 7 & 0x1, 1);
+        let opcode = instr >> 5 & 0x3;
+        assert_eq!(instr >> 4 & 0x1, 1);
+        let offset_low = instr & 0xF;
+        
+        let offset = if immediate_offset { offset_hi << 4 | offset_low }
+        else {
+            assert_eq!(offset_hi, 0);
+            self.regs.get_reg_i(offset_low)
+        };
+        
+        let mut exec = |addr| if load {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            self.regs.set_reg_i(src_dest_reg, match opcode {
+                1 => mmu.read16(addr) as u32,
+                2 => mmu.read8(addr) as i8 as u32,
+                3 => mmu.read16(addr) as i16 as u32,
+                _ => panic!("Invalid opcode!"),
+            });
+            if src_dest_reg == 15 {
+                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
+                self.fill_arm_instr_buffer(mmu);
+            } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
+        } else {
+            assert_eq!(opcode, 1);
+            let value = self.regs.get_reg_i(src_dest_reg);
+            mmu.inc_clock(Cycle::N, addr, 1);
+            mmu.write16(addr, value as u16);
+        };
+        let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
+        if pre_offset {
+            exec(offset_applied);
+            if write_back { self.regs.set_reg_i(base_reg, offset_applied) }
+        } else {
+            exec(base);
+            assert_eq!(write_back, false); // Writeback is always enabled, but bit is always 0
+            self.regs.set_reg_i(base_reg, offset_applied);
+        }
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
