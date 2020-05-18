@@ -185,8 +185,31 @@ impl CPU {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul_mula<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
-        unimplemented!("ARM.7: Multiply and Multiply-Accumulate (MUL, MLA) not implemented!");
+    fn mul_mula<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+        assert_eq!(instr >> 22 & 0x3F, 0b000000);
+        let accumulate = instr >> 21 & 0x1 != 0;
+        let change_status = instr >> 20 & 0x1 != 0;
+        let dest_reg = instr >> 16 & 0xF;
+        let op1_reg = instr >> 12 & 0xF;
+        let op1 = self.regs.get_reg_i(op1_reg);
+        let op2 = self.regs.get_reg_i(instr >> 8 & 0xF);
+        assert_eq!(instr >> 4 & 0xF, 0b1001);
+        let op3 = self.regs.get_reg_i(instr & 0xF);
+        
+        let result = if accumulate {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            self.mul(mmu, op2, op3).wrapping_add(op1)
+        } else {
+            assert_eq!(op1_reg, 0);
+            self.mul(mmu, op2, op3)
+        };
+        if change_status {
+            self.regs.set_n(result & 0x8000_0000 != 0);
+            self.regs.set_z(result == 0);
+        }
+        self.regs.set_reg_i(dest_reg, result);
+
+        mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2);
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
