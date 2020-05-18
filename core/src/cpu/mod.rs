@@ -20,7 +20,7 @@ impl CPU {
         let mut cpu = CPU {
             regs: RegValues::no_bios(),
             instr_buffer: [0; 2],
-            p: true,
+            p: false,
         };
         cpu.fill_arm_instr_buffer(mmu);
         cpu
