@@ -89,6 +89,35 @@ impl CPU {
                 },
                 _ => panic!("Invalid Shift type!"),
             }
+        } else if shift > 31 {
+            assert_eq!(immediate, false);
+            if !immediate { mmu.inc_clock(Cycle::I, 0, 0) }
+            match shift_type {
+                // LSL
+                0 => {
+                    if change_status {
+                        if shift == 32 { self.regs.set_c(operand << (shift - 1) & 0x8000_0000 != 0) }
+                        else { self.regs.set_c(false) }
+                    }
+                    0
+                },
+                // LSR
+                1 => {
+                    if change_status {
+                        if shift == 32 { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0)
+                    } else { self.regs.set_c(false) } }
+                    operand >> shift
+                },
+                // ASR
+                2 => {
+                    let c = operand & 0x8000_0000 != 0;
+                    if change_status { self.regs.set_c(c) }
+                    if c { 0xFFFF_FFFF } else { 0 }
+                },
+                // ROR
+                3 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand.rotate_right(shift) },
+                _ => panic!("Invalid Shift type!"),
+            }
         } else {
             if !immediate { mmu.inc_clock(Cycle::I, 0, 0) }
             let change_status = change_status && shift != 0;
