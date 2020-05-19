@@ -11,7 +11,7 @@ pub enum BGMode {
 }
 
 impl BGMode {
-    pub fn get(mode: u16) -> BGMode {
+    pub fn get(mode: u8) -> BGMode {
         use BGMode::*;
         match mode {
             0 => Mode0,
@@ -58,14 +58,21 @@ impl DISPCNT {
 }
 
 impl IORegister for DISPCNT {
-    fn read(&self) -> u16 {
-        self.flags.bits | (self.mode as u16)
+    fn read_low(&self) -> u8 {
+        (self.flags.bits as u8) | (self.mode as u8)
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = value & mask;
-        self.flags.bits = value & DISPCNTFlags::all().bits();
+    fn read_high(&self) -> u8 {
+        (self.flags.bits >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
         self.mode = BGMode::get(value & 0x7);
+        self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPSTATFlags::all().bits; 
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPSTATFlags::all().bits;
     }
 }
 
@@ -95,13 +102,19 @@ impl DISPSTAT {
 }
 
 impl IORegister for DISPSTAT {
-    fn read(&self) -> u16 {
-        (self.vcount_setting as u16) << 8 | self.flags.bits
+    fn read_low(&self) -> u8 {
+        self.flags.bits as u8
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = value & mask;
-        self.flags.bits = value & DISPCNTFlags::all().bits();
-        self.vcount_setting = (value >> 8) as u8;
+    fn read_high(&self) -> u8 {
+        self.vcount_setting as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.flags.bits = (value as u16) & DISPSTATFlags::all().bits;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.vcount_setting = value as u8;
     }
 }

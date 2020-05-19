@@ -95,19 +95,19 @@ impl MemoryHandler for MMU {
             0x03000000 ..= 0x03007FFF => self.wram32.read8(addr),
             0x03008000 ..= 0x03FFFFFF => 0, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
-            0x04000130 => (self.keypad.keyinput.read() >> 0) as u8,
-            0x04000131 => (self.keypad.keyinput.read() >> 8) as u8,
-            0x04000132 => (self.keypad.keycnt.read() >> 0) as u8,
-            0x04000133 => (self.keypad.keycnt.read() >> 8) as u8,
-            0x04000200 => (self.interrupt_controller.enable.read() >> 0) as u8,
-            0x04000201 => (self.interrupt_controller.enable.read() >> 8) as u8,
-            0x04000202 => (self.interrupt_controller.request.read() >> 0) as u8,
-            0x04000203 => (self.interrupt_controller.request.read() >> 8) as u8,
-            0x04000204 => (self.waitcnt.read() >> 0) as u8,
-            0x04000205 => (self.waitcnt.read() >> 8) as u8,
+            0x04000130 => self.keypad.keyinput.read_low(),
+            0x04000131 => self.keypad.keyinput.read_high(),
+            0x04000132 => self.keypad.keycnt.read_low(),
+            0x04000133 => self.keypad.keycnt.read_high(),
+            0x04000200 => self.interrupt_controller.enable.read_low(),
+            0x04000201 => self.interrupt_controller.enable.read_high(),
+            0x04000202 => self.interrupt_controller.request.read_low(),
+            0x04000203 => self.interrupt_controller.request.read_high(),
+            0x04000204 => self.waitcnt.read_low(),
+            0x04000205 => self.waitcnt.read_high(),
             0x04000206 ..= 0x04000207 => 0, // Unused IO Register
-            0x04000208 => (self.interrupt_controller.master_enable.read() >> 0) as u8,
-            0x04000209 => (self.interrupt_controller.master_enable.read() >> 8) as u8,
+            0x04000208 => self.interrupt_controller.master_enable.read_low(),
+            0x04000209 => self.interrupt_controller.master_enable.read_high(),
             0x0400020A ..= 0x040002FF => 0, // Unused IO Register
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
@@ -128,19 +128,19 @@ impl MemoryHandler for MMU {
             0x03000000 ..= 0x03007FFF => self.wram32.write8(addr, value),
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
-            0x04000130 => self.keypad.keyinput.write(0x00FF, (value as u16) << 0),
-            0x04000131 => self.keypad.keyinput.write(0xFF00, (value as u16) << 8),
-            0x04000132 => self.keypad.keycnt.write(0x00FF, (value as u16) << 0),
-            0x04000133 => self.keypad.keycnt.write(0xFF00, (value as u16) << 8),
-            0x04000200 => self.interrupt_controller.enable.write( 0x00FF, (value as u16) << 0),
-            0x04000201 => self.interrupt_controller.enable.write( 0xFF00, (value as u16) << 8),
-            0x04000202 => self.interrupt_controller.request.write( 0x00FF, (value as u16) << 0),
-            0x04000203 => self.interrupt_controller.request.write( 0xFF00, (value as u16) << 0),
-            0x04000204 => self.waitcnt.write(0x00FF, (value as u16) << 0),
-            0x04000205 => self.waitcnt.write(0xFF00, (value as u16) << 8),
+            0x04000130 => self.keypad.keyinput.write_low(value),
+            0x04000131 => self.keypad.keyinput.write_high(value),
+            0x04000132 => self.keypad.keycnt.write_low(value),
+            0x04000133 => self.keypad.keycnt.write_high(value),
+            0x04000200 => self.interrupt_controller.enable.write_low(value),
+            0x04000201 => self.interrupt_controller.enable.write_high(value),
+            0x04000202 => self.interrupt_controller.request.write_low(value),
+            0x04000203 => self.interrupt_controller.request.write_low(value),
+            0x04000204 => self.waitcnt.write_low(value),
+            0x04000205 => self.waitcnt.write_high(value),
             0x04000206 ..= 0x04000207 => {}, // Unused IO Register
-            0x04000208 => self.interrupt_controller.master_enable.write(0x00FF, (value as u16) << 0),
-            0x04000209 => self.interrupt_controller.master_enable.write(0xFF00, (value as u16) << 8),
+            0x04000208 => self.interrupt_controller.master_enable.write_low(value),
+            0x04000209 => self.interrupt_controller.master_enable.write_high(value),
             0x0400020A ..= 0x040002FF => {}, // Unused IO Register
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
@@ -185,8 +185,10 @@ pub trait IMMU: MemoryHandler {
 }
 
 pub trait IORegister {
-    fn read(&self) -> u16;
-    fn write(&mut self, mask: u16, value: u16);
+    fn read_low(&self) -> u8;
+    fn read_high(&self) -> u8;
+    fn write_low(&mut self, value: u8);
+    fn write_high(&mut self, value: u8);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -235,19 +237,27 @@ impl WaitStateControl {
 }
 
 impl IORegister for WaitStateControl {
-    fn read(&self) -> u16 {
-        ((self.type_flag as usize) << 15 | (self.prefetch_buffer as usize) << 14 | self.phi_terminal_out << 11 |
-        self.wait_states[2][1] << 10 | self.wait_states[2][0] << 8 | self.wait_states[1][1] << 7 |
-        self.wait_states[1][0] << 5 | self.wait_states[0][1] << 4 | self.wait_states[0][0] << 2 | self.sram) as u16
+    fn read_low(&self) -> u8 {
+        (self.wait_states[1][1] << 7 | self.wait_states[1][0] << 5 |
+            self.wait_states[0][1] << 4 |self.wait_states[0][0] << 2 | self.sram) as u8
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = (value & mask) as usize;
+    fn read_high(&self) -> u8 {
+        (((self.type_flag as usize) << 15 | (self.prefetch_buffer as usize) << 14 | self.phi_terminal_out << 11 |
+        self.wait_states[2][1] << 10 | self.wait_states[2][0] << 8) >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        let value = value as usize;
         self.sram = value & 0x3;
         self.wait_states[0][0] = (value >> 2) & 0x3;
         self.wait_states[0][1] = (value >> 4) & 0x1;
         self.wait_states[1][0] = (value >> 5) & 0x3;
         self.wait_states[1][1] = (value >> 7) & 0x1;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        let value = (value as usize) << 8;
         self.wait_states[2][0] = (value >> 8) & 0x3;
         self.wait_states[2][1] = (value >> 10) & 0x1;
         self.phi_terminal_out = (value >> 11) & 0x3;

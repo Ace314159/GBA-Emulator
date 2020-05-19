@@ -33,20 +33,32 @@ bitflags! {
 }
 
 impl IORegister for KEYINPUT {
-    fn read(&self) -> u16 {
-        self.bits
+    fn read_low(&self) -> u8 {
+        self.bits as u8
     }
 
-    fn write(&mut self, _mask: u16, _value: u16) {}
+    fn read_high(&self) -> u8 {
+        (self.bits >> 8) as u8
+    }
+
+    fn write_low(&mut self, _value: u8) {}
+    fn write_high(&mut self, _value: u8) {}
 }
 
 impl IORegister for KEYCNT {
-    fn read(&self) -> u16 {
-        self.bits
+    fn read_low(&self) -> u8 {
+        self.bits as u8
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = value & mask;
-        self.bits = value & KEYCNT::all().bits();
+    fn read_high(&self) -> u8 {
+        (self.bits >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.bits = self.bits & !0x00FF | (value as u16) & KEYCNT::all().bits;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.bits = self.bits & !0xFF00 | (value as u16) << 8 & KEYCNT::all().bits;
     }
 }

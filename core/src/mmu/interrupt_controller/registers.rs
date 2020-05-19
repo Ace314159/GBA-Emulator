@@ -45,34 +45,55 @@ bitflags! {
 }
 
 impl IORegister for InterruptEnable {
-    fn read(&self) -> u16 {
-        self.bits
+    fn read_low(&self) -> u8 {
+        self.bits as u8
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = value & mask & InterruptEnable::all().bits();
-        self.bits = self.bits & !mask | value;
+    fn read_high(&self) -> u8 {
+        (self.bits >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.bits = self.bits & !0x00FF | (value as u16) & InterruptEnable::all().bits;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptEnable::all().bits;
     }
 }
 
 impl IORegister for InterruptMasterEnable {
-    fn read(&self) -> u16 {
-        self.bits
+    fn read_low(&self) -> u8 {
+        self.bits as u8
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = value & mask & InterruptMasterEnable::all().bits();
-        self.bits = self.bits & !mask | value;
+    fn read_high(&self) -> u8 {
+        (self.bits >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.bits = self.bits & !0x00FF | (value as u16) & InterruptMasterEnable::all().bits;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptMasterEnable::all().bits;
     }
 }
 
 impl IORegister for InterruptRequest {
-    fn read(&self) -> u16 {
-        self.bits
+    fn read_low(&self) -> u8 {
+        self.bits as u8
     }
 
-    fn write(&mut self, mask: u16, value: u16) {
-        let value = value & mask & InterruptRequest::all().bits();
-        self.bits = self.bits & !value; // Acknowledge interrupt by clearing bits
+    fn read_high(&self) -> u8 {
+        (self.bits >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.bits = self.bits & !0x00FF | (value as u16) & InterruptRequest::all().bits;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptRequest::all().bits;
     }
 }
