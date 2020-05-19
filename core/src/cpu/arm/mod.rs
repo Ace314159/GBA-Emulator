@@ -196,12 +196,13 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op3 = self.regs.get_reg_i(instr & 0xF);
         
+        self.inc_mul_clocks(mmu, op2, op3);
         let result = if accumulate {
             mmu.inc_clock(Cycle::I, 0, 0);
-            self.mul(mmu, op2, op3).wrapping_add(op1)
+            op2.wrapping_mul(op3).wrapping_add(op1)
         } else {
             assert_eq!(op1_reg, 0);
-            self.mul(mmu, op2, op3)
+            op2.wrapping_mul(op3)
         };
         if change_status {
             self.regs.set_n(result & 0x8000_0000 != 0);
