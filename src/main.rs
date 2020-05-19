@@ -21,15 +21,15 @@ fn main() {
         gba.emulate();
         if gba.needs_to_render() {
             screen.render(gba.get_pixels());
-        }
-
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => break 'running,
-                Event::Window { win_event: WindowEvent::Resized(width, height), .. } => {
-                    screen.set_size(width, height)}
-                _ => {},
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    Event::Window { win_event: WindowEvent::Resized(width, height), .. } => {
+                        screen.set_size(width, height)}
+                    _ => {},
+                }
             }
         }
+
     }
 }
