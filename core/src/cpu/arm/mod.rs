@@ -221,13 +221,14 @@ impl CPU {
         let change_status = instr >> 20 & 0x1 != 0;
         let src_dest_reg_high = instr >> 16 & 0xF;
         let src_dest_reg_low = instr >> 12 & 0xF;
-        let op1 = self.regs.get_reg_i(instr >> 8 & 0xF) as u64;
+        let op1 = self.regs.get_reg_i(instr >> 8 & 0xF);
         assert_eq!(instr >> 4 & 0xF, 0b1001);
-        let op2 = self.regs.get_reg_i(instr & 0xF) as u64;
+        let op2 = self.regs.get_reg_i(instr & 0xF);
 
         self.inc_mul_clocks(mmu, op1 as u32, signed);
         mmu.inc_clock(Cycle::I, 0, 0);
-        let result = if signed { ((op1 as i64) * (op2 as i64)) as u64 } else { op1 * op2 }.wrapping_add(
+        let result = if signed { (op1 as i32 as u64).wrapping_mul(op2 as i32 as u64) }
+        else { (op1 as u64) * (op2 as u64) }.wrapping_add(
         if accumulate {
             mmu.inc_clock(Cycle::I, 0, 0);
             (self.regs.get_reg_i(src_dest_reg_high) as u64) << 32 |
