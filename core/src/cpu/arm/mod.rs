@@ -214,8 +214,31 @@ impl CPU {
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
-        unimplemented!("ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL) not implemented!");
+    fn mul_long<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+        assert_eq!(instr >> 23 & 0x1F, 0b00001);
+        let signed = instr >> 22 & 0x1 != 0;
+        let accumulate = instr >> 21 & 0x1 != 0;
+        let change_status = instr >> 20 & 0x1 != 0;
+        let src_dest_reg_high = instr >> 16 & 0xF;
+        let src_dest_reg_low = instr >> 12 & 0xF;
+        let op1 = self.regs.get_reg_i(instr >> 8 & 0xF) as u64;
+        assert_eq!(instr >> 4 & 0xF, 0b1001);
+        let op2 = self.regs.get_reg_i(instr & 0xF) as u64;
+
+        self.inc_mul_clocks(mmu, op1 as u32, op2 as u32);
+        mmu.inc_clock(Cycle::I, 0, 0);
+        let result = if signed { ((op1 as i64) * (op2 as i64)) as u64 } else { op1 * op2 }.wrapping_add(
+        if accumulate {
+            mmu.inc_clock(Cycle::I, 0, 0);
+            (self.regs.get_reg_i(src_dest_reg_high) as u64) << 32 |
+            self.regs.get_reg_i(src_dest_reg_low) as u64
+        } else { 0 });
+        if change_status {
+            self.regs.set_n(result & 0x8000_0000 != 0);
+            self.regs.set_z(result == 0);
+        }
+        self.regs.set_reg_i(src_dest_reg_low, (result >> 0) as u32);
+        self.regs.set_reg_i(src_dest_reg_high, (result >> 32) as u32);
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
