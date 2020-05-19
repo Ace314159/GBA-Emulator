@@ -196,7 +196,7 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op3 = self.regs.get_reg_i(instr & 0xF);
         
-        self.inc_mul_clocks(mmu, op2, op3);
+        self.inc_mul_clocks(mmu, op2, true);
         let result = if accumulate {
             mmu.inc_clock(Cycle::I, 0, 0);
             op2.wrapping_mul(op3).wrapping_add(op1)
@@ -225,7 +225,7 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op2 = self.regs.get_reg_i(instr & 0xF) as u64;
 
-        self.inc_mul_clocks(mmu, op1 as u32, op2 as u32);
+        self.inc_mul_clocks(mmu, op1 as u32, signed);
         mmu.inc_clock(Cycle::I, 0, 0);
         let result = if signed { ((op1 as i64) * (op2 as i64)) as u64 } else { op1 * op2 }.wrapping_add(
         if accumulate {
@@ -234,7 +234,7 @@ impl CPU {
             self.regs.get_reg_i(src_dest_reg_low) as u64
         } else { 0 });
         if change_status {
-            self.regs.set_n(result & 0x8000_0000 != 0);
+            self.regs.set_n(result & 0x8000_0000_0000_0000 != 0);
             self.regs.set_z(result == 0);
         }
         self.regs.set_reg_i(src_dest_reg_low, (result >> 0) as u32);

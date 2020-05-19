@@ -133,7 +133,7 @@ impl CPU {
             0xA => self.sub(dest, src, true), // CMP
             0xB => self.add(dest, src, true), // CMN
             0xC => dest | src, // ORR
-            0xD => { self.inc_mul_clocks(mmu, dest, src); dest.wrapping_mul(src) }, // MUL
+            0xD => { self.inc_mul_clocks(mmu, dest, true); dest.wrapping_mul(src) }, // MUL
             0xE => dest & !src, // BIC
             0xF => !src, // MVN
             _ => panic!("Invalid opcode!"),

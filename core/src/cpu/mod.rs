@@ -146,11 +146,12 @@ impl CPU {
         self.adc(op1, !op2, change_status)
     }
 
-    pub(self) fn inc_mul_clocks<M>(&mut self, mmu: &mut M, op1: u32, op2: u32) where M: IMMU {
+    pub(self) fn inc_mul_clocks<M>(&mut self, mmu: &mut M, op1: u32, signed: bool) where M: IMMU {
         let mut mask = 0xFF_FF_FF_00;
+        let list = if signed { [0, mask] } else { [0, 0] };
         loop {
             mmu.inc_clock(Cycle::I, 0, 0);
-            if mask == 0 || [0, mask].contains(&(op1 & mask)) { break }
+            if mask == 0 || list.contains(&(op1 & mask)) { break }
             mask <<= 8;
         }
     }
