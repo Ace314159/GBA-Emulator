@@ -410,8 +410,31 @@ impl CPU {
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
-        unimplemented!("ARM.12: Single Data Swap (SWP) not implemented!");
+    fn single_data_swap<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+        assert_eq!(instr >> 23 & 0x1F, 0b00010);
+        let byte = instr >> 22 & 0x1 != 0;
+        assert_eq!(instr >> 20 & 0x3, 0b00);
+        let base = self.regs.get_reg_i(instr >> 16 & 0xF);
+        let dest_reg = instr >> 12 & 0xF;
+        assert_eq!(instr >> 4 & 0xFF, 0b00001001);
+        let src_reg = instr & 0xF;
+        let src = self.regs.get_reg_i(src_reg);
+
+        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        let (value, access_width) = if byte {
+            let value = mmu.read8(base) as u32;
+            mmu.write8(base, src as u8);
+            (value, 0)
+        } else {
+            let value = mmu.read32(base);
+            mmu.write32(base, src);
+            (value, 2)
+        };
+        self.regs.set_reg_i(dest_reg, value);
+        mmu.inc_clock(Cycle::N, base, access_width);
+
+        mmu.inc_clock(Cycle::I, 0, 0);
+        mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2);
     }
 
     // ARM.13: Software Interrupt (SWI)
