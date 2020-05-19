@@ -1,5 +1,6 @@
 mod registers;
 
+pub use registers::KEYINPUT;
 use registers::*;
 
 pub struct Keypad {

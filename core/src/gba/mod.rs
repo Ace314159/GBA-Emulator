@@ -1,5 +1,6 @@
 use crate::cpu::CPU;
 use crate::mmu::MMU;
+pub use crate::mmu::keypad::KEYINPUT;
 
 pub struct GBA {
     cpu: CPU,
@@ -26,6 +27,14 @@ impl GBA {
 
     pub fn get_pixels(&self) -> &[u16; Screen::WIDTH * Screen::HEIGHT] {
         self.mmu.get_pixels()
+    }
+
+    pub fn press_key(&mut self, key: KEYINPUT) {
+        self.mmu.press_key(key);
+    }
+
+    pub fn release_key(&mut self, key: KEYINPUT) {
+        self.mmu.release_key(key);
     }
 }
 

@@ -1,6 +1,6 @@
 mod memory;
 mod ppu;
-mod keypad;
+pub mod keypad;
 mod interrupt_controller;
 
 use crate::gba::Screen;
@@ -55,6 +55,14 @@ impl MMU {
 
     pub fn get_pixels(&self) -> &[u16; Screen::WIDTH * Screen::HEIGHT] {
         &self.ppu.pixels
+    }
+
+    pub fn press_key(&mut self, key: keypad::KEYINPUT) {
+        self.keypad.keyinput.remove(key);
+    }
+
+    pub fn release_key(&mut self, key: keypad::KEYINPUT) {
+        self.keypad.keyinput.insert(key);
     }
 }
 
