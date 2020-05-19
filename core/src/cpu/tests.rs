@@ -144,39 +144,32 @@ fn test_shift() {
 
 #[test]
 pub fn test_mul() {
-    fn run_mul(op1: u32, op2: u32) -> (TestMMU, u32) {
+    fn run_mul(op1: u32) -> TestMMU {
         let mut mmu = TestMMU::new();
         let mut cpu = CPU::new(&mut mmu);
-        let val = cpu.mul(&mut mmu, op1, op2);
-        (mmu, val)
+        cpu.inc_mul_clocks(&mut mmu, op1, true);
+        mmu
     }
 
     // 1 I Cycle
-    let (mmu, val) = run_mul(0xFFFFFFFF, 0xFFFFFFFF);
+    let mmu = run_mul(0xFFFFFFFF);
     assert_cycle_times(mmu, 0, 1, 0);
-    assert_eq!(val, 1);
-    let (mmu, val) = run_mul(0, 0xFFFFFF00);
+    let mmu = run_mul(0);
     assert_cycle_times(mmu, 0, 1, 0);
-    assert_eq!(val, 0);
 
     // 2 I Cycles
-    let (mmu, val) = run_mul(0xFFFF00FF, 0xFFFF00FF);
+    let mmu = run_mul(0xFFFF00FF);
     assert_cycle_times(mmu, 0, 2, 0);
-    assert_eq!(val, 0xFE02FE01);
-    let (mmu, val) = run_mul(0x0000FFFF, 0xFFFF00FF);
+    let mmu = run_mul(0x0000FFFF);
     assert_cycle_times(mmu, 0, 2, 0);
-    assert_eq!(val, 0xFFFF01);
 
     // 3 I Cycles
-    let (mmu, val) = run_mul(0xFF000000, 0xFF000000);
+    let mmu = run_mul(0xFF000000);
     assert_cycle_times(mmu, 0, 3, 0);
-    assert_eq!(val, 0);
-    let (mmu, val) = run_mul(0x00FFFFFF, 0xFF000000);
+    let mmu = run_mul(0x00FFFFFF);
     assert_cycle_times(mmu, 0, 3, 0);
-    assert_eq!(val, 0x1000000);
 
     // 4 I Cycles
-    let (mmu, val) = run_mul(0xF0F0F0F0, 1);
+    let mmu = run_mul(0xF0F0F0F0);
     assert_cycle_times(mmu, 0, 4, 0);
-    assert_eq!(val, 0xF0F0F0F0);
 }

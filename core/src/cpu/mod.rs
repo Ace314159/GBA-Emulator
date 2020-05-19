@@ -177,10 +177,10 @@ impl CPU {
 
     pub(self) fn inc_mul_clocks<M>(&mut self, mmu: &mut M, op1: u32, signed: bool) where M: IMMU {
         let mut mask = 0xFF_FF_FF_00;
-        let list = if signed { [0, mask] } else { [0, 0] };
         loop {
             mmu.inc_clock(Cycle::I, 0, 0);
-            if mask == 0 || list.contains(&(op1 & mask)) { break }
+            let value = op1 & mask;
+            if mask == 0 || value == 0 || signed && value == mask { break }
             mask <<= 8;
         }
     }
