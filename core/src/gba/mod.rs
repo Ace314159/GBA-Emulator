@@ -20,3 +20,14 @@ impl GBA {
         self.cpu.emulate_instr(&mut self.mmu);
     }
 }
+
+pub trait Screen {
+    fn set_size(&mut self, width: i32, height: i32);
+    fn render(&mut self, pixels: &[u16; Screen::WIDTH * Screen::HEIGHT]);
+}
+
+impl dyn Screen {
+    pub const WIDTH: usize = 240;
+    pub const HEIGHT: usize = 160;
+    pub const SCALE: usize = 2;
+}
