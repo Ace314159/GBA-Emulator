@@ -108,7 +108,7 @@ impl CPU {
                 assert_eq!((instr >> 7) & 0x1, 0);
                 self.regs.pc = self.regs.pc.wrapping_add(4); // Temp inc
                 temp_inc_pc = true;
-                self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF
+                self.regs.get_reg_i((instr >> 8) & 0xF) & 0x1F
             } else {
                 (instr >> 7) & 0x1F
             };
