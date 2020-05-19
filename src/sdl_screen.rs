@@ -98,7 +98,7 @@ impl Screen for SDLScreen {
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, pixels.as_ptr() as *const std::ffi::c_void);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo);
             gl::BlitFramebuffer(0, 0, Screen::WIDTH as i32, Screen::HEIGHT as i32,
-                tex_x, tex_y, self.width - tex_x, self.height - tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
+                tex_x, self.height - tex_y, self.width - tex_x, tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, 0);
         }
 
