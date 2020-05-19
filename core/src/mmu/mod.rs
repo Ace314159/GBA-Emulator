@@ -3,7 +3,7 @@ mod ppu;
 pub mod keypad;
 mod interrupt_controller;
 
-use crate::gba::Screen;
+use crate::gba::Display;
 use memory::ROM;
 use memory::RAM;
 use ppu::PPU;
@@ -53,7 +53,7 @@ impl MMU {
         needs_to_render
     }
 
-    pub fn get_pixels(&self) -> &[u16; Screen::WIDTH * Screen::HEIGHT] {
+    pub fn get_pixels(&self) -> &[u16; Display::WIDTH * Display::HEIGHT] {
         &self.ppu.pixels
     }
 

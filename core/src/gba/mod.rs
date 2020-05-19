@@ -25,7 +25,7 @@ impl GBA {
         self.mmu.needs_to_render()
     }
 
-    pub fn get_pixels(&self) -> &[u16; Screen::WIDTH * Screen::HEIGHT] {
+    pub fn get_pixels(&self) -> &[u16; Display::WIDTH * Display::HEIGHT] {
         self.mmu.get_pixels()
     }
 
@@ -38,12 +38,12 @@ impl GBA {
     }
 }
 
-pub trait Screen {
-    fn set_size(&mut self, width: i32, height: i32);
-    fn render(&mut self, pixels: &[u16; Screen::WIDTH * Screen::HEIGHT]);
+pub trait Display {
+    fn should_close(&self) -> bool;
+    fn render(&mut self, pixels: &mut GBA);
 }
 
-impl dyn Screen {
+impl dyn Display {
     pub const WIDTH: usize = 240;
     pub const HEIGHT: usize = 160;
     pub const SCALE: usize = 2;

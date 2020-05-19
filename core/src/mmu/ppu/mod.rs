@@ -1,6 +1,6 @@
 mod registers;
 
-use crate::gba::Screen;
+use crate::gba::Display;
 use registers::*;
 use super::MemoryHandler;
 use super::IORegister;
@@ -20,7 +20,7 @@ pub struct PPU {
 
     // Important Rendering Variables
     dot: u16,
-    pub pixels: [u16; Screen::WIDTH * Screen::HEIGHT],
+    pub pixels: [u16; Display::WIDTH * Display::HEIGHT],
     pub needs_to_render: bool,
 }
 
@@ -41,7 +41,7 @@ impl PPU {
 
             // Important Rendering Variables
             dot: 0,
-            pixels: [0; Screen::WIDTH * Screen::HEIGHT],
+            pixels: [0; Display::WIDTH * Display::HEIGHT],
             needs_to_render: false,
         }
     }
@@ -95,7 +95,7 @@ impl PPU {
                     let start_addr = if self.dispcnt.flags.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
                         0xA000usize
                     } else { 0usize };
-                    for i in 0..Screen::WIDTH * Screen::HEIGHT {
+                    for i in 0..Display::WIDTH * Display::HEIGHT {
                         self.pixels[i] = self.bg_colors[self.vram[start_addr + i] as usize];
                     }
                 },
