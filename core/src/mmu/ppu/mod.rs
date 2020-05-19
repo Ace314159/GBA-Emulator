@@ -89,6 +89,18 @@ impl PPU {
         }
 
         if self.vcount == 160 && self.dot == 0 {
+            match self.dispcnt.mode {
+                BGMode::Mode0 => {}, // Do nothing temporarily to avoid crash
+                BGMode::Mode4 => {
+                    let start_addr = if self.dispcnt.flags.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                        0xA000usize
+                    } else { 0usize };
+                    for i in 0..Screen::WIDTH * Screen::HEIGHT {
+                        self.pixels[i] = self.bg_colors[self.vram[start_addr + i] as usize];
+                    }
+                },
+                _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
+            }
             self.needs_to_render = true;
         }
 
