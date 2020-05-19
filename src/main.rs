@@ -19,6 +19,9 @@ fn main() {
 
     'running: loop {
         gba.emulate();
+        if gba.needs_to_render() {
+            screen.render(gba.get_pixels());
+        }
 
         for event in event_pump.poll_iter() {
             match event {

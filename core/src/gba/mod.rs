@@ -19,6 +19,14 @@ impl GBA {
     pub fn emulate(&mut self) {
         self.cpu.emulate_instr(&mut self.mmu);
     }
+
+    pub fn needs_to_render(&mut self) -> bool {
+        self.mmu.needs_to_render()
+    }
+
+    pub fn get_pixels(&self) -> &[u16; Screen::WIDTH * Screen::HEIGHT] {
+        self.mmu.get_pixels()
+    }
 }
 
 pub trait Screen {

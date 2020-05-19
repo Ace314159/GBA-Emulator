@@ -1,5 +1,6 @@
 mod registers;
 
+use crate::gba::Screen;
 use registers::*;
 use super::MemoryHandler;
 use super::IORegister;
@@ -19,6 +20,8 @@ pub struct PPU {
 
     // Important Rendering Variables
     dot: u16,
+    pub pixels: [u16; Screen::WIDTH * Screen::HEIGHT],
+    pub needs_to_render: bool,
 }
 
 impl PPU {
@@ -38,6 +41,8 @@ impl PPU {
 
             // Important Rendering Variables
             dot: 0,
+            pixels: [0; Screen::WIDTH * Screen::HEIGHT],
+            needs_to_render: false,
         }
     }
 
@@ -81,6 +86,10 @@ impl PPU {
             self.dispstat.flags.remove(DISPSTATFlags::VBLANK);
         } else { // VBlank
             self.dispstat.flags.insert(DISPSTATFlags::VBLANK);
+        }
+
+        if self.vcount == 160 && self.dot == 0 {
+            self.needs_to_render = true;
         }
 
         self.dot += 1;

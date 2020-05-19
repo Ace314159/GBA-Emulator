@@ -3,6 +3,7 @@ mod ppu;
 mod keypad;
 mod interrupt_controller;
 
+use crate::gba::Screen;
 use memory::ROM;
 use memory::RAM;
 use ppu::PPU;
@@ -44,6 +45,16 @@ impl MMU {
             haltcnt: 0,
             waitcnt: WaitStateControl::new(),
         }
+    }
+
+    pub fn needs_to_render(&mut self) -> bool {
+        let needs_to_render = self.ppu.needs_to_render;
+        self.ppu.needs_to_render = false;
+        needs_to_render
+    }
+
+    pub fn get_pixels(&self) -> &[u16; Screen::WIDTH * Screen::HEIGHT] {
+        &self.ppu.pixels
     }
 }
 
