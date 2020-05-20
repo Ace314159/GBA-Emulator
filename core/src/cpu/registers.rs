@@ -135,7 +135,7 @@ impl RegValues {
                 Mode::ABT => self.spsr[2].bits(),
                 Mode::IRQ => self.spsr[3].bits(),
                 Mode::UND => self.spsr[4].bits(),
-                _ => panic!("No SPSR for SYS and USR"),
+                _ => self.cpsr.bits(),
             },
         }
     }
@@ -165,7 +165,7 @@ impl RegValues {
                 Mode::ABT => self.spsr[2] = StatusReg::from_bits(value).unwrap(),
                 Mode::IRQ => self.spsr[3] = StatusReg::from_bits(value).unwrap(),
                 Mode::UND => self.spsr[4] = StatusReg::from_bits(value).unwrap(),
-                _ => panic!("No SPSR for SYS and USR"),
+                _ => {},
             },
         }
     }
