@@ -248,6 +248,7 @@ impl CPU {
         let shifted_reg_offset = instr >> 25 & 0x1 != 0;
         let pre_offset = instr >> 24 & 0x1 != 0;
         let transfer_byte = instr >> 22 & 0x1 != 0;
+        let write_back = instr >> 21 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
         let load = instr >> 20 & 0x1 != 0;
         let base_reg = instr >> 16 & 0xF;
@@ -256,7 +257,7 @@ impl CPU {
         mmu.inc_clock(Cycle::N, self.regs.pc, 2);
 
         let offset = if shifted_reg_offset {
-            let shift = instr >> 0x1F;
+            let shift = instr >> 7 & 0x1F;
             let shift_type = instr >> 5 & 0x3;
             assert_eq!(instr >> 4 & 0x1, 0);
             let operand = self.regs.get_reg_i(instr & 0x7);
@@ -269,7 +270,9 @@ impl CPU {
             mmu.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, if transfer_byte {
                 mmu.read8(addr) as u32
-            } else { mmu.read32(addr).rotate_right((addr & 0b11) * 8) });
+            } else {
+                mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
+            });
             if src_dest_reg == 15 {
                 mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
                 self.fill_arm_instr_buffer(mmu);
@@ -282,11 +285,13 @@ impl CPU {
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
             exec(offset_applied);
-            if instr >> 21 & 0x1 != 0 { self.regs.set_reg_i(base_reg, offset_applied) }
+            if write_back && base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
         } else {
+            // Writeback is always enabled for post offset
             // TOOD: Take into account privilege of access
+            assert_eq!(write_back, false);
             exec(base);
-            self.regs.set_reg_i(base_reg, offset_applied);
+            if base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
         }
     }
 
