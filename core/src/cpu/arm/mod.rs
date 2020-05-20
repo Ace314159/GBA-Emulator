@@ -339,11 +339,11 @@ impl CPU {
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
             exec(offset_applied);
-            if write_back { self.regs.set_reg_i(base_reg, offset_applied) }
+            if write_back && base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
         } else {
             exec(base);
             assert_eq!(write_back, false); // Writeback is always enabled, but bit is always 0
-            self.regs.set_reg_i(base_reg, offset_applied);
+            if base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
         }
     }
 
