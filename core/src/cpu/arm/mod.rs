@@ -263,7 +263,9 @@ impl CPU {
             let shift = instr >> 7 & 0x1F;
             let shift_type = instr >> 5 & 0x3;
             assert_eq!(instr >> 4 & 0x1, 0);
-            let operand = self.regs.get_reg_i(instr & 0xF);
+            let offset_reg = instr & 0xF;
+            assert_ne!(offset_reg, 15);
+            let operand = self.regs.get_reg_i(offset_reg);
             self.shift(mmu, shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
@@ -284,6 +286,7 @@ impl CPU {
         } else {
             let addr = addr & !0x3;
             let value = self.regs.get_reg_i(src_dest_reg);
+            let value = if src_dest_reg == 15 { value.wrapping_add(4) } else { value };
             mmu.inc_clock(Cycle::N, addr, 2);
             if transfer_byte { mmu.write8(addr, value as u8) } else { mmu.write32(addr, value) }
         };
