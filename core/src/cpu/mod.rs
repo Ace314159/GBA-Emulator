@@ -106,7 +106,7 @@ impl CPU {
                     if change_status {
                         if shift == 32 { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0)
                     } else { self.regs.set_c(false) } }
-                    operand >> shift
+                    0
                 },
                 // ASR
                 2 => {
