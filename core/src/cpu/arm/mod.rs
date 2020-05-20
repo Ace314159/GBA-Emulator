@@ -263,7 +263,7 @@ impl CPU {
             let shift = instr >> 7 & 0x1F;
             let shift_type = instr >> 5 & 0x3;
             assert_eq!(instr >> 4 & 0x1, 0);
-            let operand = self.regs.get_reg_i(instr & 0x7);
+            let operand = self.regs.get_reg_i(instr & 0xF);
             self.shift(mmu, shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
