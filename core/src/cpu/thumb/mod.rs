@@ -316,8 +316,17 @@ impl CPU {
     }
 
     // THUMB.12: get relative address
-    fn get_rel_addr<M>(&mut self, _mmu: &mut M, _instr: u16) where M: IMMU {
-        unimplemented!("THUMB.12: get relative address not implemented!")
+    fn get_rel_addr<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
+        assert_eq!(instr >> 12 & 0xF, 0b1010);
+        let src = if instr >> 11 & 0x1 != 0 { // SP
+            self.regs.get_reg(Reg::R13)
+        } else { // PC
+            self.regs.pc & !0x2
+        };
+        let dest_reg = (instr >> 8 & 0x7) as u32;
+        let offset = (instr & 0xFF) as u32;
+        self.regs.set_reg_i(dest_reg, src.wrapping_add(offset * 4));
+        mmu.inc_clock(Cycle::S, self.regs.pc, 1);
     }
 
     // THUMB.13: add offset to stack pointer
