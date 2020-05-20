@@ -96,6 +96,10 @@ impl CPU {
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
         let mut temp_inc_pc = false;
         let opcode = (instr >> 21) & 0xF;
+        let dest_reg = (instr >> 12) & 0xF;
+        let (change_status, special_change_status) = if dest_reg == 15 && change_status {
+            (false, true) } else { (change_status, false)
+        };
         let op2 = if immediate_op2 {
             let shift = (instr >> 8) & 0xF;
             let operand = instr & 0xFF;
@@ -133,12 +137,11 @@ impl CPU {
             0xF => !op2, // MVN
             _ => panic!("Invalid opcode!"),
         };
-        let dest_reg = (instr >> 12) & 0xF;
         if change_status {
             self.regs.set_z(result == 0);
             self.regs.set_n(result & 0x8000_0000 != 0);
-        } else { assert_eq!(opcode & 0xC != 0x8, true) }
-        if !change_status { assert_eq!(opcode & 0xC != 0x8, true); }
+        } else if special_change_status { self.regs.set_reg(Reg::CPSR, self.regs.get_reg(Reg::SPSR)) }
+        else { assert_eq!(opcode & 0xC != 0x8, true) }
         if opcode & 0xC != 0x8 {
             self.regs.set_reg_i(dest_reg, result);
             if dest_reg == 15 { self.fill_arm_instr_buffer(mmu); }
