@@ -282,6 +282,7 @@ impl CPU {
                 self.fill_arm_instr_buffer(mmu);
             } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
+            let addr = addr & !0x3;
             let value = self.regs.get_reg_i(src_dest_reg);
             mmu.inc_clock(Cycle::N, addr, 2);
             if transfer_byte { mmu.write8(addr, value as u8) } else { mmu.write32(addr, value) }
