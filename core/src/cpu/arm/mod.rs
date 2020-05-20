@@ -361,7 +361,7 @@ impl CPU {
         let load = instr >> 20 & 0x1 != 0;
         let base_reg = instr >> 16 & 0xF;
         assert_ne!(base_reg, 0xF);
-        let mut base = self.regs.get_reg_i(base_reg);
+        let mut base = self.regs.get_reg_i(base_reg) & !0x3;
         let mut r_list = (instr & 0xFFFF) as u16;
         let actual_mode = self.regs.get_mode();
         if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
@@ -374,8 +374,8 @@ impl CPU {
         let mut exec = |reg, last_access| {
             let (addr, new_base) = calc_addr();
             if load {
-                if write_back { self.regs.set_reg_i(base_reg, new_base) }
                 self.regs.set_reg_i(reg, mmu.read32(addr));
+                if write_back { self.regs.set_reg_i(base_reg, new_base) }
                 if reg == 15 {
                     if psr_force_usr { self.regs.restore_cpsr() }
                     loaded_pc = true;
@@ -384,8 +384,7 @@ impl CPU {
                 if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
                 else { mmu.inc_clock(Cycle::S, addr, 2) }
             } else {
-                let value = self.regs.get_reg_i(reg);
-                mmu.write32(addr, if reg == 15 { value.wrapping_sub(4) } else { value });
+                mmu.write32(addr, self.regs.get_reg_i(reg));
                 if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
                 else { mmu.inc_clock(Cycle::S, addr, 2) }
                 if write_back { self.regs.set_reg_i(base_reg, new_base) }
