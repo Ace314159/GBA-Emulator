@@ -442,8 +442,8 @@ impl CPU {
             mmu.write8(base, src as u8);
             (value, 0)
         } else {
-            let value = mmu.read32(base);
-            mmu.write32(base, src);
+            let value = mmu.read32(base & !0x3).rotate_right((base & 0x3) * 8);
+            mmu.write32(base & !0x3, src);
             (value, 2)
         };
         self.regs.set_reg_i(dest_reg, value);
