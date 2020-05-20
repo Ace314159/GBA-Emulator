@@ -332,7 +332,8 @@ impl CPU {
             self.regs.set_reg_i(src_dest_reg, match opcode {
                 1 => (mmu.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
                 2 => mmu.read8(addr) as i8 as u32,
-                3 => (mmu.read16(addr & !0x1) as i16 >> ((addr & 0x1) * 8))as u32,
+                3 if addr & 0x1 == 1 => mmu.read8(addr) as i8 as u32,
+                3 => mmu.read16(addr) as i16 as u32,
                 _ => panic!("Invalid opcode!"),
             });
             if src_dest_reg == base_reg { write_back = false }
