@@ -248,7 +248,7 @@ impl CPU {
         let shifted_reg_offset = instr >> 25 & 0x1 != 0;
         let pre_offset = instr >> 24 & 0x1 != 0;
         let transfer_byte = instr >> 22 & 0x1 != 0;
-        let write_back = instr >> 21 & 0x1 != 0;
+        let mut write_back = instr >> 21 & 0x1 != 0 || !pre_offset;
         let add_offset = instr >> 23 & 0x1 != 0;
         let load = instr >> 20 & 0x1 != 0;
         let base_reg = instr >> 16 & 0xF;
@@ -273,6 +273,7 @@ impl CPU {
             } else {
                 mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
             });
+            if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 {
                 mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
                 self.fill_arm_instr_buffer(mmu);
@@ -285,13 +286,14 @@ impl CPU {
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
             exec(offset_applied);
-            if write_back && base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
+            if write_back { self.regs.set_reg_i(base_reg, offset_applied) }
         } else {
-            // Writeback is always enabled for post offset
             // TOOD: Take into account privilege of access
-            assert_eq!(write_back, false);
+            let force_non_privileged_access = instr >> 21 & 0x1 != 0;
+            assert_eq!(force_non_privileged_access, false);
+            // Write back is not done if src_reg == base_reg
             exec(base);
-            if base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
+            if write_back { self.regs.set_reg_i(base_reg, offset_applied) }
         }
     }
 
@@ -301,7 +303,7 @@ impl CPU {
         let pre_offset = instr >> 24 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
         let immediate_offset = instr >> 22 & 0x1 != 0;
-        let write_back = instr >> 21 & 0x1 != 0;
+        let mut write_back = instr >> 21 & 0x1 != 0 || !pre_offset;
         let load = instr >> 20 & 0x1 != 0;
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
@@ -326,6 +328,7 @@ impl CPU {
                 3 => mmu.read16(addr) as i16 as u32,
                 _ => panic!("Invalid opcode!"),
             });
+            if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 {
                 mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
                 self.fill_arm_instr_buffer(mmu);
@@ -339,11 +342,12 @@ impl CPU {
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
             exec(offset_applied);
-            if write_back && base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
+            if write_back { self.regs.set_reg_i(base_reg, offset_applied) }
         } else {
             exec(base);
-            assert_eq!(write_back, false); // Writeback is always enabled, but bit is always 0
-            if base_reg != src_dest_reg { self.regs.set_reg_i(base_reg, offset_applied) }
+            assert_eq!(instr >> 24 & 0x1 != 0, false);
+            // Write back is not done if src_reg == base_reg
+            if write_back { self.regs.set_reg_i(base_reg, offset_applied) }
         }
     }
 
