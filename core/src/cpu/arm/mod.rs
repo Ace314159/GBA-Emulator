@@ -330,9 +330,9 @@ impl CPU {
         let mut exec = |addr| if load {
             mmu.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, match opcode {
-                1 => mmu.read16(addr) as u32,
+                1 => (mmu.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
                 2 => mmu.read8(addr) as i8 as u32,
-                3 => mmu.read16(addr) as i16 as u32,
+                3 => (mmu.read16(addr & !0x1) as i16 >> ((addr & 0x1) * 8))as u32,
                 _ => panic!("Invalid opcode!"),
             });
             if src_dest_reg == base_reg { write_back = false }
@@ -342,6 +342,7 @@ impl CPU {
             } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
             assert_eq!(opcode, 1);
+            let addr = addr & !0x1;
             let value = self.regs.get_reg_i(src_dest_reg);
             mmu.inc_clock(Cycle::N, addr, 1);
             mmu.write16(addr, value as u16);
