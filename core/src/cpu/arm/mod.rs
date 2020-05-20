@@ -452,11 +452,11 @@ impl CPU {
     fn arm_software_interrupt<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         assert_eq!(instr >> 24 & 0xF, 0b1111);
         mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        let cpsr = self.regs.get_reg(Reg::CPSR);
         self.regs.set_mode(Mode::SVC);
-        self.regs.set_reg(Reg::R14, self.regs.pc);
-        self.regs.set_reg(Reg::SPSR, self.regs.get_reg(Reg::CPSR));
-        self.regs.set_i(false);
-        self.regs.set_f(false);
+        self.regs.set_reg(Reg::SPSR, cpsr);
+        self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4));
+        self.regs.set_i(true);
         self.regs.pc = 0x8;
         self.fill_arm_instr_buffer(mmu);
     }
