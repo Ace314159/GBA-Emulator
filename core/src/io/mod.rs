@@ -10,7 +10,7 @@ use ppu::PPU;
 use keypad::Keypad;
 use interrupt_controller::InterruptController;
 
-pub struct MMU {
+pub struct IO {
     bios: ROM,
     wram256: RAM,
     wram32: RAM,
@@ -27,9 +27,9 @@ pub struct MMU {
     waitcnt: WaitStateControl,
 }
 
-impl MMU {
-    pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> MMU {
-        MMU {
+impl IO {
+    pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> IO {
+        IO {
             bios: ROM::new(0, bios),
             wram256: RAM::new(0x02000000, 0x40000),
             wram32: RAM::new(0x03000000, 0x8000),
@@ -66,7 +66,7 @@ impl MMU {
     }
 }
 
-impl IMMU for MMU {
+impl IIO for IO {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32) {
         if cycle_type == Cycle::I { self.clocks_ahead += 1; return }
         self.clocks_ahead += match addr {
@@ -93,7 +93,7 @@ impl IMMU for MMU {
     }
 }
 
-impl MemoryHandler for MMU {
+impl MemoryHandler for IO {
     fn read8(&self, addr: u32) -> u8 {
         match addr {
             0x00000000 ..= 0x00003FFF => self.bios.read8(addr),
@@ -190,7 +190,7 @@ pub trait MemoryHandler {
     }
 }
 
-pub trait IMMU: MemoryHandler {
+pub trait IIO: MemoryHandler {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
 }
 

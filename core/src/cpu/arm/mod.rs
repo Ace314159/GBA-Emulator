@@ -1,24 +1,24 @@
 use super::CPU;
-use super::IMMU;
+use super::IIO;
 use super::registers::{Reg, Mode};
 
-use crate::mmu::Cycle;
+use crate::io::Cycle;
 
 #[cfg(test)]
 mod tests;
 
 impl CPU {
-    pub(super) fn fill_arm_instr_buffer<M>(&mut self, mmu: &mut M) where M: IMMU {
+    pub(super) fn fill_arm_instr_buffer<I>(&mut self, io: &mut I) where I: IIO {
         self.regs.pc &= !0x3;
-        self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
-        mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
+        self.instr_buffer[0] = io.read32(self.regs.pc & !0x3);
+        io.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
         self.regs.pc = self.regs.pc.wrapping_add(4);
 
-        self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
-        mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
+        self.instr_buffer[1] = io.read32(self.regs.pc & !0x3);
+        io.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
     }
 
-    pub(super) fn emulate_arm_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
+    pub(super) fn emulate_arm_instr<I>(&mut self, io: &mut I) where I: IIO {
         let instr = self.instr_buffer[0];
         if self.p {
             use Reg::*;
@@ -32,67 +32,67 @@ impl CPU {
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(4);
-        self.instr_buffer[1] = mmu.read32(self.regs.pc & !0x3);
+        self.instr_buffer[1] = io.read32(self.regs.pc & !0x3);
 
         if self.should_exec((instr >> 28) & 0xF) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
-                self.branch_and_exchange(mmu, instr);
+                self.branch_and_exchange(io, instr);
             } else if instr & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.mul_mula(mmu, instr);
+                self.mul_mula(io, instr);
             } else if instr & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
-                self.mul_long(mmu, instr);
+                self.mul_long(io, instr);
             } else if instr & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
-                self.single_data_swap(mmu, instr);
+                self.single_data_swap(io, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.halfword_and_signed_data_transfer(mmu, instr);
+                self.halfword_and_signed_data_transfer(io, instr);
             } else if instr & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
-                self.psr_transfer(mmu, instr);
+                self.psr_transfer(io, instr);
             } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
-                self.data_proc(mmu, instr);
+                self.data_proc(io, instr);
             } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0100_0000_0000_0000_0000_0000_0000 {
-                self.single_data_transfer(mmu, instr);
+                self.single_data_transfer(io, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1000_0000_0000_0000_0000_0000_0000 {
-                self.block_data_transfer(mmu, instr);
+                self.block_data_transfer(io, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
-                self.branch_branch_with_link(mmu, instr);
+                self.branch_branch_with_link(io, instr);
             } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
-                self.arm_software_interrupt(mmu, instr);
+                self.arm_software_interrupt(io, instr);
             } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
-                self.coprocessor(mmu, instr);
+                self.coprocessor(io, instr);
             } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
-                self.coprocessor(mmu, instr);
+                self.coprocessor(io, instr);
             } else {
                 assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
-                self.undefined_instr(mmu, instr);
+                self.undefined_instr(io, instr);
             }
-        } else { mmu.inc_clock(Cycle::N, self.regs.pc & !0x3, 2) }
+        } else { io.inc_clock(Cycle::N, self.regs.pc & !0x3, 2) }
     }
 
     // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
-        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+    fn branch_and_exchange<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+        io.inc_clock(Cycle::N, self.regs.pc, 2);
         self.regs.pc = self.regs.get_reg_i(instr & 0xF);
         if self.regs.pc & 0x1 != 0 {
             self.regs.pc -= 1;
             self.regs.set_t(true);
-            self.fill_thumb_instr_buffer(mmu);
-        } else { self.fill_arm_instr_buffer(mmu) }
+            self.fill_thumb_instr_buffer(io);
+        } else { self.fill_arm_instr_buffer(io) }
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
-    fn branch_branch_with_link<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn branch_branch_with_link<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         let opcode = (instr >> 24) & 0x1;
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
-        mmu.inc_clock(Cycle::N, self.regs.pc & !0x3, 2);
+        io.inc_clock(Cycle::N, self.regs.pc & !0x3, 2);
         if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
-        self.fill_arm_instr_buffer(mmu);
+        self.fill_arm_instr_buffer(io);
     }
 
     // ARM.5: Data Processing
-    fn data_proc<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn data_proc<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         let change_status = (instr >> 20) & 0x1 != 0;
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
         let mut temp_inc_pc = false;
@@ -105,7 +105,7 @@ impl CPU {
             let shift = (instr >> 8) & 0xF;
             let operand = instr & 0xFF;
             if (opcode < 0x5 || opcode > 0x7) && shift != 0 {
-                self.shift(mmu, 3, operand, shift * 2, true, change_status)
+                self.shift(io, 3, operand, shift * 2, true, change_status)
             } else { operand.rotate_right(shift * 2) }
         } else {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
@@ -119,7 +119,7 @@ impl CPU {
             };
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
-            self.shift(mmu, shift_type, op2, shift, !shift_by_reg,
+            self.shift(io, shift_type, op2, shift, !shift_by_reg,
                 change_status && (opcode < 0x5 || opcode > 0x7))
         };
         let op1 = self.regs.get_reg_i((instr >> 16) & 0xF);
@@ -145,25 +145,25 @@ impl CPU {
         else { assert_eq!(opcode & 0xC != 0x8, true) }
         if opcode & 0xC != 0x8 {
             self.regs.set_reg_i(dest_reg, result);
-            if dest_reg == 15 { self.fill_arm_instr_buffer(mmu); }
+            if dest_reg == 15 { self.fill_arm_instr_buffer(io); }
         }
         if dest_reg == 15 && opcode & 0xC != 0x8 {
-            mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+            io.inc_clock(Cycle::N, self.regs.pc, 2);
         } else {
-            mmu.inc_clock(Cycle::S, self.regs.pc, 2);
+            io.inc_clock(Cycle::S, self.regs.pc, 2);
             if temp_inc_pc { self.regs.pc = self.regs.pc.wrapping_sub(4) } // Dec after temp inc
         }
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn psr_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 26 & 0b11, 0b00);
         let immediate_operand = (instr >> 25) & 0x1 != 0;
         assert_eq!(instr >> 23 & 0b11, 0b10);
         let status_reg = if instr >> 22 & 0x1 != 0 { Reg::SPSR } else { Reg::CPSR };
         let msr = instr >> 21 & 0x1 != 0;
         assert_eq!(instr >> 20 & 0b1, 0b0);
-        mmu.inc_clock(Cycle::S, self.regs.pc, 2);
+        io.inc_clock(Cycle::S, self.regs.pc, 2);
 
         if msr {
             let mut mask = 0u32;
@@ -189,7 +189,7 @@ impl CPU {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul_mula<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn mul_mula<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 22 & 0x3F, 0b000000);
         let accumulate = instr >> 21 & 0x1 != 0;
         let change_status = instr >> 20 & 0x1 != 0;
@@ -200,9 +200,9 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op3 = self.regs.get_reg_i(instr & 0xF);
         
-        self.inc_mul_clocks(mmu, op2, true);
+        self.inc_mul_clocks(io, op2, true);
         let result = if accumulate {
-            mmu.inc_clock(Cycle::I, 0, 0);
+            io.inc_clock(Cycle::I, 0, 0);
             op2.wrapping_mul(op3).wrapping_add(op1)
         } else {
             assert_eq!(op1_reg, 0);
@@ -214,11 +214,11 @@ impl CPU {
         }
         self.regs.set_reg_i(dest_reg, result);
 
-        mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2);
+        io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2);
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn mul_long<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 23 & 0x1F, 0b00001);
         let signed = instr >> 22 & 0x1 != 0;
         let accumulate = instr >> 21 & 0x1 != 0;
@@ -229,12 +229,12 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op2 = self.regs.get_reg_i(instr & 0xF);
 
-        self.inc_mul_clocks(mmu, op1 as u32, signed);
-        mmu.inc_clock(Cycle::I, 0, 0);
+        self.inc_mul_clocks(io, op1 as u32, signed);
+        io.inc_clock(Cycle::I, 0, 0);
         let result = if signed { (op1 as i32 as u64).wrapping_mul(op2 as i32 as u64) }
         else { (op1 as u64) * (op2 as u64) }.wrapping_add(
         if accumulate {
-            mmu.inc_clock(Cycle::I, 0, 0);
+            io.inc_clock(Cycle::I, 0, 0);
             (self.regs.get_reg_i(src_dest_reg_high) as u64) << 32 |
             self.regs.get_reg_i(src_dest_reg_low) as u64
         } else { 0 });
@@ -247,7 +247,7 @@ impl CPU {
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
-    fn single_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn single_data_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 26 & 0b11, 0b01);
         let shifted_reg_offset = instr >> 25 & 0x1 != 0;
         let pre_offset = instr >> 24 & 0x1 != 0;
@@ -258,7 +258,7 @@ impl CPU {
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
-        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        io.inc_clock(Cycle::N, self.regs.pc, 2);
 
         let offset = if shifted_reg_offset {
             let shift = instr >> 7 & 0x1F;
@@ -267,29 +267,29 @@ impl CPU {
             let offset_reg = instr & 0xF;
             assert_ne!(offset_reg, 15);
             let operand = self.regs.get_reg_i(offset_reg);
-            self.shift(mmu, shift_type, operand, shift, true, false)
+            self.shift(io, shift_type, operand, shift, true, false)
         } else {
             instr & 0xFFF
         };
 
         let mut exec = |addr| if load {
-            mmu.inc_clock(Cycle::I, 0, 0);
+            io.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, if transfer_byte {
-                mmu.read8(addr) as u32
+                io.read8(addr) as u32
             } else {
-                mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
+                io.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
             });
             if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 {
-                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
-                self.fill_arm_instr_buffer(mmu);
-            } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
+                io.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
+                self.fill_arm_instr_buffer(io);
+            } else { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
             let addr = addr & !0x3;
             let value = self.regs.get_reg_i(src_dest_reg);
             let value = if src_dest_reg == 15 { value.wrapping_add(4) } else { value };
-            mmu.inc_clock(Cycle::N, addr, 2);
-            if transfer_byte { mmu.write8(addr, value as u8) } else { mmu.write32(addr, value) }
+            io.inc_clock(Cycle::N, addr, 2);
+            if transfer_byte { io.write8(addr, value as u8) } else { io.write32(addr, value) }
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
@@ -306,7 +306,7 @@ impl CPU {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn halfword_and_signed_data_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 25 & 0x7, 0b000);
         let pre_offset = instr >> 24 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
@@ -329,25 +329,25 @@ impl CPU {
         };
         
         let mut exec = |addr| if load {
-            mmu.inc_clock(Cycle::I, 0, 0);
+            io.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, match opcode {
-                1 => (mmu.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
-                2 => mmu.read8(addr) as i8 as u32,
-                3 if addr & 0x1 == 1 => mmu.read8(addr) as i8 as u32,
-                3 => mmu.read16(addr) as i16 as u32,
+                1 => (io.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
+                2 => io.read8(addr) as i8 as u32,
+                3 if addr & 0x1 == 1 => io.read8(addr) as i8 as u32,
+                3 => io.read16(addr) as i16 as u32,
                 _ => panic!("Invalid opcode!"),
             });
             if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 {
-                mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
-                self.fill_arm_instr_buffer(mmu);
-            } else { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
+                io.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
+                self.fill_arm_instr_buffer(io);
+            } else { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
             assert_eq!(opcode, 1);
             let addr = addr & !0x1;
             let value = self.regs.get_reg_i(src_dest_reg);
-            mmu.inc_clock(Cycle::N, addr, 1);
-            mmu.write16(addr, value as u16);
+            io.inc_clock(Cycle::N, addr, 1);
+            io.write16(addr, value as u16);
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
@@ -362,7 +362,7 @@ impl CPU {
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn block_data_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 25 & 0x7, 0b100);
         let add_offset = instr >> 23 & 0x1 != 0;
         let pre_offset = (instr >> 24 & 0x1 != 0) ^ !add_offset;
@@ -379,7 +379,7 @@ impl CPU {
         let actual_mode = self.regs.get_mode();
         if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
 
-        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        io.inc_clock(Cycle::N, self.regs.pc, 2);
         let mut loaded_pc = false;
         let num_regs = r_list.count_ones();
         let start_addr = if add_offset { base } else { base.wrapping_sub(num_regs * 4) };
@@ -391,20 +391,20 @@ impl CPU {
         let mut calc_addr = || if pre_offset { addr += inc_amount; addr }
         else { let old_addr = addr; addr += inc_amount; old_addr };
         let mut exec = |addr, reg, last_access| if load {
-            self.regs.set_reg_i(reg, mmu.read32(addr));
+            self.regs.set_reg_i(reg, io.read32(addr));
             if write_back { self.regs.set_reg_i(base_reg, final_addr) }
             if reg == 15 {
                 if psr_force_usr { self.regs.restore_cpsr() }
                 loaded_pc = true;
-                self.fill_arm_instr_buffer(mmu);
+                self.fill_arm_instr_buffer(io);
             }
-            if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
-            else { mmu.inc_clock(Cycle::S, addr, 2) }
+            if last_access { io.inc_clock(Cycle::I, 0, 0) }
+            else { io.inc_clock(Cycle::S, addr, 2) }
         } else {
             let value = self.regs.get_reg_i(reg);
-            mmu.write32(addr, if reg == 15 { value.wrapping_add(4) } else { value });
-            if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
-            else { mmu.inc_clock(Cycle::S, addr, 2) }
+            io.write32(addr, if reg == 15 { value.wrapping_add(4) } else { value });
+            if last_access { io.inc_clock(Cycle::N, addr, 2) }
+            else { io.inc_clock(Cycle::S, addr, 2) }
             if write_back { self.regs.set_reg_i(base_reg, final_addr) }
         };
         if num_regs == 0 {
@@ -422,12 +422,12 @@ impl CPU {
         }
 
         self.regs.set_mode(actual_mode);
-        if loaded_pc { mmu.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2) }
-        else if load { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2) }
+        if loaded_pc { io.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2) }
+        else if load { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2) }
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn single_data_swap<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 23 & 0x1F, 0b00010);
         let byte = instr >> 22 & 0x1 != 0;
         assert_eq!(instr >> 20 & 0x3, 0b00);
@@ -437,45 +437,45 @@ impl CPU {
         let src_reg = instr & 0xF;
         let src = self.regs.get_reg_i(src_reg);
 
-        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        io.inc_clock(Cycle::N, self.regs.pc, 2);
         let (value, access_width) = if byte {
-            let value = mmu.read8(base) as u32;
-            mmu.write8(base, src as u8);
+            let value = io.read8(base) as u32;
+            io.write8(base, src as u8);
             (value, 0)
         } else {
-            let value = mmu.read32(base & !0x3).rotate_right((base & 0x3) * 8);
-            mmu.write32(base & !0x3, src);
+            let value = io.read32(base & !0x3).rotate_right((base & 0x3) * 8);
+            io.write32(base & !0x3, src);
             (value, 2)
         };
         self.regs.set_reg_i(dest_reg, value);
-        mmu.inc_clock(Cycle::N, base, access_width);
+        io.inc_clock(Cycle::N, base, access_width);
 
-        mmu.inc_clock(Cycle::I, 0, 0);
-        mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2);
+        io.inc_clock(Cycle::I, 0, 0);
+        io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2);
     }
 
     // ARM.13: Software Interrupt (SWI)
-    fn arm_software_interrupt<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
+    fn arm_software_interrupt<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
         assert_eq!(instr >> 24 & 0xF, 0b1111);
-        mmu.inc_clock(Cycle::N, self.regs.pc, 2);
+        io.inc_clock(Cycle::N, self.regs.pc, 2);
         let cpsr = self.regs.get_reg(Reg::CPSR);
         self.regs.set_mode(Mode::SVC);
         self.regs.set_reg(Reg::SPSR, cpsr);
         self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4));
         self.regs.set_i(true);
         self.regs.pc = 0x8;
-        self.fill_arm_instr_buffer(mmu);
+        self.fill_arm_instr_buffer(io);
     }
 
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
-    fn coprocessor<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
+    fn coprocessor<I>(&mut self, _io: &mut I, _instr: u32) where I: IIO {
         unimplemented!("Coprocessor not implemented!");
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr<M>(&mut self, _mmu: &mut M, _instr: u32) where M: IMMU {
+    fn undefined_instr<I>(&mut self, _io: &mut I, _instr: u32) where I: IIO {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
 }

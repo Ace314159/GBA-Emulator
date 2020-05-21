@@ -1,10 +1,10 @@
 use super::*;
 use crate::cpu::registers::Reg;
-use crate::mmu::{Cycle, MemoryHandler};
+use crate::io::{Cycle, MemoryHandler};
 use std::collections::HashMap;
 
 
-pub(super) struct TestMMU {
+pub(super) struct TestIO {
     n_cycle_count: u32,
     s_cycle_count: u32,
     i_cycle_count: u32,
@@ -14,9 +14,9 @@ pub(super) struct TestMMU {
     pub writes16: HashMap<u32, u16>,
 }
 
-impl TestMMU {
-    pub fn new() -> TestMMU {
-        TestMMU {
+impl TestIO {
+    pub fn new() -> TestIO {
+        TestIO {
             n_cycle_count: 0,
             s_cycle_count: 0,
             i_cycle_count: 0,
@@ -32,7 +32,7 @@ impl TestMMU {
     }
 }
 
-impl IMMU for TestMMU {
+impl IIO for TestIO {
     fn inc_clock(&mut self, cycle_type: Cycle, _addr: u32, _access_width: u32) {
         match cycle_type {
             Cycle::N => self.n_cycle_count += 1,
@@ -42,7 +42,7 @@ impl IMMU for TestMMU {
     }
 }
 
-impl MemoryHandler for TestMMU {
+impl MemoryHandler for TestIO {
     fn read8(&self, addr: u32) -> u8 {
         if self.reading_enabled { addr as u8 } else { 0 }
     }
@@ -70,8 +70,8 @@ impl MemoryHandler for TestMMU {
 
 macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:expr),*) => { {
     println!("{:08X}", $instr);
-    let mut mmu = TestMMU::new();
-    let mut cpu = CPU::new(&mut mmu);
+    let mut io = TestIO::new();
+    let mut cpu = CPU::new(&mut io);
     $(
         if Reg::$reg == Reg::CPSR {
             cpu.regs.set_reg(Reg::CPSR, cpu.regs.get_reg(Reg::CPSR) | $val);
@@ -81,9 +81,9 @@ macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:ex
     )*
     let instr_len = if cpu.regs.get_t() { cpu.regs.pc = 2; 2 } else { 4 };
     cpu.regs.pc = cpu.regs.pc.wrapping_add(instr_len); // Add instr_len to simulate incrementing pc when fetching instr
-    mmu.enable_reading();
-    cpu.$instr_name(&mut mmu, $instr);
-    (cpu, mmu)
+    io.enable_reading();
+    cpu.$instr_name(&mut io, $instr);
+    (cpu, io)
 } } }
 
 macro_rules! assert_regs { ($regs:expr, $($reg:ident = $val:expr),*) => { {
@@ -107,18 +107,18 @@ macro_rules! assert_writes { ($cpu_writes:expr, $($addr:expr => $val:expr),*) =>
     assert_eq!($cpu_writes, writes);
 } } }
 
-pub(super) fn assert_cycle_times(mmu: TestMMU, s_count: u32, i_count: u32, n_count: u32) {
-    assert_eq!(mmu.s_cycle_count, s_count + 2); // 2 extra for initial instr buffer
-    assert_eq!(mmu.i_cycle_count, i_count);
-    assert_eq!(mmu.n_cycle_count, n_count);
+pub(super) fn assert_cycle_times(io: TestIO, s_count: u32, i_count: u32, n_count: u32) {
+    assert_eq!(io.s_cycle_count, s_count + 2); // 2 extra for initial instr buffer
+    assert_eq!(io.i_cycle_count, i_count);
+    assert_eq!(io.n_cycle_count, n_count);
 }
 
 #[test]
 fn test_shift() {
     fn run_shift(shift_type: u32, operand: u32, shift: u32, immediate: bool, change_status: bool) -> (CPU, u32) {
-        let mut mmu = TestMMU::new();
-        let mut cpu = CPU::new(&mut mmu);
-        let val = cpu.shift(&mut mmu, shift_type, operand, shift, immediate, change_status);
+        let mut io = TestIO::new();
+        let mut cpu = CPU::new(&mut io);
+        let val = cpu.shift(&mut io, shift_type, operand, shift, immediate, change_status);
         (cpu, val)
     }
     // LSL #0
@@ -144,32 +144,32 @@ fn test_shift() {
 
 #[test]
 pub fn test_mul() {
-    fn run_mul(op1: u32) -> TestMMU {
-        let mut mmu = TestMMU::new();
-        let mut cpu = CPU::new(&mut mmu);
-        cpu.inc_mul_clocks(&mut mmu, op1, true);
-        mmu
+    fn run_mul(op1: u32) -> TestIO {
+        let mut io = TestIO::new();
+        let mut cpu = CPU::new(&mut io);
+        cpu.inc_mul_clocks(&mut io, op1, true);
+        io
     }
 
     // 1 I Cycle
-    let mmu = run_mul(0xFFFFFFFF);
-    assert_cycle_times(mmu, 0, 1, 0);
-    let mmu = run_mul(0);
-    assert_cycle_times(mmu, 0, 1, 0);
+    let io = run_mul(0xFFFFFFFF);
+    assert_cycle_times(io, 0, 1, 0);
+    let io = run_mul(0);
+    assert_cycle_times(io, 0, 1, 0);
 
     // 2 I Cycles
-    let mmu = run_mul(0xFFFF00FF);
-    assert_cycle_times(mmu, 0, 2, 0);
-    let mmu = run_mul(0x0000FFFF);
-    assert_cycle_times(mmu, 0, 2, 0);
+    let io = run_mul(0xFFFF00FF);
+    assert_cycle_times(io, 0, 2, 0);
+    let io = run_mul(0x0000FFFF);
+    assert_cycle_times(io, 0, 2, 0);
 
     // 3 I Cycles
-    let mmu = run_mul(0xFF000000);
-    assert_cycle_times(mmu, 0, 3, 0);
-    let mmu = run_mul(0x00FFFFFF);
-    assert_cycle_times(mmu, 0, 3, 0);
+    let io = run_mul(0xFF000000);
+    assert_cycle_times(io, 0, 3, 0);
+    let io = run_mul(0x00FFFFFF);
+    assert_cycle_times(io, 0, 3, 0);
 
     // 4 I Cycles
-    let mmu = run_mul(0xF0F0F0F0);
-    assert_cycle_times(mmu, 0, 4, 0);
+    let io = run_mul(0xF0F0F0F0);
+    assert_cycle_times(io, 0, 4, 0);
 }

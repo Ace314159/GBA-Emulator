@@ -1,40 +1,40 @@
 use crate::cpu::CPU;
-use crate::mmu::MMU;
-pub use crate::mmu::keypad::KEYINPUT;
+use crate::io::IO;
+pub use crate::io::keypad::KEYINPUT;
 
 pub struct GBA {
     cpu: CPU,
-    mmu: MMU,
+    io: IO,
 }
 
 impl GBA {
     pub fn new(rom_file: &String) -> GBA {
         let bios = std::fs::read("gba_bios.bin").unwrap();
-        let mut mmu = MMU::new(bios, std::fs::read(rom_file).unwrap());
+        let mut io = IO::new(bios, std::fs::read(rom_file).unwrap());
         GBA {
-            cpu: CPU::no_bios(&mut mmu),
-            mmu,
+            cpu: CPU::no_bios(&mut io),
+            io,
         }
     }
 
     pub fn emulate(&mut self) {
-        self.cpu.emulate_instr(&mut self.mmu);
+        self.cpu.emulate_instr(&mut self.io);
     }
 
     pub fn needs_to_render(&mut self) -> bool {
-        self.mmu.needs_to_render()
+        self.io.needs_to_render()
     }
 
     pub fn get_pixels(&self) -> &[u16; Display::WIDTH * Display::HEIGHT] {
-        self.mmu.get_pixels()
+        self.io.get_pixels()
     }
 
     pub fn press_key(&mut self, key: KEYINPUT) {
-        self.mmu.press_key(key);
+        self.io.press_key(key);
     }
 
     pub fn release_key(&mut self, key: KEYINPUT) {
-        self.mmu.release_key(key);
+        self.io.release_key(key);
     }
 }
 

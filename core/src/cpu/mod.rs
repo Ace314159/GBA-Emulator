@@ -6,7 +6,7 @@ mod arm;
 mod thumb;
 mod registers;
 
-use crate::mmu::{IMMU, Cycle};
+use crate::io::{IIO, Cycle};
 use registers::RegValues;
 
 pub struct CPU {
@@ -16,29 +16,29 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn no_bios<M>(mmu: &mut M) -> CPU where M: IMMU {
+    pub fn no_bios<I>(io: &mut I) -> CPU where I: IIO {
         let mut cpu = CPU {
             regs: RegValues::no_bios(),
             instr_buffer: [0; 2],
             p: false,
         };
-        cpu.fill_arm_instr_buffer(mmu);
+        cpu.fill_arm_instr_buffer(io);
         cpu
     }
 
-    pub fn _new<M>(mmu: &mut M) -> CPU where M: IMMU {
+    pub fn _new<I>(io: &mut I) -> CPU where I: IIO {
         let mut cpu = CPU {
             regs: RegValues::new(),
             instr_buffer: [0; 2],
             p: false,
         };
-        cpu.fill_arm_instr_buffer(mmu);
+        cpu.fill_arm_instr_buffer(io);
         cpu
     }
 
-    pub fn emulate_instr<M>(&mut self, mmu: &mut M) where M: IMMU {
-        if self.regs.get_t() { self.emulate_thumb_instr(mmu) }
-        else { self.emulate_arm_instr(mmu) }
+    pub fn emulate_instr<I>(&mut self, io: &mut I) where I: IIO {
+        if self.regs.get_t() { self.emulate_thumb_instr(io) }
+        else { self.emulate_arm_instr(io) }
     }
 
     pub(self) fn should_exec(&self, condition: u32) -> bool {
@@ -63,8 +63,8 @@ impl CPU {
         }
     }
 
-    pub(self) fn shift<M>(&mut self, mmu: &mut M, shift_type: u32, operand: u32, shift: u32,
-        immediate: bool, change_status: bool) -> u32 where M: IMMU{
+    pub(self) fn shift<I>(&mut self, io: &mut I, shift_type: u32, operand: u32, shift: u32,
+        immediate: bool, change_status: bool) -> u32 where I: IIO{
         if immediate && shift == 0 {
             match shift_type {
                 // LSL #0
@@ -90,7 +90,7 @@ impl CPU {
             }
         } else if shift > 31 {
             assert_eq!(immediate, false);
-            if !immediate { mmu.inc_clock(Cycle::I, 0, 0) }
+            if !immediate { io.inc_clock(Cycle::I, 0, 0) }
             match shift_type {
                 // LSL
                 0 => {
@@ -123,7 +123,7 @@ impl CPU {
                 _ => panic!("Invalid Shift type!"),
             }
         } else {
-            if !immediate { mmu.inc_clock(Cycle::I, 0, 0) }
+            if !immediate { io.inc_clock(Cycle::I, 0, 0) }
             let change_status = change_status && shift != 0;
             match shift_type {
                 // LSL
@@ -179,10 +179,10 @@ impl CPU {
         self.adc(op1, !op2, change_status)
     }
 
-    pub(self) fn inc_mul_clocks<M>(&mut self, mmu: &mut M, op1: u32, signed: bool) where M: IMMU {
+    pub(self) fn inc_mul_clocks<I>(&mut self, io: &mut I, op1: u32, signed: bool) where I: IIO {
         let mut mask = 0xFF_FF_FF_00;
         loop {
-            mmu.inc_clock(Cycle::I, 0, 0);
+            io.inc_clock(Cycle::I, 0, 0);
             let value = op1 & mask;
             if mask == 0 || value == 0 || signed && value == mask { break }
             mask <<= 8;

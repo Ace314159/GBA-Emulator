@@ -1,4 +1,4 @@
-use crate::mmu::IORegister;
+use crate::io::IORegister;
 
 bitflags! {
     pub struct KEYINPUT: u16 {

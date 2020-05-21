@@ -2,6 +2,6 @@
 extern crate bitflags;
 
 mod cpu;
-mod mmu;
+mod io;
 
 pub mod gba;
