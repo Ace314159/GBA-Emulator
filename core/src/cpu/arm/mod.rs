@@ -145,7 +145,10 @@ impl CPU {
         else { assert_eq!(opcode & 0xC != 0x8, true) }
         if opcode & 0xC != 0x8 {
             self.regs.set_reg_i(dest_reg, result);
-            if dest_reg == 15 { self.fill_arm_instr_buffer(io); }
+            if dest_reg == 15 {
+                if self.regs.get_t() { self.fill_thumb_instr_buffer(io) }
+                else { self.fill_arm_instr_buffer(io) }
+            }
         }
         if dest_reg == 15 && opcode & 0xC != 0x8 {
             io.inc_clock(Cycle::N, self.regs.pc, 2);
