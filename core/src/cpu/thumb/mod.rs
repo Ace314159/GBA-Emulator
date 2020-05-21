@@ -188,7 +188,7 @@ impl CPU {
         let dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) as u32;
         let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
-        self.regs.set_reg_i(dest_reg, mmu.read32(addr) as u32);
+        self.regs.set_reg_i(dest_reg, mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8) as u32);
         mmu.inc_clock(Cycle::N, self.regs.pc, 1);
         mmu.inc_clock(Cycle::I, 0, 0);
         mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
@@ -210,7 +210,7 @@ impl CPU {
             self.regs.set_reg_i(src_dest_reg, if opcode & 0b01 != 0 {
                 mmu.read8(addr) as u32 // LDRB
             } else {
-                mmu.read32(addr) // LDR
+                mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8) // LDR
             });
 
         } else { // Store
@@ -218,7 +218,7 @@ impl CPU {
                 mmu.write8(addr, self.regs.get_reg_i(src_dest_reg) as u8);
                 1
             } else { // STR
-                mmu.write32(addr, self.regs.get_reg_i(src_dest_reg));
+                mmu.write32(addr & !0x3, self.regs.get_reg_i(src_dest_reg));
                 0
             };
             mmu.inc_clock(Cycle::N, addr, access_width);
@@ -238,12 +238,17 @@ impl CPU {
         mmu.inc_clock(Cycle::N, self.regs.pc, 1);
         if opcode == 0 { // STRH
             mmu.inc_clock(Cycle::N, addr, 1);
-            mmu.write16(addr, self.regs.get_reg_i(src_dest_reg) as u16);
+            mmu.write16(addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         } else { // Load
             mmu.inc_clock(Cycle::I, 0, 0);
             mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
-            let value = if opcode == 1 { mmu.read8(addr) as i8 as u32 } else { mmu.read16(addr) as u32 };
-            self.regs.set_reg_i(src_dest_reg, if opcode == 3 { value as u16 as i16 as u32 } else { value })
+            self.regs.set_reg_i(src_dest_reg, match opcode {
+                1 => mmu.read8(addr) as i8 as u32,
+                2 => (mmu.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
+                3 if addr & 0x1 == 1 => mmu.read8(addr) as i8 as u32,
+                3 => mmu.read16(addr) as i16 as u32,
+                _ => panic!("Invalid opcode!")
+            });
         }
     }
 
@@ -261,8 +266,12 @@ impl CPU {
             mmu.inc_clock(Cycle::I, 0, 0);
             mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
             self.regs.set_reg_i(src_dest_reg, if byte {
-                mmu.read8(base.wrapping_add(offset)) as u32
-            } else { mmu.read32(base.wrapping_add(offset)) });
+                let addr = base.wrapping_add(offset);
+                mmu.read8(addr) as u32
+            } else {
+                let addr = base.wrapping_add(offset << 2);
+                mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
+            });
         } else {
             let value = self.regs.get_reg_i(src_dest_reg);
             let addr = if byte {
@@ -271,7 +280,7 @@ impl CPU {
                 addr
             } else {
                 let addr = base.wrapping_add(offset << 2);
-                mmu.write32(addr, value);
+                mmu.write32(addr & !0x3, value);
                 addr
             };
             mmu.inc_clock(Cycle::N, addr, 1);
@@ -291,10 +300,10 @@ impl CPU {
         if load {
             mmu.inc_clock(Cycle::I, 0, 0);
             mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
-            self.regs.set_reg_i(src_dest_reg, mmu.read16(addr) as u32);
+            self.regs.set_reg_i(src_dest_reg, (mmu.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8));
         } else {
-            mmu.inc_clock(Cycle::N, addr, 1);
-            mmu.write16(addr, self.regs.get_reg_i(src_dest_reg) as u16);
+            mmu.inc_clock(Cycle::N, addr & 0x1, 1);
+            mmu.write16(addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         }
     }
 
@@ -308,11 +317,11 @@ impl CPU {
         mmu.inc_clock(Cycle::N, self.regs.pc, 1);
         if load {
             mmu.inc_clock(Cycle::I, 0, 0);
-            self.regs.set_reg_i(src_dest_reg, mmu.read32(addr));
+            self.regs.set_reg_i(src_dest_reg, mmu.read32(addr & !0x3).rotate_right((addr & 0x3) * 8));
             mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
         } else {
             mmu.inc_clock(Cycle::N, addr, 2);
-            mmu.write32(addr, self.regs.get_reg_i(src_dest_reg));
+            mmu.write32(addr & !0x3, self.regs.get_reg_i(src_dest_reg));
         }
     }
 
@@ -400,7 +409,7 @@ impl CPU {
         assert_eq!(instr >> 12, 0b1100);
         let load = instr >> 11 & 0x1 != 0;
         let base_reg = (instr >> 8 & 0x7) as u32;
-        let mut base = self.regs.get_reg_i(base_reg);
+        let mut base = self.regs.get_reg_i(base_reg) & !0x3;
         let mut r_list = (instr & 0xFF) as u8;
     
         mmu.inc_clock(Cycle::N, self.regs.pc, 1);
