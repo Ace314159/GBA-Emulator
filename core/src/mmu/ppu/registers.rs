@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::IORegister;
 
 #[derive(Clone, Copy)]
@@ -116,5 +118,94 @@ impl IORegister for DISPSTAT {
 
     fn write_high(&mut self, value: u8) {
         self.vcount_setting = value as u8;
+    }
+}
+
+pub struct BG01CNT {
+    priority: u8,
+    tile_block: u8,
+    mosaic: bool,
+    use_palettes: bool,
+    map_block: u8,
+    screen_size: u8,
+}
+
+
+pub trait BGCNT {
+    fn new() -> Self;
+}
+
+impl BGCNT for BG01CNT {
+    fn new() -> BG01CNT {
+        BG01CNT {
+            priority: 0,
+            tile_block: 0,
+            mosaic: false,
+            use_palettes: false,
+            map_block: 0,
+            screen_size: 0, 
+        }
+    }
+}
+
+impl IORegister for BG01CNT {
+    fn read_low(&self) -> u8 {
+        (self.use_palettes as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority
+    }
+
+    fn read_high(&self) -> u8 {
+        self.screen_size << 6 | self.map_block
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.priority = value & 0x3;
+        self.tile_block = value >> 2 & 0x3;
+        self.mosaic = value >> 6 & 0x1 != 0;
+        self.use_palettes = value >> 7 & 0x1 != 0;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.map_block = value & 0x3;
+        self.screen_size = value >> 6 & 0x3;
+    }
+}
+
+pub struct BG23CNT {
+    bg01cnt: BG01CNT,
+    wrap: bool,
+}
+
+impl BGCNT for BG23CNT {
+    fn new() -> BG23CNT {
+        BG23CNT {
+            bg01cnt: BG01CNT::new(),
+            wrap: false,
+        }
+    }
+}
+
+impl Deref for BG23CNT {
+    type Target = BG01CNT;
+    fn deref(&self) -> &BG01CNT {
+        &self.bg01cnt
+    }
+}
+
+impl IORegister for BG23CNT {
+    fn read_low(&self) -> u8 {
+        self.bg01cnt.read_low()
+    }
+
+    fn read_high(&self) -> u8 {
+        self.bg01cnt.read_high() | (self.wrap as u8) << 5
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.bg01cnt.write_low(value);
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.bg01cnt.write_high(value);
+        self.wrap = value >> 5 & 0x1 != 0;
     }
 }

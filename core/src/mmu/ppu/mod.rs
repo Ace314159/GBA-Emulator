@@ -1,9 +1,12 @@
 mod registers;
+mod layers;
 
 use crate::gba::Display;
-use registers::*;
 use super::MemoryHandler;
 use super::IORegister;
+
+use registers::*;
+use layers::BG;
 
 pub struct PPU {
     // Registers
@@ -11,6 +14,11 @@ pub struct PPU {
     green_swap: bool,
     dispstat: DISPSTAT,
     vcount: u8,
+    // Layers1
+    bg0: BG<BG01CNT>,
+    bg1: BG<BG01CNT>,
+    bg2: BG<BG23CNT>,
+    bg3: BG<BG23CNT>,
 
     // Palettes
     bg_colors: [u16; 0x100],
@@ -32,6 +40,11 @@ impl PPU {
             green_swap: false,
             dispstat: DISPSTAT::new(),
             vcount: 0, 
+            // Layer
+            bg0: BG::new(),
+            bg1: BG::new(),
+            bg2: BG::new(),
+            bg3: BG::new(),
 
             // Palettes
             bg_colors: [0; 0x100],
@@ -124,6 +137,14 @@ impl MemoryHandler for PPU {
             0x005 => self.dispstat.read_high(),
             0x006 => self.vcount as u8,
             0x007 => 0, // Unused area of VCOUNT
+            0x008 => self.bg0.cnt.read_low(),
+            0x009 => self.bg0.cnt.read_high(),
+            0x00A => self.bg1.cnt.read_low(),
+            0x00B => self.bg1.cnt.read_high(),
+            0x00C => self.bg2.cnt.read_low(),
+            0x00D => self.bg2.cnt.read_high(),
+            0x00E => self.bg3.cnt.read_low(),
+            0x00F => self.bg3.cnt.read_high(),
             _ => unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -139,6 +160,14 @@ impl MemoryHandler for PPU {
             0x005 => self.dispstat.write_high(value),
             0x006 => {},
             0x007 => {},
+            0x008 => self.bg0.cnt.write_low(value),
+            0x009 => self.bg0.cnt.write_high(value),
+            0x00A => self.bg1.cnt.write_low(value),
+            0x00B => self.bg1.cnt.write_high(value),
+            0x00C => self.bg2.cnt.write_low(value),
+            0x00D => self.bg2.cnt.write_high(value),
+            0x00E => self.bg3.cnt.write_low(value),
+            0x00F => self.bg3.cnt.write_high(value),
             _ => unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
