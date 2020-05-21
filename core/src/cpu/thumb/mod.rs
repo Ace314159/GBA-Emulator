@@ -42,8 +42,8 @@ impl CPU {
         else if instr & 0b1111_1100_0000_0000 == 0b0100_0000_0000_0000 { self.alu(mmu, instr) }
         else if instr & 0b1111_1100_0000_0000 == 0b0100_0100_0000_0000 { self.hi_reg_bx(mmu, instr) }
         else if instr & 0b1111_1000_0000_0000 == 0b0100_1000_0000_0000 { self.load_pc_rel(mmu, instr) }
-        else if instr & 0b1111_1001_0000_0000 == 0b0101_0000_0000_0000 { self.load_store_reg_offset(mmu, instr) }
-        else if instr & 0b1111_1001_0000_0000 == 0b0101_0010_0000_0000 { self.load_store_sign_ext(mmu, instr) }
+        else if instr & 0b1111_0010_0000_0000 == 0b0101_0000_0000_0000 { self.load_store_reg_offset(mmu, instr) }
+        else if instr & 0b1111_0010_0000_0000 == 0b0101_0010_0000_0000 { self.load_store_sign_ext(mmu, instr) }
         else if instr & 0b1110_0000_0000_0000 == 0b0110_0000_0000_0000 { self.load_store_imm_offset(mmu, instr) }
         else if instr & 0b1111_0000_0000_0000 == 0b1000_0000_0000_0000 { self.load_store_halfword(mmu, instr) }
         else if instr & 0b1111_0000_0000_0000 == 0b1001_0000_0000_0000 { self.load_store_sp_rel(mmu, instr) }
