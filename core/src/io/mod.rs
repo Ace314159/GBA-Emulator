@@ -1,4 +1,5 @@
 mod memory;
+mod dma;
 mod ppu;
 pub mod keypad;
 mod interrupt_controller;
@@ -6,6 +7,7 @@ mod interrupt_controller;
 use crate::gba::Display;
 use memory::ROM;
 use memory::RAM;
+use dma::DMA;
 use ppu::PPU;
 use keypad::Keypad;
 use interrupt_controller::InterruptController;
@@ -18,6 +20,10 @@ pub struct IO {
     clocks_ahead: u32,
 
     // IO
+    dma0: DMA,
+    dma1: DMA,
+    dma2: DMA,
+    dma3: DMA,
     ppu: PPU,
     keypad: Keypad,
     interrupt_controller: InterruptController,
@@ -37,6 +43,10 @@ impl IO {
             clocks_ahead: 0,
 
             // IO
+            dma0: DMA::new(false, false, false),
+            dma1: DMA::new(true, true, false),
+            dma2: DMA::new(true, false, false),
+            dma3: DMA::new(true, true, true),
             ppu: PPU::new(),
             keypad: Keypad::new(),
             interrupt_controller: InterruptController::new(),
@@ -119,6 +129,54 @@ impl MemoryHandler for IO {
             0x0400020A ..= 0x040002FF => 0, // Unused IO Register
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
+            0x040000B0 => self.dma0.sad.read(0),
+            0x040000B1 => self.dma0.sad.read(1),
+            0x040000B2 => self.dma0.sad.read(2),
+            0x040000B3 => self.dma0.sad.read(3),
+            0x040000B4 => self.dma0.dad.read(0),
+            0x040000B5 => self.dma0.dad.read(1),
+            0x040000B6 => self.dma0.dad.read(2),
+            0x040000B7 => self.dma0.dad.read(3),
+            0x040000B8 => self.dma0.cnt_l.read(0),
+            0x040000B9 => self.dma0.cnt_l.read(1),
+
+
+            0x040000BC => self.dma1.sad.read(0),
+            0x040000BD => self.dma1.sad.read(1),
+            0x040000BE => self.dma1.sad.read(2),
+            0x040000BF => self.dma1.sad.read(3),
+            0x040000C0 => self.dma1.dad.read(0),
+            0x040000C1 => self.dma1.dad.read(1),
+            0x040000C2 => self.dma1.dad.read(2),
+            0x040000C3 => self.dma1.dad.read(3),
+            0x040000C4 => self.dma1.cnt_l.read(0),
+            0x040000C5 => self.dma1.cnt_l.read(1),
+
+
+            0x040000C8 => self.dma2.sad.read(0),
+            0x040000C9 => self.dma2.sad.read(1),
+            0x040000CA => self.dma2.sad.read(2),
+            0x040000CB => self.dma2.sad.read(3),
+            0x040000CC => self.dma2.dad.read(0),
+            0x040000CD => self.dma2.dad.read(1),
+            0x040000CE => self.dma2.dad.read(2),
+            0x040000CF => self.dma2.dad.read(3),
+            0x040000D0 => self.dma2.cnt_l.read(0),
+            0x040000D1 => self.dma2.cnt_l.read(1),
+
+
+            0x040000D4 => self.dma3.sad.read(0),
+            0x040000D5 => self.dma3.sad.read(1),
+            0x040000D6 => self.dma3.sad.read(2),
+            0x040000D7 => self.dma3.sad.read(3),
+            0x040000D8 => self.dma3.dad.read(0),
+            0x040000D9 => self.dma3.dad.read(1),
+            0x040000DA => self.dma3.dad.read(2),
+            0x040000DB => self.dma3.dad.read(3),
+            0x040000DC => self.dma3.cnt_l.read(0),
+            0x040000DD => self.dma3.cnt_l.read(1),
+
+
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.read_palette_ram(addr),
             0x06000000 ..= 0x06017FFF => self.ppu.read_vram(addr),
@@ -153,6 +211,54 @@ impl MemoryHandler for IO {
             0x0400020A ..= 0x040002FF => {}, // Unused IO Register
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
+            0x040000B0 => self.dma0.sad.write(0, value),
+            0x040000B1 => self.dma0.sad.write(1, value),
+            0x040000B2 => self.dma0.sad.write(2, value),
+            0x040000B3 => self.dma0.sad.write(3, value),
+            0x040000B4 => self.dma0.dad.write(0, value),
+            0x040000B5 => self.dma0.dad.write(1, value),
+            0x040000B6 => self.dma0.dad.write(2, value),
+            0x040000B7 => self.dma0.dad.write(3, value),
+            0x040000B8 => self.dma0.cnt_l.write(0, value),
+            0x040000B9 => self.dma0.cnt_l.write(1, value),
+
+
+            0x040000BC => self.dma1.sad.write(0, value),
+            0x040000BD => self.dma1.sad.write(1, value),
+            0x040000BE => self.dma1.sad.write(2, value),
+            0x040000BF => self.dma1.sad.write(3, value),
+            0x040000C0 => self.dma1.dad.write(0, value),
+            0x040000C1 => self.dma1.dad.write(1, value),
+            0x040000C2 => self.dma1.dad.write(2, value),
+            0x040000C3 => self.dma1.dad.write(3, value),
+            0x040000C4 => self.dma1.cnt_l.write(0, value),
+            0x040000C5 => self.dma1.cnt_l.write(1, value),
+
+
+            0x040000C8 => self.dma2.sad.write(0, value),
+            0x040000C9 => self.dma2.sad.write(1, value),
+            0x040000CA => self.dma2.sad.write(2, value),
+            0x040000CB => self.dma2.sad.write(3, value),
+            0x040000CC => self.dma2.dad.write(0, value),
+            0x040000CD => self.dma2.dad.write(1, value),
+            0x040000CE => self.dma2.dad.write(2, value),
+            0x040000CF => self.dma2.dad.write(3, value),
+            0x040000D0 => self.dma2.cnt_l.write(0, value),
+            0x040000D1 => self.dma2.cnt_l.write(1, value),
+
+
+            0x040000D4 => self.dma3.sad.write(0, value),
+            0x040000D5 => self.dma3.sad.write(1, value),
+            0x040000D6 => self.dma3.sad.write(2, value),
+            0x040000D7 => self.dma3.sad.write(3, value),
+            0x040000D8 => self.dma3.dad.write(0, value),
+            0x040000D9 => self.dma3.dad.write(1, value),
+            0x040000DA => self.dma3.dad.write(2, value),
+            0x040000DB => self.dma3.dad.write(3, value),
+            0x040000DC => self.dma3.cnt_l.write(0, value),
+            0x040000DD => self.dma3.cnt_l.write(1, value),
+
+
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.write_palette_ram(addr, value),
             0x06000000 ..= 0x06017FFF => self.ppu.write_vram(addr, value),
