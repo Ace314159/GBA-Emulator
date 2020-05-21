@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use super::IORegister;
 
@@ -67,6 +67,12 @@ impl Deref for DISPCNT {
     }
 }
 
+impl DerefMut for DISPCNT {
+    fn deref_mut(&mut self) -> &mut DISPCNTFlags {
+        &mut self.flags
+    }
+}
+
 impl IORegister for DISPCNT {
     fn read(&self, byte: u8) -> u8 {
         match byte {
@@ -80,9 +86,9 @@ impl IORegister for DISPCNT {
         match byte {
             0 => {
                 self.mode = BGMode::get(value & 0x7);
-                self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPSTATFlags::all().bits; 
+                self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPCNTFlags::all().bits; 
             },
-            1 => self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPSTATFlags::all().bits,
+            1 => self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPCNTFlags::all().bits,
             _ => panic!("Invalid Byte!"),
         }
     }
@@ -121,6 +127,12 @@ impl Deref for DISPSTAT {
     }
 }
 
+impl DerefMut for DISPSTAT {
+    fn deref_mut(&mut self) -> &mut DISPSTATFlags {
+        &mut self.flags
+    }
+}
+
 impl IORegister for DISPSTAT {
     fn read(&self, byte: u8) -> u8 {
         match byte {
@@ -139,34 +151,36 @@ impl IORegister for DISPSTAT {
     }
 }
 
-pub struct BG01CNT {
-    priority: u8,
-    tile_block: u8,
-    mosaic: bool,
-    use_palettes: bool,
-    map_block: u8,
-    screen_size: u8,
+#[derive(Clone, Copy)]
+pub struct BGCNT {
+    pub priority: u8,
+    pub tile_block: u8,
+    pub mosaic: bool,
+    pub use_palettes: bool,
+    pub map_block: u8,
+    pub wrap: bool,
+    pub screen_size: u8,
 }
 
-
-impl BG01CNT {
-    pub fn new() -> BG01CNT {
-        BG01CNT {
+impl BGCNT {
+    pub fn new() -> BGCNT {
+        BGCNT {
             priority: 0,
             tile_block: 0,
             mosaic: false,
             use_palettes: false,
             map_block: 0,
-            screen_size: 0, 
+            wrap: false,
+            screen_size: 0,
         }
     }
 }
 
-impl IORegister for BG01CNT {
+impl IORegister for BGCNT {
     fn read(&self, byte: u8) -> u8 {
         match byte {
             0 => (self.use_palettes as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority,
-            1 => self.screen_size << 6 | self.map_block,
+            1 => self.screen_size << 6 | (self.wrap as u8) << 5 | self.map_block,
             _ => panic!("Invalid Byte!"),
         }
     }
@@ -181,6 +195,7 @@ impl IORegister for BG01CNT {
             },
             1 => {
                 self.map_block = value & 0x3;
+                self.wrap = value >> 5 & 0x1 != 0;
                 self.screen_size = value >> 6 & 0x3;
             },
             _ => panic!("Invalid Byte!"),
@@ -188,48 +203,7 @@ impl IORegister for BG01CNT {
     }
 }
 
-pub struct BG23CNT {
-    bg01cnt: BG01CNT,
-    wrap: bool,
-}
-
-impl BG23CNT {
-    pub fn new() -> BG23CNT {
-        BG23CNT {
-            bg01cnt: BG01CNT::new(),
-            wrap: false,
-        }
-    }
-}
-
-impl Deref for BG23CNT {
-    type Target = BG01CNT;
-    fn deref(&self) -> &BG01CNT {
-        &self.bg01cnt
-    }
-}
-
-impl IORegister for BG23CNT {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => self.bg01cnt.read(0),
-            1 => self.bg01cnt.read(1) | (self.wrap as u8) << 5,
-            _ => panic!("Invalid Byte!"),
-        }
-    }
-
-    fn write(&mut self, byte: u8, value: u8) {
-        match byte {
-            0 => self.bg01cnt.write(1, value),
-            1 => {
-                self.bg01cnt.write(0, value);
-                self.wrap = value >> 5 & 0x1 != 0;
-            },
-            _ => panic!("Invalid Byte!"),
-        }
-    }
-}
-
+#[derive(Clone, Copy)]
 pub struct OFS {
     offset: u16,
 }
@@ -260,6 +234,7 @@ impl IORegister for OFS {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RotationScalingParameter {
     fractional: u8,
     integer: u8,
@@ -297,6 +272,7 @@ impl IORegister for RotationScalingParameter {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct ReferencePointCoord {
     fractional: u8,
     integer: u32,
