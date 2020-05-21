@@ -131,12 +131,8 @@ pub struct BG01CNT {
 }
 
 
-pub trait BGCNT {
-    fn new() -> Self;
-}
-
-impl BGCNT for BG01CNT {
-    fn new() -> BG01CNT {
+impl BG01CNT {
+    pub fn new() -> BG01CNT {
         BG01CNT {
             priority: 0,
             tile_block: 0,
@@ -175,8 +171,8 @@ pub struct BG23CNT {
     wrap: bool,
 }
 
-impl BGCNT for BG23CNT {
-    fn new() -> BG23CNT {
+impl BG23CNT {
+    pub fn new() -> BG23CNT {
         BG23CNT {
             bg01cnt: BG01CNT::new(),
             wrap: false,

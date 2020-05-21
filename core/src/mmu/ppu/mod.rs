@@ -6,7 +6,7 @@ use super::MemoryHandler;
 use super::IORegister;
 
 use registers::*;
-use layers::BG;
+use layers::{BG01, BG23};
 
 pub struct PPU {
     // Registers
@@ -15,10 +15,10 @@ pub struct PPU {
     dispstat: DISPSTAT,
     vcount: u8,
     // Layers1
-    bg0: BG<BG01CNT>,
-    bg1: BG<BG01CNT>,
-    bg2: BG<BG23CNT>,
-    bg3: BG<BG23CNT>,
+    bg0: BG01,
+    bg1: BG01,
+    bg2: BG23,
+    bg3: BG23,
 
     // Palettes
     bg_colors: [u16; 0x100],
@@ -41,10 +41,10 @@ impl PPU {
             dispstat: DISPSTAT::new(),
             vcount: 0, 
             // Layer
-            bg0: BG::new(),
-            bg1: BG::new(),
-            bg2: BG::new(),
-            bg3: BG::new(),
+            bg0: BG01::new(),
+            bg1: BG01::new(),
+            bg2: BG23::new(),
+            bg3: BG23::new(),
 
             // Palettes
             bg_colors: [0; 0x100],
