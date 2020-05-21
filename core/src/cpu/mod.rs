@@ -115,7 +115,12 @@ impl CPU {
                     if c { 0xFFFF_FFFF } else { 0 }
                 },
                 // ROR
-                3 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand.rotate_right(shift) },
+                3 => {
+                    let shift = shift & 0x1F;
+                    let shift = if shift == 0 { 0x20 } else { shift };
+                    if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0) }
+                    operand.rotate_right(shift)
+                },
                 _ => panic!("Invalid Shift type!"),
             }
         } else {
