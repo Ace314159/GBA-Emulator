@@ -290,7 +290,7 @@ impl CPU {
     // THUMB.10: load/store halfword
     fn load_store_halfword<M>(&mut self, mmu: &mut M, instr: u16) where M: IMMU {
         assert_eq!(instr >> 12, 0b1000);
-        let load = instr >> 1 & 0x1 != 0;
+        let load = instr >> 11 & 0x1 != 0;
         let offset = (instr >> 6 & 0x1F) as u32;
         let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let src_dest_reg = (instr & 0x7) as u32;
