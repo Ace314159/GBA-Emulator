@@ -179,7 +179,10 @@ impl MemoryHandler for IO {
 
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.read_palette_ram(addr),
+            0x05000400 ..= 0x05FFFFFF => 0, // Unused Memory
             0x06000000 ..= 0x06017FFF => self.ppu.read_vram(addr),
+            0x06018000 ..= 0x06FFFFFF => 0, // Unused Memory
+            0x07000400 ..= 0x07FFFFFF => 0, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr),
             0x10000000 ..= 0xFFFFFFFF => 0, // Unused Memory
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
@@ -261,7 +264,10 @@ impl MemoryHandler for IO {
 
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.write_palette_ram(addr, value),
+            0x05000400 ..= 0x05FFFFFF => {}, // Unused Memory
             0x06000000 ..= 0x06017FFF => self.ppu.write_vram(addr, value),
+            0x06018000 ..= 0x06FFFFFF => {}, // Unused Memory
+            0x07000400 ..= 0x07FFFFFF => {}, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
             0x10000000 ..= 0xFFFFFFFF => {}, // Unused Memory
             _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
