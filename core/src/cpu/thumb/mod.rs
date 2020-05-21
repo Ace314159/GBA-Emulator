@@ -9,6 +9,7 @@ mod tests;
 
 impl CPU {
     pub(super) fn fill_thumb_instr_buffer<M>(&mut self, mmu: &mut M) where M: IMMU {
+        self.regs.pc &= !0x1;
         self.instr_buffer[0] = mmu.read16(self.regs.pc & !0x1) as u32;
         mmu.inc_clock(Cycle::S, self.regs.pc & !0x1, 1);
         self.regs.pc = self.regs.pc.wrapping_add(2);

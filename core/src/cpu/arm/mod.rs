@@ -9,6 +9,7 @@ mod tests;
 
 impl CPU {
     pub(super) fn fill_arm_instr_buffer<M>(&mut self, mmu: &mut M) where M: IMMU {
+        self.regs.pc &= !0x3;
         self.instr_buffer[0] = mmu.read32(self.regs.pc & !0x3);
         mmu.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
         self.regs.pc = self.regs.pc.wrapping_add(4);
