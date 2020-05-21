@@ -411,11 +411,16 @@ impl CPU {
         assert_eq!(instr >> 12, 0b1100);
         let load = instr >> 11 & 0x1 != 0;
         let base_reg = (instr >> 8 & 0x7) as u32;
-        let mut base = self.regs.get_reg_i(base_reg) & !0x3;
+        let mut base = self.regs.get_reg_i(base_reg);
+        let base_offset = base & 0x3;
+        base -= base_offset;
         let mut r_list = (instr & 0xFF) as u8;
     
         mmu.inc_clock(Cycle::N, self.regs.pc, 1);
         let mut reg = 0;
+        let mut first = true;
+        let final_base = base.wrapping_add(4 * r_list.count_ones()) + base_offset;
+        if !load { self.regs.pc = self.regs.pc.wrapping_add(2); }
         let mut exec = |reg, last_access| {
             let addr = base;
             base = base.wrapping_add(4);
@@ -427,18 +432,28 @@ impl CPU {
                 mmu.write32(addr, self.regs.get_reg_i(reg));
                 if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
                 else { mmu.inc_clock(Cycle::S, addr, 2) }
+                if first { self.regs.set_reg_i(base_reg, final_base); first = false }
             }
         };
-        while r_list != 0x1 {
-            if r_list & 0x1 != 0 {
-                exec(reg, false);
+        if r_list == 0 {
+            exec(15, true);
+            if load {
+                self.fill_thumb_instr_buffer(mmu);
             }
-            reg += 1;
-            r_list >>= 1;
+            base = base.wrapping_add(0x3C + base_offset);
+        } else {
+            while r_list != 0x1 {
+                if r_list & 0x1 != 0 {
+                    exec(reg, false);
+                }
+                reg += 1;
+                r_list >>= 1;
+            }
+            exec(reg, true);
         }
-        exec(reg, true);
-        if load { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2) }
-        self.regs.set_reg_i(base_reg, base);
+        if load { mmu.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1) }
+        else { self.regs.pc = self.regs.pc.wrapping_sub(2) }
+        self.regs.set_reg_i(base_reg, base + base_offset);
     }
 
     // THUMB.16: conditional branch
