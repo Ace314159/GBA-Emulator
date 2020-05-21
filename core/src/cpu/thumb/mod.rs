@@ -389,18 +389,20 @@ impl CPU {
                 if last_access { mmu.inc_clock(Cycle::N, sp, 2) }
                 else { mmu.inc_clock(Cycle::S, sp, 2) }
             };
-            let mut reg = 8;
-            let mut sp = self.regs.get_reg(Reg::R13);
-            if pc_lr { sp -= 4; stack_push(sp, self.regs.get_reg(Reg::R14), true); }
-            while r_list != 0 {
-                reg -= 1;
-                if r_list & 0x80 != 0 {
-                    sp -= 4;
-                    stack_push(sp, self.regs.get_reg_i(reg), r_list == 0x80);
-                }
-                r_list <<= 1;
-            }
+            let mut reg = 0;
+            let initial_sp = self.regs.get_reg(Reg::R13);
+            let mut sp = self.regs.get_reg(Reg::R13).wrapping_sub(4 * (r_list.count_ones() + pc_lr as u32));
             self.regs.set_reg(Reg::R13, sp);
+            while r_list != 0 {
+                if r_list & 0x1 != 0 {
+                    stack_push(sp, self.regs.get_reg_i(reg), r_list == 0x1 && !pc_lr);
+                    sp += 4;
+                }
+                reg += 1;
+                r_list >>= 1;
+            }
+            if pc_lr { stack_push(sp, self.regs.get_reg(Reg::R14), true); sp += 4}
+            assert_eq!(initial_sp, sp);
         }
     }
 
