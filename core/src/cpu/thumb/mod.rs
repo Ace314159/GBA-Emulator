@@ -130,7 +130,7 @@ impl CPU {
             0x6 => self.sbc(dest, src, true), // SBC
             0x7 => self.shift(mmu, 3, dest, src & 0xFF, false, true), // ROR
             0x8 => dest & (src & 0xFF), // TST
-            0x9 => self.sub(0, dest, true), // NEG
+            0x9 => self.sub(0, src, true), // NEG
             0xA => self.sub(dest, src, true), // CMP
             0xB => self.add(dest, src, true), // CMN
             0xC => dest | src, // ORR
