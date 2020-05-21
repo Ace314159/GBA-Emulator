@@ -16,7 +16,7 @@ pub struct CPU {
 }
 
 impl CPU {
-    /*pub fn no_bios<M>(mmu: &mut M) -> CPU where M: IMMU {
+    pub fn no_bios<M>(mmu: &mut M) -> CPU where M: IMMU {
         let mut cpu = CPU {
             regs: RegValues::no_bios(),
             instr_buffer: [0; 2],
@@ -24,9 +24,9 @@ impl CPU {
         };
         cpu.fill_arm_instr_buffer(mmu);
         cpu
-    }*/
+    }
 
-    pub fn new<M>(mmu: &mut M) -> CPU where M: IMMU {
+    pub fn _new<M>(mmu: &mut M) -> CPU where M: IMMU {
         let mut cpu = CPU {
             regs: RegValues::new(),
             instr_buffer: [0; 2],
