@@ -1,6 +1,7 @@
 mod registers;
 mod layers;
 
+use std::ops::Deref;
 use crate::gba::Display;
 use super::MemoryHandler;
 use super::IORegister;
@@ -101,21 +102,21 @@ impl PPU {
 
     pub fn emulate_dot(&mut self) {
         if self.dot < 240 { // Visible
-            self.dispstat.flags.remove(DISPSTATFlags::HBLANK);
+            self.dispstat.remove(DISPSTATFlags::HBLANK);
         } else { // HBlank
-            self.dispstat.flags.insert(DISPSTATFlags::HBLANK);
+            self.dispstat.insert(DISPSTATFlags::HBLANK);
         }
         if self.vcount < 160 { // Visible
-            self.dispstat.flags.remove(DISPSTATFlags::VBLANK);
+            self.dispstat.remove(DISPSTATFlags::VBLANK);
         } else { // VBlank
-            self.dispstat.flags.insert(DISPSTATFlags::VBLANK);
+            self.dispstat.insert(DISPSTATFlags::VBLANK);
         }
 
         if self.vcount == 160 && self.dot == 0 {
             match self.dispcnt.mode {
                 BGMode::Mode0 => {}, // Do nothing temporarily to avoid crash
                 BGMode::Mode4 => {
-                    let start_addr = if self.dispcnt.flags.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                    let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
                         0xA000usize
                     } else { 0usize };
                     for i in 0..Display::WIDTH * Display::HEIGHT {

@@ -59,6 +59,14 @@ impl DISPCNT {
     }
 }
 
+impl Deref for DISPCNT {
+    type Target = DISPCNTFlags;
+
+    fn deref(&self) -> &DISPCNTFlags {
+        &self.flags
+    }
+}
+
 impl IORegister for DISPCNT {
     fn read(&self, byte: u8) -> u8 {
         match byte {
@@ -102,6 +110,14 @@ impl DISPSTAT {
             flags: DISPSTATFlags::empty(),
             vcount_setting: 0,
         }
+    }
+}
+
+impl Deref for DISPSTAT {
+    type Target = DISPSTATFlags;
+
+    fn deref(&self) -> &DISPSTATFlags {
+        &self.flags
     }
 }
 
