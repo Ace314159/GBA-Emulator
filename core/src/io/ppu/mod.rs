@@ -25,6 +25,7 @@ pub struct PPU {
     obj_colors: [u16; 0x100],
     // VRAM
     vram: [u8; 0x18000],
+    oam: [u8; 0x400],
 
     // Important Rendering Variables
     dot: u16,
@@ -51,6 +52,7 @@ impl PPU {
             obj_colors: [0; 0x100],
             // VRAM
             vram: [0; 0x18000],
+            oam: [0; 0x400],
 
             // Important Rendering Variables
             dot: 0,
@@ -87,6 +89,14 @@ impl PPU {
 
     pub fn write_vram(&mut self, addr: u32, value: u8) {
         self.vram[(addr - 0x06000000) as usize] = value;
+    }
+
+    pub fn read_oam(&self, addr: u32) -> u8 {
+        self.oam[(addr - 0x07000000) as usize]
+    }
+
+    pub fn write_oam(&mut self, addr: u32, value: u8) {
+        self.oam[(addr - 0x07000000) as usize] = value;
     }
 
     pub fn emulate_dot(&mut self) {

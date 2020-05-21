@@ -1,6 +1,6 @@
 mod memory;
-mod dma;
 mod ppu;
+mod dma;
 pub mod keypad;
 mod interrupt_controller;
 
@@ -20,11 +20,11 @@ pub struct IO {
     clocks_ahead: u32,
 
     // IO
+    ppu: PPU,
     dma0: DMA,
     dma1: DMA,
     dma2: DMA,
     dma3: DMA,
-    ppu: PPU,
     keypad: Keypad,
     interrupt_controller: InterruptController,
 
@@ -43,11 +43,11 @@ impl IO {
             clocks_ahead: 0,
 
             // IO
+            ppu: PPU::new(),
             dma0: DMA::new(false, false, false),
             dma1: DMA::new(true, true, false),
             dma2: DMA::new(true, false, false),
             dma3: DMA::new(true, true, true),
-            ppu: PPU::new(),
             keypad: Keypad::new(),
             interrupt_controller: InterruptController::new(),
 
@@ -88,8 +88,9 @@ impl IIO for IO {
             0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
             0x04000000 ..= 0x040003FE => 1, // IO
             0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
-            0x05000000 ..= 0x050003FF => if access_width < 2 { 1 } else { 2 },
-            0x06000000 ..= 0x06017FFF => if access_width < 2 { 1 } else { 2 },
+            0x05000000 ..= 0x050003FF => if access_width < 2 { 1 } else { 2 }, // Palette RAM
+            0x06000000 ..= 0x06017FFF => if access_width < 2 { 1 } else { 2 }, // VRAM
+            0x07000000 ..= 0x070003FF => 1, // OAM
             0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
             0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
@@ -182,6 +183,7 @@ impl MemoryHandler for IO {
             0x05000400 ..= 0x05FFFFFF => 0, // Unused Memory
             0x06000000 ..= 0x06017FFF => self.ppu.read_vram(addr),
             0x06018000 ..= 0x06FFFFFF => 0, // Unused Memory
+            0x07000000 ..= 0x070003FF => self.ppu.read_oam(addr),
             0x07000400 ..= 0x07FFFFFF => 0, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr),
             0x10000000 ..= 0xFFFFFFFF => 0, // Unused Memory
@@ -267,6 +269,7 @@ impl MemoryHandler for IO {
             0x05000400 ..= 0x05FFFFFF => {}, // Unused Memory
             0x06000000 ..= 0x06017FFF => self.ppu.write_vram(addr, value),
             0x06018000 ..= 0x06FFFFFF => {}, // Unused Memory
+            0x07000000 ..= 0x070003FF => self.ppu.write_oam(addr, value),
             0x07000400 ..= 0x07FFFFFF => {}, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
             0x10000000 ..= 0xFFFFFFFF => {}, // Unused Memory
