@@ -209,3 +209,33 @@ impl IORegister for BG23CNT {
         self.wrap = value >> 5 & 0x1 != 0;
     }
 }
+
+pub struct OFS {
+    offset: u16,
+}
+
+impl OFS {
+    pub fn new() -> OFS {
+        OFS {
+            offset: 0,
+        }
+    }
+}
+
+impl IORegister for OFS {
+    fn read_low(&self) -> u8 {
+        self.offset as u8
+    }
+
+    fn read_high(&self) -> u8 {
+        (self.offset >> 8) as u8
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.offset = self.offset & !0xFF | value as u16;
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.offset = self.offset & !0x100 | (value as u16) << 8;
+    }
+}
