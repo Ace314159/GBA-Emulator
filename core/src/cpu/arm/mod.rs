@@ -363,62 +363,61 @@ impl CPU {
     // ARM.11: Block Data Transfer (LDM,STM)
     fn block_data_transfer<M>(&mut self, mmu: &mut M, instr: u32) where M: IMMU {
         assert_eq!(instr >> 25 & 0x7, 0b100);
-        let pre_offset = instr >> 24 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
+        let pre_offset = (instr >> 24 & 0x1 != 0) ^ !add_offset;
         let psr_force_usr = instr >> 22 & 0x1 != 0;
-        let write_back = instr >> 21 & 0x1 != 0;
         let load = instr >> 20 & 0x1 != 0;
+        let write_back = instr >> 21 & 0x1 != 0;
         let base_reg = instr >> 16 & 0xF;
         assert_ne!(base_reg, 0xF);
-        let mut base = self.regs.get_reg_i(base_reg) & !0x3;
+        let base = self.regs.get_reg_i(base_reg);
+        let base_offset = base & 0x3;
+        let base = base - base_offset;
         let mut r_list = (instr & 0xFFFF) as u16;
+        let write_back = write_back && !(load && r_list & (1 << base_reg) != 0);
         let actual_mode = self.regs.get_mode();
         if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
 
         mmu.inc_clock(Cycle::N, self.regs.pc, 2);
-        let apply_offset = |base| if add_offset { base + 4 } else { base - 4 };
-        let mut calc_addr = || if pre_offset { base = apply_offset(base); (base, base) }
-        else { let old_base = base; base = apply_offset(base); (old_base, base) };
         let mut loaded_pc = false;
-        let mut exec = |reg, last_access| {
-            let (addr, new_base) = calc_addr();
-            if load {
-                self.regs.set_reg_i(reg, mmu.read32(addr));
-                if write_back { self.regs.set_reg_i(base_reg, new_base) }
-                if reg == 15 {
-                    if psr_force_usr { self.regs.restore_cpsr() }
-                    loaded_pc = true;
-                    self.fill_arm_instr_buffer(mmu);
-                }
-                if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
-                else { mmu.inc_clock(Cycle::S, addr, 2) }
-            } else {
-                mmu.write32(addr, self.regs.get_reg_i(reg));
-                if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
-                else { mmu.inc_clock(Cycle::S, addr, 2) }
-                if write_back { self.regs.set_reg_i(base_reg, new_base) }
-            };
+        let num_regs = r_list.count_ones();
+        let start_addr = if add_offset { base } else { base.wrapping_sub(num_regs * 4) };
+        let mut addr = start_addr;
+        let final_addr = if add_offset { addr + 4 * num_regs } else { start_addr } + base_offset;
+        let (final_addr, inc_amount) = if num_regs == 0 {
+            (final_addr + 0x40, 0x40)
+        } else { (final_addr, 4) };
+        let mut calc_addr = || if pre_offset { addr += inc_amount; addr }
+        else { let old_addr = addr; addr += inc_amount; old_addr };
+        let mut exec = |addr, reg, last_access| if load {
+            self.regs.set_reg_i(reg, mmu.read32(addr));
+            if write_back { self.regs.set_reg_i(base_reg, final_addr) }
+            if reg == 15 {
+                if psr_force_usr { self.regs.restore_cpsr() }
+                loaded_pc = true;
+                self.fill_arm_instr_buffer(mmu);
+            }
+            if last_access { mmu.inc_clock(Cycle::I, 0, 0) }
+            else { mmu.inc_clock(Cycle::S, addr, 2) }
+        } else {
+            let value = self.regs.get_reg_i(reg);
+            mmu.write32(addr, if reg == 15 { value.wrapping_add(4) } else { value });
+            if last_access { mmu.inc_clock(Cycle::N, addr, 2) }
+            else { mmu.inc_clock(Cycle::S, addr, 2) }
+            if write_back { self.regs.set_reg_i(base_reg, final_addr) }
         };
-        if add_offset {
+        if num_regs == 0 {
+            exec(start_addr, 15, true);
+        } else {
             let mut reg = 0;
             while r_list != 0x1 {
                 if r_list & 0x1 != 0 {
-                    exec(reg, false);
+                    exec(calc_addr(), reg, false);
                 }
                 reg += 1;
                 r_list >>= 1;
             }
-            exec(reg, true);
-        } else {
-            let mut reg = 15;
-            while r_list != 0x8000 {
-                if r_list & 0x8000 != 0 {
-                    exec(reg, false);
-                }
-                reg -= 1;
-                r_list <<= 1;
-            }
-            exec(reg, true);
+            exec(calc_addr(), reg, true);
         }
 
         self.regs.set_mode(actual_mode);

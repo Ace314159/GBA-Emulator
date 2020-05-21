@@ -291,7 +291,7 @@ fn test_single_data_transfer() {
     let (cpu, mmu) = run_instr!(single_data_transfer, make_instr(true, true, false, false, false, 1, 15, 0),
     R1 = 0x100);
     assert_regs!(cpu.regs, R1 = 0x100, R15 = 4);
-    assert_writes!(mmu.writes32, 0x100 => 0x8);
+    assert_writes!(mmu.writes32, 0x100 => 12);
     assert_cycle_times(mmu, 0, 0, 2);
 }
 
@@ -343,13 +343,13 @@ fn test_block_data_transfer() {
     let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(false, true, false, false, false,
     0, 1 << 15), R0 = 0x60);
     assert_regs!(cpu.regs, R0 = 0x60, R15 = 4);
-    assert_writes!(mmu.writes32, 0x60 => 4);
+    assert_writes!(mmu.writes32, 0x60 => 12);
     assert_cycle_times(mmu, 0, 0, 2);
     // STMFA R0, {R7, R12, R15}
     let (cpu, mmu) = run_instr!(block_data_transfer, make_instr(true, true, false, false, false,
     0, (1 << 15) | (1 << 12) | (1 << 7)), R0 = 0x60, R7 = 7, R12 = 12);
     assert_regs!(cpu.regs, R0 = 0x60, R0 = 0x60, R7 = 7, R12 = 12, R15 = 4);
-    assert_writes!(mmu.writes32, 0x64 => 7, 0x68 => 12, 0x6C => 4);
+    assert_writes!(mmu.writes32, 0x64 => 7, 0x68 => 12, 0x6C => 12);
     assert_cycle_times(mmu, 2, 0, 2);
 
     // Writeback

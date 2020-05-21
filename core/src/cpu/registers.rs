@@ -218,7 +218,7 @@ impl RegValues {
     pub fn set_c(&mut self, value: bool) { self.cpsr.set(StatusReg::C, value) }
     pub fn set_v(&mut self, value: bool) { self.cpsr.set(StatusReg::V, value) }
     pub fn set_i(&mut self, value: bool) { self.cpsr.set(StatusReg::I, value) }
-    pub fn set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
+    pub fn _set_f(&mut self, value: bool) { self.cpsr.set(StatusReg::F, value) }
     pub fn set_t(&mut self, value: bool) { self.cpsr.set(StatusReg::T, value) }
     pub fn set_mode(&mut self, mode: Mode) { self.cpsr.set_mode(mode) }
 }
