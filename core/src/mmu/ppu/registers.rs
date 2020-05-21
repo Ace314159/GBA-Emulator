@@ -60,21 +60,23 @@ impl DISPCNT {
 }
 
 impl IORegister for DISPCNT {
-    fn read_low(&self) -> u8 {
-        (self.flags.bits as u8) | (self.mode as u8)
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => (self.flags.bits as u8) | (self.mode as u8),
+            1 => (self.flags.bits >> 8) as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        (self.flags.bits >> 8) as u8
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.mode = BGMode::get(value & 0x7);
-        self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPSTATFlags::all().bits; 
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPSTATFlags::all().bits;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => {
+                self.mode = BGMode::get(value & 0x7);
+                self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPSTATFlags::all().bits; 
+            },
+            1 => self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPSTATFlags::all().bits,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
@@ -104,20 +106,20 @@ impl DISPSTAT {
 }
 
 impl IORegister for DISPSTAT {
-    fn read_low(&self) -> u8 {
-        self.flags.bits as u8
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.flags.bits as u8,
+            1 => self.vcount_setting as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        self.vcount_setting as u8
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.flags.bits = (value as u16) & DISPSTATFlags::all().bits;
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.vcount_setting = value as u8;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.flags.bits = (value as u16) & DISPSTATFlags::all().bits,
+            1 => self.vcount_setting = value as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
@@ -145,24 +147,28 @@ impl BG01CNT {
 }
 
 impl IORegister for BG01CNT {
-    fn read_low(&self) -> u8 {
-        (self.use_palettes as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => (self.use_palettes as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority,
+            1 => self.screen_size << 6 | self.map_block,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        self.screen_size << 6 | self.map_block
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.priority = value & 0x3;
-        self.tile_block = value >> 2 & 0x3;
-        self.mosaic = value >> 6 & 0x1 != 0;
-        self.use_palettes = value >> 7 & 0x1 != 0;
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.map_block = value & 0x3;
-        self.screen_size = value >> 6 & 0x3;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => {
+                self.priority = value & 0x3;
+                self.tile_block = value >> 2 & 0x3;
+                self.mosaic = value >> 6 & 0x1 != 0;
+                self.use_palettes = value >> 7 & 0x1 != 0;
+            },
+            1 => {
+                self.map_block = value & 0x3;
+                self.screen_size = value >> 6 & 0x3;
+            },
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
@@ -188,21 +194,23 @@ impl Deref for BG23CNT {
 }
 
 impl IORegister for BG23CNT {
-    fn read_low(&self) -> u8 {
-        self.bg01cnt.read_low()
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.bg01cnt.read(0),
+            1 => self.bg01cnt.read(1) | (self.wrap as u8) << 5,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        self.bg01cnt.read_high() | (self.wrap as u8) << 5
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.bg01cnt.write_low(value);
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.bg01cnt.write_high(value);
-        self.wrap = value >> 5 & 0x1 != 0;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.bg01cnt.write(1, value),
+            1 => {
+                self.bg01cnt.write(0, value);
+                self.wrap = value >> 5 & 0x1 != 0;
+            },
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
@@ -219,20 +227,20 @@ impl OFS {
 }
 
 impl IORegister for OFS {
-    fn read_low(&self) -> u8 {
-        self.offset as u8
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.offset as u8,
+            1 => (self.offset >> 8) as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
-
-    fn read_high(&self) -> u8 {
-        (self.offset >> 8) as u8
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.offset = self.offset & !0xFF | value as u16;
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.offset = self.offset & !0x100 | (value as u16) << 8;
+    
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.offset = self.offset & !0xFF | value as u16,
+            1 => self.offset = self.offset & !0x100 | (value as u16) << 8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
@@ -253,21 +261,23 @@ impl RotationScalingParameter {
 }
 
 impl IORegister for RotationScalingParameter {
-    fn read_low(&self) -> u8 {
-        self.fractional
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.fractional,
+            1 => (self.sign as u8) << 7 | self.integer,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        (self.sign as u8) << 7 | self.integer
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.fractional = value
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.integer = value & 0x7F;
-        self.sign = value >> 7 & 0x1 != 0;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.fractional = value,
+            1 => {
+                self.integer = value & 0x7F;
+                self.sign = value >> 7 & 0x1 != 0;
+            },
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
@@ -285,37 +295,29 @@ impl ReferencePointCoord {
             sign: false,
         }
     }
+}
 
-    pub fn read_byte0(&self) -> u8 {
-        self.fractional
+impl IORegister for ReferencePointCoord {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.fractional,
+            1 => self.integer as u8,
+            2 => (self.integer >> 8) as u8,
+            3 => (self.sign as u8) << 3 | (self.integer >> 16) as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    pub fn read_byte1(&self) -> u8 {
-        self.integer as u8
-    }
-
-    pub fn read_byte2(&self) -> u8 {
-        (self.integer >> 8) as u8
-    }
-
-    pub fn read_byte3(&self) -> u8 {
-        (self.sign as u8) << 3 | (self.integer >> 16) as u8
-    }
-
-    pub fn write_byte0(&mut self, value: u8) {
-        self.fractional = self.fractional & !0xFF | value;
-    }
-
-    pub fn write_byte1(&mut self, value: u8) {
-        self.integer = self.integer & !0xFF | value as u32;
-    }
-
-    pub fn write_byte2(&mut self, value: u8) {
-        self.integer = self.integer & !0xFF00 | (value as u32) << 8;
-    }
-
-    pub fn write_byte3(&mut self, value: u8) {
-        self.integer = self.integer & !0x70000 | ((value as u32) & 0x7) << 16;
-        self.sign = value >> 4 & 0x1 != 0;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.fractional = self.fractional & !0xFF | value,
+            1 => self.integer = self.integer & !0xFF | value as u32,
+            2 => self.integer = self.integer & !0xFF00 | (value as u32) << 8,
+            3 => {
+                self.integer = self.integer & !0x70000 | ((value as u32) & 0x7) << 16;
+                self.sign = value >> 4 & 0x1 != 0;
+            },
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }

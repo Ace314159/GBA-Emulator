@@ -45,55 +45,55 @@ bitflags! {
 }
 
 impl IORegister for InterruptEnable {
-    fn read_low(&self) -> u8 {
-        self.bits as u8
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.bits as u8,
+            1 => (self.bits >> 8) as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        (self.bits >> 8) as u8
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.bits = self.bits & !0x00FF | (value as u16) & InterruptEnable::all().bits;
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptEnable::all().bits;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptEnable::all().bits,
+            1 => self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptEnable::all().bits,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
 impl IORegister for InterruptMasterEnable {
-    fn read_low(&self) -> u8 {
-        self.bits as u8
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.bits as u8,
+            1 => (self.bits >> 8) as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        (self.bits >> 8) as u8
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.bits = self.bits & !0x00FF | (value as u16) & InterruptMasterEnable::all().bits;
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptMasterEnable::all().bits;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptMasterEnable::all().bits,
+            1 => self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptMasterEnable::all().bits,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
 
 impl IORegister for InterruptRequest {
-    fn read_low(&self) -> u8 {
-        self.bits as u8
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.bits as u8,
+            1 => (self.bits >> 8) as u8,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 
-    fn read_high(&self) -> u8 {
-        (self.bits >> 8) as u8
-    }
-
-    fn write_low(&mut self, value: u8) {
-        self.bits = self.bits & !0x00FF | (value as u16) & InterruptRequest::all().bits;
-    }
-
-    fn write_high(&mut self, value: u8) {
-        self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptRequest::all().bits;
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptRequest::all().bits,
+            1 => self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptRequest::all().bits,
+            _ => panic!("Invalid Byte!"),
+        }
     }
 }
