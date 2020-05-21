@@ -1,4 +1,4 @@
-use super::{BG01CNT, BG23CNT, Display, OFS};
+use super::{BG01CNT, BG23CNT, Display, OFS, ReferencePointCoord, RotationScalingParameter};
 pub trait Layer {
     fn render(&mut self, pixels: &[u16; Display::WIDTH * Display::HEIGHT]);
 }
@@ -30,6 +30,12 @@ pub struct BG23 {
     pub cnt: BG23CNT,
     pub hofs: OFS,
     pub vofs: OFS,
+    pub pa: RotationScalingParameter,
+    pub pb: RotationScalingParameter,
+    pub pc: RotationScalingParameter,
+    pub pd: RotationScalingParameter,
+    pub ref_point_x: ReferencePointCoord,
+    pub ref_point_y: ReferencePointCoord,
 }
 
 impl BG23 {
@@ -38,6 +44,12 @@ impl BG23 {
             cnt: BG23CNT::new(),
             hofs: OFS::new(),
             vofs: OFS::new(),
+            pa: RotationScalingParameter::new(),
+            pb: RotationScalingParameter::new(),
+            pc: RotationScalingParameter::new(),
+            pd: RotationScalingParameter::new(),
+            ref_point_x: ReferencePointCoord::new(),
+            ref_point_y: ReferencePointCoord::new(),
         }
     }
 }

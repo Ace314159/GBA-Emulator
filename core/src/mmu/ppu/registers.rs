@@ -235,3 +235,87 @@ impl IORegister for OFS {
         self.offset = self.offset & !0x100 | (value as u16) << 8;
     }
 }
+
+pub struct RotationScalingParameter {
+    fractional: u8,
+    integer: u8,
+    sign: bool,
+}
+
+impl RotationScalingParameter {
+    pub fn new() -> RotationScalingParameter {
+        RotationScalingParameter {
+            fractional: 0,
+            integer: 0,
+            sign: false,
+        }
+    }
+}
+
+impl IORegister for RotationScalingParameter {
+    fn read_low(&self) -> u8 {
+        self.fractional
+    }
+
+    fn read_high(&self) -> u8 {
+        (self.sign as u8) << 7 | self.integer
+    }
+
+    fn write_low(&mut self, value: u8) {
+        self.fractional = value
+    }
+
+    fn write_high(&mut self, value: u8) {
+        self.integer = value & 0x7F;
+        self.sign = value >> 7 & 0x1 != 0;
+    }
+}
+
+pub struct ReferencePointCoord {
+    fractional: u8,
+    integer: u32,
+    sign: bool,
+}
+
+impl ReferencePointCoord {
+    pub fn new() -> ReferencePointCoord {
+        ReferencePointCoord {
+            fractional: 0,
+            integer: 0,
+            sign: false,
+        }
+    }
+
+    pub fn read_byte0(&self) -> u8 {
+        self.fractional
+    }
+
+    pub fn read_byte1(&self) -> u8 {
+        self.integer as u8
+    }
+
+    pub fn read_byte2(&self) -> u8 {
+        (self.integer >> 8) as u8
+    }
+
+    pub fn read_byte3(&self) -> u8 {
+        (self.sign as u8) << 3 | (self.integer >> 16) as u8
+    }
+
+    pub fn write_byte0(&mut self, value: u8) {
+        self.fractional = self.fractional & !0xFF | value;
+    }
+
+    pub fn write_byte1(&mut self, value: u8) {
+        self.integer = self.integer & !0xFF | value as u32;
+    }
+
+    pub fn write_byte2(&mut self, value: u8) {
+        self.integer = self.integer & !0xFF00 | (value as u32) << 8;
+    }
+
+    pub fn write_byte3(&mut self, value: u8) {
+        self.integer = self.integer & !0x70000 | ((value as u32) & 0x7) << 16;
+        self.sign = value >> 4 & 0x1 != 0;
+    }
+}
