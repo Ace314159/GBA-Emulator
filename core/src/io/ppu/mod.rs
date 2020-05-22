@@ -120,9 +120,21 @@ impl PPU {
         }
 
         if self.vcount == 160 && self.dot == 0 {
+            use BGMode::*;
             match self.dispcnt.mode {
-                BGMode::Mode0 => {}, // Do nothing temporarily to avoid crash
-                BGMode::Mode4 => {
+                Mode0 => {
+                    let mut bgs: Vec<(usize, u8)> = Vec::new();
+                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
+                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
+                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
+                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
+                    bgs.sort_by(|a, b| a.1.cmp(&b.1));
+
+                    for (bg_i, _) in bgs {
+                        self.render_text_screen(bg_i);
+                    }
+                }
+                Mode4 => {
                     let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
                         0xA000usize
                     } else { 0usize };
@@ -139,6 +151,45 @@ impl PPU {
         if self.dot == 308 {
             self.dot = 0;
             self.vcount = (self.vcount + 1) % 228;
+        }
+    }
+
+    fn render_text_screen(&mut self, bg_i: usize) {
+        let x_offset = self.hofs[bg_i].offset as usize;
+        let y_offset = self.vofs[bg_i].offset as usize;
+        let bgcnt = self.bgcnts[bg_i];
+        let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
+        let map_start_addr = bgcnt.map_block as usize * 0x800;
+        let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
+
+        let map_width = 32 + 32 * ((bgcnt.screen_size as usize) >> 0 & 0x1); // In tiles
+        let map_height = 32 + 32 * ((bgcnt.screen_size as usize) >> 1 & 0x1); // In tiles
+
+        for dot_y in 0..Display::HEIGHT {
+            for dot_x in 0..Display::WIDTH {
+                let x = (dot_x + x_offset) % (map_width * 8);
+                let y = (dot_y + y_offset) % (map_height * 8);
+                // Get Screen Entry
+                let map_x = x / 8;
+                let map_y = y / 8;
+                let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
+                let screen_entry = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]) as usize;
+                let tile_num = screen_entry & 0x3FF;
+                let flip_x = (screen_entry >> 10) & 0x1 != 0;
+                let flip_y = (screen_entry >> 11) & 0x1 != 0;
+                let palette_num = (screen_entry >> 12) & 0xF;
+                
+                // Convert from tile to pixels
+                let addr = tile_start_addr + 8 * bit_depth * tile_num;
+                let tile_x = if flip_x { 7 - x % 8 } else { x % 8 };
+                let tile_y = if flip_y { 7 - y % 8 } else { y % 8 };
+                let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
+                self.pixels[dot_y * Display::WIDTH + dot_x] = if bit_depth == 8 {
+                    self.bg_palettes[tile]
+                } else {
+                    self.bg_palettes[palette_num * 16 + ((tile >> 4 * (tile_x % 2)) & 0xF)]
+                };
+            }
         }
     }
 }
