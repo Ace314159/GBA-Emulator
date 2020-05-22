@@ -130,6 +130,8 @@ impl PPU {
                     if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
                     bgs.sort_by(|a, b| a.1.cmp(&b.1));
 
+                    let backdrop_color = self.bg_palettes[0];
+                    self.pixels.iter_mut().for_each(|x| *x = backdrop_color);
                     for (bg_i, _) in bgs {
                         self.render_text_screen(bg_i);
                     }
@@ -197,11 +199,13 @@ impl PPU {
                 let tile_x = if flip_x { 7 - x % 8 } else { x % 8 };
                 let tile_y = if flip_y { 7 - y % 8 } else { y % 8 };
                 let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
-                self.pixels[dot_y * Display::WIDTH + dot_x] = if bit_depth == 8 {
-                    self.bg_palettes[tile]
+                let (palette_num, color_num) = if bit_depth == 8 {
+                    (0, tile)
                 } else {
-                    self.bg_palettes[palette_num * 16 + ((tile >> 4 * (tile_x % 2)) & 0xF)]
+                    (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
                 };
+                if color_num == 0 { continue }
+                self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
             }
         }
     }
