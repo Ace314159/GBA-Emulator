@@ -22,6 +22,13 @@ pub struct PPU {
     pds: [RotationScalingParameter; 2],
     bgxs: [ReferencePointCoord; 2],
     bgys: [ReferencePointCoord; 2],
+    // Windows
+    winhs: [WindowDimensions; 2],
+    winvs: [WindowDimensions; 2],
+    win_0_cnt: WindowControl,
+    win_1_cnt: WindowControl,
+    win_out_cnt: WindowControl,
+    win_obj_cnt: WindowControl,
 
     // Palettes
     bg_palettes: [u16; 0x100],
@@ -54,6 +61,12 @@ impl PPU {
             pds: [RotationScalingParameter::new(); 2],
             bgxs: [ReferencePointCoord::new(); 2],
             bgys: [ReferencePointCoord::new(); 2],
+            winhs: [WindowDimensions::new(); 2],
+            winvs: [WindowDimensions::new(); 2],
+            win_0_cnt: WindowControl::new(),
+            win_1_cnt: WindowControl::new(),
+            win_out_cnt: WindowControl::new(),
+            win_obj_cnt: WindowControl::new(),
 
             // Palettes
             bg_palettes: [0; 0x100],
@@ -279,6 +292,18 @@ impl MemoryHandler for PPU {
             0x03D => self.bgys[1].read(1),
             0x03E => self.bgys[1].read(2),
             0x03F => self.bgys[1].read(3),
+            0x040 => self.winhs[0].read(0),
+            0x041 => self.winhs[0].read(1),
+            0x042 => self.winhs[1].read(0),
+            0x043 => self.winhs[1].read(1),
+            0x044 => self.winvs[0].read(0),
+            0x045 => self.winvs[0].read(1),
+            0x046 => self.winvs[1].read(0),
+            0x047 => self.winvs[1].read(1),
+            0x048 => self.win_0_cnt.read(0),
+            0x049 => self.win_1_cnt.read(0),
+            0x04A => self.win_out_cnt.read(0),
+            0x04B => self.win_obj_cnt.read(0),
             _ => unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -350,6 +375,18 @@ impl MemoryHandler for PPU {
             0x03D => self.bgys[1].write(1, value),
             0x03E => self.bgys[1].write(2, value),
             0x03F => self.bgys[1].write(3, value),
+            0x040 => self.winhs[0].write(0, value),
+            0x041 => self.winhs[0].write(1, value),
+            0x042 => self.winhs[1].write(0, value),
+            0x043 => self.winhs[1].write(1, value),
+            0x044 => self.winvs[0].write(0, value),
+            0x045 => self.winvs[0].write(1, value),
+            0x046 => self.winvs[1].write(0, value),
+            0x047 => self.winvs[1].write(1, value),
+            0x048 => self.win_0_cnt.write(0, value),
+            0x049 => self.win_1_cnt.write(0, value),
+            0x04A => self.win_out_cnt.write(0, value),
+            0x04B => self.win_obj_cnt.write(0, value),
             _ => unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }

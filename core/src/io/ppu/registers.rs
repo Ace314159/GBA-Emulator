@@ -313,3 +313,82 @@ impl IORegister for ReferencePointCoord {
         }
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct WindowDimensions {
+    coord2: u8,
+    coord1: u8,
+}
+
+impl WindowDimensions {
+    pub fn new() -> WindowDimensions {
+        WindowDimensions {
+            coord2: 0,
+            coord1: 0,
+        }
+    }
+}
+
+impl IORegister for WindowDimensions {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.coord2,
+            1 => self.coord1,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.coord2 = value,
+            1 => self.coord1 = value,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+}
+
+pub struct WindowControl {
+    bg0_enable: bool,
+    bg1_enable: bool,
+    bg2_enable: bool,
+    bg3_enable: bool,
+    obj_enable: bool,
+    color_special_enable: bool,
+}
+
+impl WindowControl {
+    pub fn new() -> WindowControl {
+        WindowControl {
+            bg0_enable: false,
+            bg1_enable: false,
+            bg2_enable: false,
+            bg3_enable: false,
+            obj_enable: false,
+            color_special_enable: false,
+        }
+    }
+}
+
+impl IORegister for WindowControl {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => (self.color_special_enable as u8) << 5 | (self.obj_enable as u8) << 4 |
+                (self.bg3_enable as u8) << 3 | (self.bg2_enable as u8) << 2 | (self.bg1_enable as u8) << 1,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => {
+                self.color_special_enable = value >> 5 & 0x1 != 0;
+                self.obj_enable = value >> 4 & 0x1 != 0;
+                self.bg3_enable = value >> 3 & 0x1 != 0;
+                self.bg2_enable = value >> 2 & 0x1 != 0;
+                self.bg1_enable = value >> 1 & 0x1 != 0;
+                self.bg0_enable = value >> 0 & 0x1 != 0;
+            },
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+}
