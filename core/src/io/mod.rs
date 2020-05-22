@@ -17,6 +17,7 @@ pub struct IO {
     wram256: RAM,
     wram32: RAM,
     rom: ROM,
+    sram: RAM,
     clocks_ahead: u32,
 
     // IO
@@ -40,6 +41,7 @@ impl IO {
             wram256: RAM::new(0x02000000, 0x40000),
             wram32: RAM::new(0x03000000, 0x8000),
             rom: ROM::new(0x08000000, rom),
+            sram: RAM::new(0x0E000000, 0x10000),
             clocks_ahead: 0,
 
             // IO
@@ -94,6 +96,7 @@ impl IIO for IO {
             0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
             0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
+            0x0E000000 ..= 0x0E00FFFF => 1,
             _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
         };
 
@@ -186,8 +189,11 @@ impl MemoryHandler for IO {
             0x07000000 ..= 0x070003FF => self.ppu.read_oam(addr),
             0x07000400 ..= 0x07FFFFFF => 0, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr),
+            0x0E000000 ..= 0x0E00FFFF => self.sram.read8(addr),
+            0x0E010000 ..= 0x0FFFFFFF => 0, // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => 0, // Unused Memory
-            _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
+            _ => { println!("Ignoring Memory Read at 0x{:08X}", addr); 0 },
+            // unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
 
@@ -272,8 +278,11 @@ impl MemoryHandler for IO {
             0x07000000 ..= 0x070003FF => self.ppu.write_oam(addr, value),
             0x07000400 ..= 0x07FFFFFF => {}, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
+            0x0E000000 ..= 0x0E00FFFF => self.sram.write8(addr, value),
+            0x0E010000 ..= 0x0FFFFFFF => {} // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => {}, // Unused Memory
-            _ => unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
+            _ => println!("Igoring Write 0x{:08X} = {:02X}", addr, value),
+            // unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
 }
