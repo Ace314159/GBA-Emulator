@@ -58,7 +58,6 @@ impl CPU {
             0xC => !self.regs.get_z() && self.regs.get_n() == self.regs.get_v(),
             0xD => self.regs.get_z() || self.regs.get_n() != self.regs.get_v(),
             0xE => true,
-            0xF => false,
             _ => panic!("Unexpected condition!"),
         }
     }
