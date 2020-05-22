@@ -162,16 +162,29 @@ impl PPU {
         let map_start_addr = bgcnt.map_block as usize * 0x800;
         let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
 
-        let map_width = 32 + 32 * ((bgcnt.screen_size as usize) >> 0 & 0x1); // In tiles
-        let map_height = 32 + 32 * ((bgcnt.screen_size as usize) >> 1 & 0x1); // In tiles
-
         for dot_y in 0..Display::HEIGHT {
             for dot_x in 0..Display::WIDTH {
-                let x = (dot_x + x_offset) % (map_width * 8);
-                let y = (dot_y + y_offset) % (map_height * 8);
+                let x = dot_x + x_offset;
+                let y = dot_y + y_offset;
                 // Get Screen Entry
-                let map_x = x / 8;
-                let map_y = y / 8;
+                let mut map_x = x / 8;
+                let mut map_y = y / 8;
+                let map_start_addr = map_start_addr + match bgcnt.screen_size {
+                    0 => 0,
+                    1 => if (map_x / 32) % 2 == 1 { 0x800 } else { 0 },
+                    2 => if (map_y / 32) % 2 == 1 { 0x800 } else { 0 },
+                    3 => {
+                        let x_overflowed = (map_x / 32) % 2 == 1;
+                        let y_overflowed = (map_y / 32) % 2 == 1;
+                        if x_overflowed && y_overflowed { 0x800 * 3 }
+                        else if y_overflowed { 0x800 * 2 }
+                        else if x_overflowed { 0x800 * 1 }
+                        else { 0 }
+                    },
+                    _ => panic!("Invalid BG Size!"),
+                };
+                map_x %= 32;
+                map_y %= 32;
                 let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
                 let screen_entry = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]) as usize;
                 let tile_num = screen_entry & 0x3FF;
