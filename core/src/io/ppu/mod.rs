@@ -24,8 +24,8 @@ pub struct PPU {
     bgys: [ReferencePointCoord; 2],
 
     // Palettes
-    bg_colors: [u16; 0x100],
-    obj_colors: [u16; 0x100],
+    bg_palettes: [u16; 0x100],
+    obj_paletes: [u16; 0x100],
     // VRAM
     vram: [u8; 0x18000],
     oam: [u8; 0x400],
@@ -56,8 +56,8 @@ impl PPU {
             bgys: [ReferencePointCoord::new(); 2],
 
             // Palettes
-            bg_colors: [0; 0x100],
-            obj_colors: [0; 0x100],
+            bg_palettes: [0; 0x100],
+            obj_paletes: [0; 0x100],
             // VRAM
             vram: [0; 0x18000],
             oam: [0; 0x400],
@@ -71,23 +71,23 @@ impl PPU {
 
     pub fn read_palette_ram(&self, addr: u32) -> u8 {
         let addr = (addr & 0x3FF) as usize;
-        let colors = if addr < 0x200 { &self.bg_colors } else { &self.obj_colors };
-        let index = (addr & 0xFF) / 2;
+        let palettes = if addr < 0x200 { &self.bg_palettes } else { &self.obj_paletes };
+        let index = (addr & 0x1FF) / 2;
         if addr % 2 == 0 {
-            (colors[index] >> 0) as u8
+            (palettes[index] >> 0) as u8
         } else {
-            (colors[index] >> 8) as u8
+            (palettes[index] >> 8) as u8
         }
     }
 
     pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
         let addr = (addr & 0x3FF) as usize;
-        let colors = if addr < 0x200 { &mut self.bg_colors } else { &mut self.obj_colors };
-        let index = (addr & 0xFF) / 2;
+        let palettes = if addr < 0x200 { &mut self.bg_palettes } else { &mut self.obj_paletes };
+        let index = (addr & 0x1FF) / 2;
         if addr % 2 == 0 {
-            colors[index] = colors[index] & !0x00FF | (value as u16) << 0;
+            palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
         } else {
-            colors[index] = colors[index] & !0xFF00 | (value as u16) << 8;
+            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8;
         }
     }
 
@@ -127,7 +127,7 @@ impl PPU {
                         0xA000usize
                     } else { 0usize };
                     for i in 0..Display::WIDTH * Display::HEIGHT {
-                        self.pixels[i] = self.bg_colors[self.vram[start_addr + i] as usize];
+                        self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
                     }
                 },
                 _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
