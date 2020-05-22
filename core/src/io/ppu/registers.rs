@@ -156,7 +156,7 @@ pub struct BGCNT {
     pub priority: u8,
     pub tile_block: u8,
     pub mosaic: bool,
-    pub use_palettes: bool,
+    pub bpp8: bool,
     pub map_block: u8,
     pub wrap: bool,
     pub screen_size: u8,
@@ -168,7 +168,7 @@ impl BGCNT {
             priority: 0,
             tile_block: 0,
             mosaic: false,
-            use_palettes: false,
+            bpp8: false,
             map_block: 0,
             wrap: false,
             screen_size: 0,
@@ -179,7 +179,7 @@ impl BGCNT {
 impl IORegister for BGCNT {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => (self.use_palettes as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority,
+            0 => (self.bpp8 as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority,
             1 => self.screen_size << 6 | (self.wrap as u8) << 5 | self.map_block,
             _ => panic!("Invalid Byte!"),
         }
@@ -191,10 +191,10 @@ impl IORegister for BGCNT {
                 self.priority = value & 0x3;
                 self.tile_block = value >> 2 & 0x3;
                 self.mosaic = value >> 6 & 0x1 != 0;
-                self.use_palettes = value >> 7 & 0x1 != 0;
+                self.bpp8 = value >> 7 & 0x1 != 0;
             },
             1 => {
-                self.map_block = value & 0x3;
+                self.map_block = value & 0x1F;
                 self.wrap = value >> 5 & 0x1 != 0;
                 self.screen_size = value >> 6 & 0x3;
             },
@@ -205,7 +205,7 @@ impl IORegister for BGCNT {
 
 #[derive(Clone, Copy)]
 pub struct OFS {
-    offset: u16,
+    pub offset: u16,
 }
 
 impl OFS {
