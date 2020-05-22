@@ -1,3 +1,5 @@
+extern crate glfw;
+
 use glfw::{Action, Context, Glfw, Key, Window};
 use std::time::SystemTime;
 

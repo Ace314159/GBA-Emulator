@@ -1,5 +1,3 @@
-extern crate glfw;
-
 mod glfw_display;
 
 use core::gba::{GBA, Display};
