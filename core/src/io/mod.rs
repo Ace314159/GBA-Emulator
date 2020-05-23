@@ -194,7 +194,7 @@ impl MemoryHandler for IO {
             0x06018000 ..= 0x06FFFFFF => 0, // Unused Memory
             0x07000000 ..= 0x070003FF => self.ppu.read_oam(addr),
             0x07000400 ..= 0x07FFFFFF => 0, // Unused Memory
-            0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr),
+            0x08000000 ..= 0x0DFFFFFF => self.rom.read8(addr & 0x09FFFFFF),
             0x0E000000 ..= 0x0E00FFFF => self.sram.read8(addr),
             0x0E010000 ..= 0x0FFFFFFF => 0, // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => 0, // Unused Memory
@@ -283,7 +283,7 @@ impl MemoryHandler for IO {
             0x06018000 ..= 0x06FFFFFF => {}, // Unused Memory
             0x07000000 ..= 0x070003FF => self.ppu.write_oam(addr, value),
             0x07000400 ..= 0x07FFFFFF => {}, // Unused Memory
-            0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
+            0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr & 0x09FFFFFF, value),
             0x0E000000 ..= 0x0E00FFFF => self.sram.write8(addr, value),
             0x0E010000 ..= 0x0FFFFFFF => {}, // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => {}, // Unused Memory
