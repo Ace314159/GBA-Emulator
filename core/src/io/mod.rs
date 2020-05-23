@@ -34,6 +34,7 @@ pub struct IO {
     waitcnt: WaitStateControl,
 
     p: bool,
+    extra: RAM,
 }
 
 impl IO {
@@ -60,6 +61,7 @@ impl IO {
             waitcnt: WaitStateControl::new(),
 
             p: false,
+            extra: RAM::new(0, 0x040003FF),
         }
     }
 
@@ -196,7 +198,7 @@ impl MemoryHandler for IO {
             0x0E000000 ..= 0x0E00FFFF => self.sram.read8(addr),
             0x0E010000 ..= 0x0FFFFFFF => 0, // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => 0, // Unused Memory
-            _ => { if self.p { println!("Ignoring Memory Read at 0x{:08X}", addr) } 0 },
+            _ => { if self.p { println!("Ignoring Memory Read at 0x{:08X}", addr) } self.extra.read8(addr) },
             // unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -285,7 +287,7 @@ impl MemoryHandler for IO {
             0x0E000000 ..= 0x0E00FFFF => self.sram.write8(addr, value),
             0x0E010000 ..= 0x0FFFFFFF => {}, // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => {}, // Unused Memory
-            _ => if self.p { println!("Ignoring Write 0x{:08X} = {:02X}", addr, value) },
+            _ => { self.extra.write8(addr, value); if self.p { println!("Ignoring Write 0x{:08X} = {:02X}", addr, value) } },
             // unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
