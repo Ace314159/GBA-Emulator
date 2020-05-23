@@ -279,9 +279,9 @@ impl MemoryHandler for IO {
             0x07000400 ..= 0x07FFFFFF => {}, // Unused Memory
             0x08000000 ..= 0x0DFFFFFF => self.rom.write8(addr, value),
             0x0E000000 ..= 0x0E00FFFF => self.sram.write8(addr, value),
-            0x0E010000 ..= 0x0FFFFFFF => {} // Unused Memory
+            0x0E010000 ..= 0x0FFFFFFF => {}, // Unused Memory
             0x10000000 ..= 0xFFFFFFFF => {}, // Unused Memory
-            _ => println!("Igoring Write 0x{:08X} = {:02X}", addr, value),
+            _ => println!("Ignoring Write 0x{:08X} = {:02X}", addr, value),
             // unimplemented!("Memory Handler for 0x{:08X} not implemented!", addr),
         }
     }
