@@ -52,7 +52,7 @@ impl CPU {
             0x6 => self.regs.get_v(),
             0x7 => !self.regs.get_v(),
             0x8 => self.regs.get_c() && !self.regs.get_z(),
-            0x9 => !self.regs.get_c() | self.regs.get_z(),
+            0x9 => !self.regs.get_c() || self.regs.get_z(),
             0xA => self.regs.get_n() == self.regs.get_v(),
             0xB => self.regs.get_n() != self.regs.get_v(),
             0xC => !self.regs.get_z() && self.regs.get_n() == self.regs.get_v(),
