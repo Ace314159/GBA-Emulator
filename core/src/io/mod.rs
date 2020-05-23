@@ -120,8 +120,8 @@ impl MemoryHandler for IO {
     fn read8(&self, addr: u32) -> u8 {
         match MemoryRegion::get_region(addr) {
             MemoryRegion::BIOS => self.bios.read8(addr),
-            MemoryRegion::WRAM256 => self.wram256.read8(addr),
-            MemoryRegion::WRAM32 => self.wram32.read8(addr),
+            MemoryRegion::WRAM256 => self.wram256.read8(addr & 0xFF03FFFF),
+            MemoryRegion::WRAM32 => self.wram32.read8(addr & 0xFF007FFF),
             MemoryRegion::IO => match addr {
                 0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
                 0x04000130 => self.keypad.keyinput.read(0),
@@ -202,8 +202,8 @@ impl MemoryHandler for IO {
     fn write8(&mut self, addr: u32, value: u8) {
         match MemoryRegion::get_region(addr) {
             MemoryRegion::BIOS => self.bios.write8(addr, value),
-            MemoryRegion::WRAM256 => self.wram256.write8(addr, value),
-            MemoryRegion::WRAM32 => self.wram32.write8(addr, value),
+            MemoryRegion::WRAM256 => self.wram256.write8(addr & 0xFF03FFFF, value),
+            MemoryRegion::WRAM32 => self.wram32.write8(addr & 0xFF007FFF, value),
             MemoryRegion::IO => match addr {
                 0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
                 0x04000130 => self.keypad.keyinput.write(0, value),

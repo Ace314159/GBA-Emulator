@@ -43,7 +43,6 @@ impl CPU {
 
     pub fn handle_irq<I>(&mut self, io: &mut I) where I: IIO {
         if self.regs.get_i() || !io.interrupts_requested() { return }
-        self.p = true;
         self.regs.change_mode(Mode::IRQ);
         let (access_width, lr) = if self.regs.get_t() {
             (1, self.regs.pc.wrapping_sub(2).wrapping_add(4))
