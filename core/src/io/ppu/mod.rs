@@ -41,6 +41,8 @@ pub struct PPU {
     dot: u16,
     pub pixels: [u16; Display::WIDTH * Display::HEIGHT],
     pub needs_to_render: bool,
+
+    p: bool,
 }
 
 impl PPU {
@@ -79,6 +81,8 @@ impl PPU {
             dot: 0,
             pixels: [0; Display::WIDTH * Display::HEIGHT],
             needs_to_render: false,
+
+            p: false,
         }
     }
 
@@ -142,7 +146,6 @@ impl PPU {
                     if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
                     if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
                     bgs.sort_by(|a, b| a.1.cmp(&b.1));
-                    bgs.reverse();
 
                     let backdrop_color = self.bg_palettes[0];
                     self.pixels.iter_mut().for_each(|x| *x = backdrop_color);
@@ -305,7 +308,7 @@ impl MemoryHandler for PPU {
             0x049 => self.win_1_cnt.read(0),
             0x04A => self.win_out_cnt.read(0),
             0x04B => self.win_obj_cnt.read(0),
-            _ => { println!("Ignoring PPU Read at 0x{:08X}", addr); 0 },
+            _ => { if self.p { println!("Ignoring PPU Read at 0x{:08X}", addr) } 0 },
             // unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
@@ -389,7 +392,7 @@ impl MemoryHandler for PPU {
             0x049 => self.win_1_cnt.write(0, value),
             0x04A => self.win_out_cnt.write(0, value),
             0x04B => self.win_obj_cnt.write(0, value),
-            _ => println!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value),
+            _ => if self.p { println!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value) },
             //unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
         }
     }
