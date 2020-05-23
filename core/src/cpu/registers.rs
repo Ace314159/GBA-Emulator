@@ -204,6 +204,12 @@ impl RegValues {
         }
     }
 
+    pub fn change_mode(&mut self, mode: Mode) {
+        let cpsr = self.get_reg(Reg::CPSR);
+        self.set_mode(mode);
+        self.set_reg(Reg::SPSR, cpsr);
+    }
+
     pub fn get_n(&self) -> bool { self.cpsr.contains(StatusReg::N) }
     pub fn get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
     pub fn get_c(&self) -> bool { self.cpsr.contains(StatusReg::C) }

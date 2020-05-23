@@ -475,9 +475,7 @@ impl CPU {
     fn thumb_software_interrupt<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
         assert_eq!(instr >> 8 & 0xFF, 0b11011111);
         io.inc_clock(Cycle::N, self.regs.pc, 1);
-        let cpsr = self.regs.get_reg(Reg::CPSR);
-        self.regs.set_mode(Mode::SVC);
-        self.regs.set_reg(Reg::SPSR, cpsr);
+        self.regs.change_mode(Mode::SVC);
         self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(2));
         self.regs.set_t(false);
         self.regs.set_i(true);
