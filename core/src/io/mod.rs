@@ -147,8 +147,8 @@ impl MemoryHandler for IO {
             0x040000B7 => self.dma0.dad.read(3),
             0x040000B8 => self.dma0.cnt_l.read(0),
             0x040000B9 => self.dma0.cnt_l.read(1),
-
-
+            0x040000BA => self.dma0.cnt_h.read(0),
+            0x040000BB => self.dma0.cnt_h.read(1),
             0x040000BC => self.dma1.sad.read(0),
             0x040000BD => self.dma1.sad.read(1),
             0x040000BE => self.dma1.sad.read(2),
@@ -159,8 +159,8 @@ impl MemoryHandler for IO {
             0x040000C3 => self.dma1.dad.read(3),
             0x040000C4 => self.dma1.cnt_l.read(0),
             0x040000C5 => self.dma1.cnt_l.read(1),
-
-
+            0x040000C6 => self.dma1.cnt_h.read(0),
+            0x040000C7 => self.dma1.cnt_h.read(1),
             0x040000C8 => self.dma2.sad.read(0),
             0x040000C9 => self.dma2.sad.read(1),
             0x040000CA => self.dma2.sad.read(2),
@@ -171,8 +171,8 @@ impl MemoryHandler for IO {
             0x040000CF => self.dma2.dad.read(3),
             0x040000D0 => self.dma2.cnt_l.read(0),
             0x040000D1 => self.dma2.cnt_l.read(1),
-
-
+            0x040000D2 => self.dma2.cnt_h.read(0),
+            0x040000D3 => self.dma2.cnt_h.read(1),
             0x040000D4 => self.dma3.sad.read(0),
             0x040000D5 => self.dma3.sad.read(1),
             0x040000D6 => self.dma3.sad.read(2),
@@ -183,8 +183,8 @@ impl MemoryHandler for IO {
             0x040000DB => self.dma3.dad.read(3),
             0x040000DC => self.dma3.cnt_l.read(0),
             0x040000DD => self.dma3.cnt_l.read(1),
-
-
+            0x040000DE => self.dma3.cnt_h.read(0),
+            0x040000DF => self.dma3.cnt_h.read(1),
             0x04000400 ..= 0x04FFFFFF => 0, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.read_palette_ram(addr),
             0x05000400 ..= 0x05FFFFFF => 0, // Unused Memory
@@ -236,8 +236,8 @@ impl MemoryHandler for IO {
             0x040000B7 => self.dma0.dad.write(3, value),
             0x040000B8 => self.dma0.cnt_l.write(0, value),
             0x040000B9 => self.dma0.cnt_l.write(1, value),
-
-
+            0x040000BA => self.dma0.cnt_h.write(0, value),
+            0x040000BB => self.dma0.cnt_h.write(1, value),
             0x040000BC => self.dma1.sad.write(0, value),
             0x040000BD => self.dma1.sad.write(1, value),
             0x040000BE => self.dma1.sad.write(2, value),
@@ -248,8 +248,8 @@ impl MemoryHandler for IO {
             0x040000C3 => self.dma1.dad.write(3, value),
             0x040000C4 => self.dma1.cnt_l.write(0, value),
             0x040000C5 => self.dma1.cnt_l.write(1, value),
-
-
+            0x040000C6 => self.dma1.cnt_h.write(0, value),
+            0x040000C7 => self.dma1.cnt_h.write(1, value),
             0x040000C8 => self.dma2.sad.write(0, value),
             0x040000C9 => self.dma2.sad.write(1, value),
             0x040000CA => self.dma2.sad.write(2, value),
@@ -260,8 +260,8 @@ impl MemoryHandler for IO {
             0x040000CF => self.dma2.dad.write(3, value),
             0x040000D0 => self.dma2.cnt_l.write(0, value),
             0x040000D1 => self.dma2.cnt_l.write(1, value),
-
-
+            0x040000D2 => self.dma2.cnt_h.write(0, value),
+            0x040000D3 => self.dma2.cnt_h.write(1, value),
             0x040000D4 => self.dma3.sad.write(0, value),
             0x040000D5 => self.dma3.sad.write(1, value),
             0x040000D6 => self.dma3.sad.write(2, value),
@@ -272,8 +272,8 @@ impl MemoryHandler for IO {
             0x040000DB => self.dma3.dad.write(3, value),
             0x040000DC => self.dma3.cnt_l.write(0, value),
             0x040000DD => self.dma3.cnt_l.write(1, value),
-
-
+            0x040000DE => self.dma3.cnt_h.write(0, value),
+            0x040000DF => self.dma3.cnt_h.write(1, value),
             0x04000400 ..= 0x04FFFFFF => {}, // Unused Memory
             0x05000000 ..= 0x050003FF => self.ppu.write_palette_ram(addr, value),
             0x05000400 ..= 0x05FFFFFF => {}, // Unused Memory

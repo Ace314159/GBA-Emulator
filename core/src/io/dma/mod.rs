@@ -6,6 +6,7 @@ pub struct DMA {
     pub sad: Address,
     pub dad: Address,
     pub cnt_l: WordCount,
+    pub cnt_h: DMACNT,
 }
 
 impl DMA {
@@ -14,6 +15,7 @@ impl DMA {
             sad: Address::new(src_any_memory),
             dad: Address::new(dest_any_memory),
             cnt_l: WordCount::new(count_is16bit),
+            cnt_h: DMACNT::new(count_is16bit),
         }
     }
 }
