@@ -56,7 +56,7 @@ impl IORegister for InterruptEnable {
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptEnable::all().bits,
-            1 => self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptEnable::all().bits,
+            1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & InterruptEnable::all().bits,
             _ => panic!("Invalid Byte!"),
         }
     }
@@ -74,7 +74,7 @@ impl IORegister for InterruptMasterEnable {
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptMasterEnable::all().bits,
-            1 => self.bits = self.bits & !0xFF0 | (value as u16) << 8 & InterruptMasterEnable::all().bits,
+            1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & InterruptMasterEnable::all().bits,
             _ => panic!("Invalid Byte!"),
         }
     }

@@ -34,7 +34,6 @@ pub struct IO {
     waitcnt: WaitStateControl,
 
     p: bool,
-    extra: RAM,
 }
 
 impl IO {
@@ -61,7 +60,6 @@ impl IO {
             waitcnt: WaitStateControl::new(),
 
             p: false,
-            extra: RAM::new(0, 0x040003FF),
         }
     }
 
