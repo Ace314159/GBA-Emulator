@@ -153,6 +153,11 @@ impl PPU {
                         self.render_text_screen(bg_i);
                     }
                 }
+                Mode3 => {
+                    for i in 0..Display::WIDTH * Display::HEIGHT {
+                        self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
+                    }
+                },
                 Mode4 => {
                     let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
                         0xA000usize
