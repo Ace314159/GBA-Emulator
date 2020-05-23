@@ -213,18 +213,18 @@ impl MemoryHandler for IO {
             0x03008000 ..= 0x03FFFFFF => {}, // Unused Memory
             0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
             0x04000130 => self.keypad.keyinput.write(0, value),
-            0x04000131 => self.keypad.keyinput.write(0, value),
+            0x04000131 => self.keypad.keyinput.write(1, value),
             0x04000132 => self.keypad.keycnt.write(0, value),
-            0x04000133 => self.keypad.keycnt.write(0, value),
+            0x04000133 => self.keypad.keycnt.write(1, value),
             0x04000200 => self.interrupt_controller.enable.write(0, value),
-            0x04000201 => self.interrupt_controller.enable.write(0, value),
+            0x04000201 => self.interrupt_controller.enable.write(1, value),
             0x04000202 => self.interrupt_controller.request.write(0, value),
-            0x04000203 => self.interrupt_controller.request.write(0, value),
+            0x04000203 => self.interrupt_controller.request.write(1, value),
             0x04000204 => self.waitcnt.write(0, value),
             0x04000205 => self.waitcnt.write(1, value),
             0x04000206 ..= 0x04000207 => {}, // Unused IO Register
             0x04000208 => self.interrupt_controller.master_enable.write(0, value),
-            0x04000209 => self.interrupt_controller.master_enable.write(0, value),
+            0x04000209 => self.interrupt_controller.master_enable.write(1, value),
             0x0400020A ..= 0x040002FF => {}, // Unused IO Register
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
