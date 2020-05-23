@@ -7,7 +7,7 @@ mod thumb;
 mod registers;
 
 use crate::io::{IIO, Cycle};
-use registers::RegValues;
+use registers::{Mode, Reg, RegValues};
 
 pub struct CPU {
     regs: RegValues,
@@ -39,6 +39,23 @@ impl CPU {
     pub fn emulate_instr<I>(&mut self, io: &mut I) where I: IIO {
         if self.regs.get_t() { self.emulate_thumb_instr(io) }
         else { self.emulate_arm_instr(io) }
+    }
+
+    pub fn handle_irq<I>(&mut self, io: &mut I) where I: IIO {
+        if self.regs.get_i() || !io.interrupts_requested() { return }
+        self.p = true;
+        self.regs.change_mode(Mode::IRQ);
+        let (access_width, lr) = if self.regs.get_t() {
+            (1, self.regs.pc.wrapping_sub(2).wrapping_add(4))
+        } else {
+            (2, self.regs.pc.wrapping_sub(4).wrapping_add(4))
+        };
+        io.inc_clock(Cycle::N, self.regs.pc, access_width);
+        self.regs.set_reg(Reg::R14, lr);
+        self.regs.set_t(false);
+        self.regs.set_i(true);
+        self.regs.pc = 0x18;
+        self.fill_arm_instr_buffer(io);
     }
 
     pub(self) fn should_exec(&self, condition: u32) -> bool {

@@ -1,6 +1,7 @@
 mod registers;
 
 use registers::*;
+pub use registers::InterruptRequest;
 
 pub struct InterruptController {
     pub enable: InterruptEnable,

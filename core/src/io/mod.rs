@@ -106,8 +106,13 @@ impl IIO for IO {
 
         while self.clocks_ahead >= 4 {
             self.clocks_ahead -= 4;
-            self.ppu.emulate_dot();
+            self.interrupt_controller.request |= self.ppu.emulate_dot();
         }
+    }
+
+    fn interrupts_requested(&self) -> bool {
+        self.interrupt_controller.master_enable.bits() != 0 &&
+        (self.interrupt_controller.request.bits() & self.interrupt_controller.enable.bits()) != 0
     }
 }
 
@@ -336,6 +341,7 @@ impl MemoryRegion {
 
 pub trait IIO: MemoryHandler {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
+    fn interrupts_requested(&self) -> bool;
 }
 
 pub trait IORegister {

@@ -214,7 +214,7 @@ impl RegValues {
     pub fn get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
     pub fn get_c(&self) -> bool { self.cpsr.contains(StatusReg::C) }
     pub fn get_v(&self) -> bool { self.cpsr.contains(StatusReg::V) }
-    pub fn _get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
+    pub fn get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
     pub fn _get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
     pub fn get_t(&self) -> bool { self.cpsr.contains(StatusReg::T) }
     pub fn get_mode(&self) -> Mode { self.cpsr.get_mode() }

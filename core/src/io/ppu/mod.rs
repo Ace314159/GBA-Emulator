@@ -3,6 +3,7 @@ mod registers;
 use crate::gba::Display;
 use super::MemoryHandler;
 use super::IORegister;
+use super::interrupt_controller::InterruptRequest;
 
 use registers::*;
 
@@ -124,15 +125,18 @@ impl PPU {
         self.oam[(addr - 0x07000000) as usize] = value;
     }
 
-    pub fn emulate_dot(&mut self) {
+    pub fn emulate_dot(&mut self) -> InterruptRequest {
+        let mut interrupts = InterruptRequest::empty();
         if self.dot < 240 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
         } else { // HBlank
             self.dispstat.insert(DISPSTATFlags::HBLANK);
+            interrupts.insert(InterruptRequest::HBLANK);
         }
-        if self.vcount < 160 { // Visible
+        if self.vcount < 160 && self.vcount != 227 { // Visible
             self.dispstat.remove(DISPSTATFlags::VBLANK);
         } else { // VBlank
+            interrupts.insert(InterruptRequest::VBLANK);
             self.dispstat.insert(DISPSTATFlags::VBLANK);
         }
 
@@ -175,7 +179,11 @@ impl PPU {
         if self.dot == 308 {
             self.dot = 0;
             self.vcount = (self.vcount + 1) % 228;
+            if self.vcount == self.dispstat.vcount_setting {
+                interrupts.insert(InterruptRequest::VCOUNTER_MATCH);
+            }
         }
+        interrupts
     }
 
     fn render_text_screen(&mut self, bg_i: usize) {
