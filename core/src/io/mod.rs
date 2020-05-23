@@ -219,7 +219,7 @@ impl MemoryHandler for IO {
             0x04000202 => self.interrupt_controller.request.write(0, value),
             0x04000203 => self.interrupt_controller.request.write(0, value),
             0x04000204 => self.waitcnt.write(0, value),
-            0x04000205 => self.waitcnt.write(0, value),
+            0x04000205 => self.waitcnt.write(1, value),
             0x04000206 ..= 0x04000207 => {}, // Unused IO Register
             0x04000208 => self.interrupt_controller.master_enable.write(0, value),
             0x04000209 => self.interrupt_controller.master_enable.write(0, value),
@@ -377,8 +377,8 @@ impl IORegister for WaitStateControl {
         match byte {
             0 => (self.wait_states[1][1] << 7 | self.wait_states[1][0] << 5 |
                     self.wait_states[0][1] << 4 |self.wait_states[0][0] << 2 | self.sram) as u8,
-            1 => (((self.type_flag as usize) << 15 | (self.prefetch_buffer as usize) << 14 | self.phi_terminal_out << 11 |
-                self.wait_states[2][1] << 10 | self.wait_states[2][0] << 8) >> 8) as u8,
+            1 => ((self.type_flag as usize) << 7 | (self.prefetch_buffer as usize) << 6 | self.phi_terminal_out << 3 |
+                self.wait_states[2][1] << 2 | self.wait_states[2][0]) as u8,
             _ => panic!("Invalid Byte!!"),
         }
     }
@@ -394,11 +394,11 @@ impl IORegister for WaitStateControl {
                 self.wait_states[1][1] = (value >> 7) & 0x1;
             },
             1 => {
-                let value = (value as usize) << 8;
-                self.wait_states[2][0] = (value >> 8) & 0x3;
-                self.wait_states[2][1] = (value >> 10) & 0x1;
-                self.phi_terminal_out = (value >> 11) & 0x3;
-                self.prefetch_buffer = (value >> 14) & 0x1 != 0;
+                let value = value as usize;
+                self.wait_states[2][0] = (value >> 0) & 0x3;
+                self.wait_states[2][1] = (value >> 2) & 0x1;
+                self.phi_terminal_out = (value >> 3) & 0x3;
+                self.prefetch_buffer = (value >> 6) & 0x1 != 0;
                 // Type Flag is read only
             }
             _ => panic!("Invalid Byte!"),
