@@ -168,11 +168,11 @@ impl PPU {
         match self.dispcnt.mode {
             Mode0 => {
                 let mut bgs: Vec<(usize, u8)> = Vec::new();
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
-                bgs.sort_by(|a, b| a.1.cmp(&b.1));
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
+                bgs.sort_by_key(|a| a.1);
 
                 let backdrop_color = self.bg_palettes[0];
                 self.pixels[start_index..start_index + Display::WIDTH]
