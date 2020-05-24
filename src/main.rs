@@ -8,7 +8,7 @@ fn main() {
 
     let mut display = GLFWDisplay::new();
     
-    let mut gba = GBA::new("Kirby - Nightmare in Dream Land (USA).gba".to_string());
+    let mut gba = GBA::new("bin/bigmap.gba".to_string());
 
     while !display.should_close() {
         gba.emulate();

@@ -239,7 +239,7 @@ impl PPU {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
                 let double_size = obj[0] >> 9 & 0x1 != 0;
-                let (obj_width, _) = PPU::OBJ_SIZES[obj_size][obj_shape];
+                let (obj_width, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
                 let obj_width = if double_size { obj_width * 2 } else { obj_width };
                 let dot_x_signed = dot_x as i16;
                 let obj_x = (obj[1] & 0x1FF) as u16;
@@ -250,17 +250,20 @@ impl PPU {
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
                 let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
+                let flip_x = obj[1] >> 12 & 0x1 != 0;
+                let flip_y = obj[1] >> 13 & 0x1 != 0;
+                let x_diff = if flip_x { obj_width - 1 - x_diff } else { x_diff };
+                let y_diff = if flip_y { obj_height - 1 - y_diff } else { y_diff };
                 let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
                     (y_diff as i16 / 8 * obj_width + x_diff) / 8
                 } else { 0 } as usize; // TODO: Implement 2D Mapping
-                let flip_x = obj[1] >> 12 & 0x1 != 0;
-                let flip_y = obj[1] >> 13 & 0x1 != 0;
                 let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
+                // Flipped at tile level, so no need to flip again
                 let (palette_num, color_num) = self.get_color_from_tile(0x10000, tile_num,
-                    flip_x, flip_y, bit_depth, tile_x as usize, tile_y as usize, palette_num);
+                    false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 || bg_priorities[dot_x] < obj[2] >> 10 & 0x3 { continue }
                 self.pixels[(self.vcount as usize) * Display::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
             }
