@@ -125,11 +125,11 @@ impl CPU {
             0x1 => dest ^ src, // XOR 
             0x2 => self.shift(io, 0, dest, src & 0xFF, false, true), // LSL
             0x3 => self.shift(io, 1, dest, src & 0xFF, false, true), // LSR
-            0x4 => self.shift(io, 2, dest, src, false, true), // ASR
+            0x4 => self.shift(io, 2, dest, src & 0xFF, false, true), // ASR
             0x5 => self.adc(dest, src, true), // ADC
             0x6 => self.sbc(dest, src, true), // SBC
             0x7 => self.shift(io, 3, dest, src & 0xFF, false, true), // ROR
-            0x8 => dest & (src & 0xFF), // TST
+            0x8 => dest & src, // TST
             0x9 => self.sub(0, src, true), // NEG
             0xA => self.sub(dest, src, true), // CMP
             0xB => self.add(dest, src, true), // CMN
