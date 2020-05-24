@@ -154,7 +154,7 @@ impl PPU {
         interrupts
     }
 
-    const OBJ_SIZES: [[(usize, usize); 3]; 4] = [
+    const OBJ_SIZES: [[(i16, u16); 3]; 4] = [
         [(8, 8), (16, 8), (8, 16)],
         [(16, 16), (32, 8), (8, 32)],
         [(32, 32), (32, 16), (16, 32)],
@@ -211,6 +211,10 @@ impl PPU {
             _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
         }
 
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_oam_line(&bg_priorities)}
+    }
+
+    fn render_oam_line(&mut self, bg_priorities: &[u16; Display::WIDTH]) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         (0..self.oam.len()).filter(|i| i % 2 == 0 && i & 0x7 != 6)
         .for_each(|i| oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]));
@@ -224,35 +228,41 @@ impl PPU {
             if !rot_scaling && double_size_disable { return false }
             let obj_height = if double_size_disable { obj_height * 2 } else { obj_height };
             
-            let obj_y = ((obj[0] as usize) & 0xFF) % Display::HEIGHT;
-            (obj_y..obj_y + obj_height).contains(&(self.vcount as usize))
+            let obj_y = (obj[0] as u16) & 0xFF;
+            let y_end = obj_y + obj_height;
+            let y = self.vcount as u16 + if y_end > 256 { 256 } else { 0 };
+            (obj_y..y_end).contains(&y)
         }).collect::<Vec<_>>();
 
-        for x in 0..Display::WIDTH {
+        for dot_x in 0..Display::WIDTH {
             for obj in objs.iter() {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
                 let double_size = obj[0] >> 9 & 0x1 != 0;
                 let (obj_width, _) = PPU::OBJ_SIZES[obj_size][obj_shape];
                 let obj_width = if double_size { obj_width * 2 } else { obj_width };
-                let obj_x = ((obj[1] & 0x1FF) as usize) % Display::WIDTH;
-                let obj_y = ((obj[0] as usize) & 0xFF) % Display::HEIGHT;
-                if !(obj_x..obj_x + obj_width).contains(&x) { continue }
+                let dot_x_signed = dot_x as i16;
+                let obj_x = (obj[1] & 0x1FF) as u16;
+                let obj_x = if obj_x & 0x100 != 0 { 0xFE00 | obj_x } else { obj_x } as i16;
+                let obj_y = (obj[0] & 0xFF) as u16;
+                if !(obj_x..obj_x + obj_width).contains(&dot_x_signed) { continue }
 
-                let tile_num = (obj[2] & 0x3FF) as usize;
-                let tile_num = tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
-                    ((self.vcount as usize - obj_y) / 8 * obj_width + x - obj_x) / 8
-                } else { 0 }; // TODO: Implement 2D Mapping
+                let base_tile_num = (obj[2] & 0x3FF) as usize;
+                let x_diff = dot_x_signed - obj_x;
+                let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
+                let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
+                    (y_diff as i16 / 8 * obj_width + x_diff) / 8
+                } else { 0 } as usize; // TODO: Implement 2D Mapping
                 let flip_x = obj[1] >> 12 & 0x1 != 0;
                 let flip_y = obj[1] >> 13 & 0x1 != 0;
                 let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
-                let tile_x = (x - obj_x) % 8;
-                let tile_y = (self.vcount as usize - obj_y) % 8;
+                let tile_x = x_diff % 8;
+                let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
                 let (palette_num, color_num) = self.get_color_from_tile(0x10000, tile_num,
-                    flip_x, flip_y, bit_depth, tile_x, tile_y, palette_num);
-                if color_num == 0 || bg_priorities[x] < obj[2] >> 10 & 0x3 { continue }
-                self.pixels[(self.vcount as usize) * Display::WIDTH + x] = self.obj_paletes[palette_num * 16 + color_num];
+                    flip_x, flip_y, bit_depth, tile_x as usize, tile_y as usize, palette_num);
+                if color_num == 0 || bg_priorities[dot_x] < obj[2] >> 10 & 0x3 { continue }
+                self.pixels[(self.vcount as usize) * Display::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
             }
         }
     }
