@@ -212,14 +212,13 @@ impl PPU {
             _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
         }
 
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_oam_line(&bg_priorities)}
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_obj_line(&bg_priorities)}
     }
 
-    fn render_oam_line(&mut self, bg_priorities: &[u16; Display::WIDTH]) {
+    fn render_obj_line(&mut self, bg_priorities: &[u16; Display::WIDTH]) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         (0..self.oam.len()).filter(|i| i % 2 == 0 && i & 0x7 != 6)
         .for_each(|i| oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]));
-        oam_parsed.sort_by_key(|obj| (obj[0] >> 14 & 0x3, obj[1] >> 14 & 0x3));
         let objs = oam_parsed.iter().filter(|obj| {
             let obj_shape = (obj[0] >> 14 & 0x3) as usize;
             let obj_size = (obj[1] >> 14 & 0x3) as usize;
@@ -267,6 +266,7 @@ impl PPU {
                     false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 || bg_priorities[dot_x] < obj[2] >> 10 & 0x3 { continue }
                 self.pixels[(self.vcount as usize) * Display::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
+                break; // Set pixel, move onto the next one
             }
         }
     }
