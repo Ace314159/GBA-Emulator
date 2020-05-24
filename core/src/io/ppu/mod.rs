@@ -256,7 +256,7 @@ impl PPU {
                 let y_diff = if flip_y { obj_height - 1 - y_diff } else { y_diff };
                 let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
                     (y_diff as i16 / 8 * obj_width + x_diff) / 8
-                } else { 0 } as usize; // TODO: Implement 2D Mapping
+                } else { y_diff as i16 / 8 * 0x20 + x_diff / 8 } as usize;
                 let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
