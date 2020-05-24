@@ -132,56 +132,7 @@ impl PPU {
         } else { // HBlank
             interrupts.insert(InterruptRequest::HBLANK);
             self.dispstat.insert(DISPSTATFlags::HBLANK);
-
-            if self.vcount < 160 && self.dot == 241 {
-                use BGMode::*;
-                let start_index = self.vcount as usize * Display::WIDTH;
-                match self.dispcnt.mode {
-                    Mode0 => {
-                        let mut bgs: Vec<(usize, u8)> = Vec::new();
-                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
-                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
-                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
-                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
-                        bgs.sort_by(|a, b| a.1.cmp(&b.1));
-    
-                        let backdrop_color = self.bg_palettes[0];
-                        self.pixels[start_index..start_index + Display::WIDTH]
-                        .iter_mut().for_each(|x| *x = backdrop_color);
-                        bgs.iter().for_each(|(bg_i, _)| self.render_text_line(*bg_i));
-                    }
-                    Mode3 => {
-                        for i in start_index..start_index + Display::WIDTH {
-                            self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
-                        }
-                    },
-                    Mode4 => {
-                        let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
-                            0xA000usize
-                        } else { 0usize };
-                        for i in start_index..start_index + Display::WIDTH {
-                            self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
-                        }
-                    },
-                    Mode5 => {
-                        let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
-                            0xA000usize
-                        } else { 0usize };
-                        let dot_y = self.vcount as usize;
-                        addr += dot_y * 160 * 2;
-                        for dot_x in 0..Display::WIDTH {
-                            self.pixels[dot_y * Display::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
-                                self.bg_palettes[0]
-                            } else {
-                                let pixel = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
-                                addr += 2;
-                                pixel
-                            }
-                        }
-                    }
-                    _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
-                }
-            }
+            if self.vcount < 160 && self.dot == 241 { self.render_line() }
         }
         if self.vcount < 160 && self.vcount != 227 { // Visible
             self.dispstat.remove(DISPSTATFlags::VBLANK);
@@ -203,7 +154,110 @@ impl PPU {
         interrupts
     }
 
-    fn render_text_line(&mut self, bg_i: usize) {
+    const OBJ_SIZES: [[(usize, usize); 3]; 4] = [
+        [(8, 8), (16, 8), (8, 16)],
+        [(16, 16), (32, 8), (8, 32)],
+        [(32, 32), (32, 16), (16, 32)],
+        [(64, 64), (64, 32), (32, 64)],
+    ];
+
+    fn render_line(&mut self) {
+        let mut bg_priorities = [4u16; Display::WIDTH];
+        use BGMode::*;
+        let start_index = self.vcount as usize * Display::WIDTH;
+        match self.dispcnt.mode {
+            Mode0 => {
+                let mut bgs: Vec<(usize, u8)> = Vec::new();
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
+                bgs.sort_by(|a, b| a.1.cmp(&b.1));
+
+                let backdrop_color = self.bg_palettes[0];
+                self.pixels[start_index..start_index + Display::WIDTH]
+                .iter_mut().for_each(|x| *x = backdrop_color);
+                bgs.iter().for_each(|(bg_i, _)| self.render_text_line(*bg_i, &mut bg_priorities));
+            }
+            Mode3 => {
+                for i in start_index..start_index + Display::WIDTH {
+                    self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
+                }
+            },
+            Mode4 => {
+                let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                    0xA000usize
+                } else { 0usize };
+                for i in start_index..start_index + Display::WIDTH {
+                    self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
+                }
+            },
+            Mode5 => {
+                let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                    0xA000usize
+                } else { 0usize };
+                let dot_y = self.vcount as usize;
+                addr += dot_y * 160 * 2;
+                for dot_x in 0..Display::WIDTH {
+                    self.pixels[dot_y * Display::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
+                        self.bg_palettes[0]
+                    } else {
+                        let pixel = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
+                        addr += 2;
+                        pixel
+                    }
+                }
+            }
+            _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
+        }
+
+        let mut oam_parsed = [[0u16; 3]; 0x80];
+        (0..self.oam.len()).filter(|i| i % 2 == 0 && i & 0x7 != 6)
+        .for_each(|i| oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]));
+        oam_parsed.sort_by_key(|obj| (obj[0] >> 14 & 0x3, obj[1] >> 14 & 0x3));
+        let objs = oam_parsed.iter().filter(|obj| {
+            let obj_shape = (obj[0] >> 14 & 0x3) as usize;
+            let obj_size = (obj[1] >> 14 & 0x3) as usize;
+            let (_, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
+            let rot_scaling = obj[0] >> 8 & 0x1 != 0;
+            let double_size_disable = obj[0] >> 9 & 0x1 != 0;
+            if !rot_scaling && double_size_disable { return false }
+            let obj_height = if double_size_disable { obj_height * 2 } else { obj_height };
+            
+            let obj_y = ((obj[0] as usize) & 0xFF) % Display::HEIGHT;
+            (obj_y..obj_y + obj_height).contains(&(self.vcount as usize))
+        }).collect::<Vec<_>>();
+
+        for x in 0..Display::WIDTH {
+            for obj in objs.iter() {
+                let obj_shape = (obj[0] >> 14 & 0x3) as usize;
+                let obj_size = (obj[1] >> 14 & 0x3) as usize;
+                let double_size = obj[0] >> 9 & 0x1 != 0;
+                let (obj_width, _) = PPU::OBJ_SIZES[obj_size][obj_shape];
+                let obj_width = if double_size { obj_width * 2 } else { obj_width };
+                let obj_x = ((obj[1] & 0x1FF) as usize) % Display::WIDTH;
+                let obj_y = ((obj[0] as usize) & 0xFF) % Display::HEIGHT;
+                if !(obj_x..obj_x + obj_width).contains(&x) { continue }
+
+                let tile_num = (obj[2] & 0x3FF) as usize;
+                let tile_num = tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
+                    ((self.vcount as usize - obj_y) / 8 * obj_width + x - obj_x) / 8
+                } else { 0 }; // TODO: Implement 2D Mapping
+                let flip_x = obj[1] >> 12 & 0x1 != 0;
+                let flip_y = obj[1] >> 13 & 0x1 != 0;
+                let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
+                let tile_x = (x - obj_x) % 8;
+                let tile_y = (self.vcount as usize - obj_y) % 8;
+                let palette_num = (obj[2] >> 12 & 0xF) as usize;
+                let (palette_num, color_num) = self.get_color_from_tile(0x10000, tile_num,
+                    flip_x, flip_y, bit_depth, tile_x, tile_y, palette_num);
+                if color_num == 0 || bg_priorities[x] < obj[2] >> 10 & 0x3 { continue }
+                self.pixels[(self.vcount as usize) * Display::WIDTH + x] = self.obj_paletes[palette_num * 16 + color_num];
+            }
+        }
+    }
+
+    fn render_text_line(&mut self, bg_i: usize, bg_priorities: &mut [u16; Display::WIDTH]) {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
@@ -242,17 +296,24 @@ impl PPU {
             let palette_num = (screen_entry >> 12) & 0xF;
             
             // Convert from tile to pixels
-            let addr = tile_start_addr + 8 * bit_depth * tile_num;
-            let tile_x = if flip_x { 7 - x % 8 } else { x % 8 };
-            let tile_y = if flip_y { 7 - y % 8 } else { y % 8 };
-            let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
-            let (palette_num, color_num) = if bit_depth == 8 {
-                (0, tile)
-            } else {
-                (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
-            };
+            let (palette_num, color_num) = self.get_color_from_tile(tile_start_addr, tile_num, flip_x, flip_y,
+                bit_depth, x % 8, y % 8, palette_num);
             if color_num == 0 { continue }
+            bg_priorities[dot_x] = bgcnt.priority as u16;
             self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
+        }
+    }
+
+    fn get_color_from_tile(&self, tile_start_addr: usize, tile_num: usize, flip_x: bool, flip_y: bool,
+        bit_depth: usize, tile_x: usize, tile_y: usize, palette_num: usize) -> (usize, usize) {
+        let addr = tile_start_addr + 8 * bit_depth * tile_num;
+        let tile_x = if flip_x { 7 - tile_x } else { tile_x };
+        let tile_y = if flip_y { 7 - tile_y } else { tile_y };
+        let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
+        if bit_depth == 8 {
+            (0, tile)
+        } else {
+            (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
         }
     }
 }

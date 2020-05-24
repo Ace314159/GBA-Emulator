@@ -32,7 +32,7 @@ bitflags! {
         const CGB_MODE = 1 << 3;
         const DISPLAY_FRAME_SELECT = 1 << 4;
         const HBLANK_INTERVAL_FREE = 1 << 5;
-        const OBJ_CHAR_MAPPING = 1 << 6;
+        const OBJ_TILES1D = 1 << 6;
         const FORCED_BLANK = 1 << 7;
         const DISPLAY_BG0 = 1 << 8;
         const DISPLAY_BG1 = 1 << 9;
