@@ -8,7 +8,7 @@ pub struct GBA {
 }
 
 impl GBA {
-    pub fn new(rom_file: &String) -> GBA {
+    pub fn new(rom_file: String) -> GBA {
         let bios = std::fs::read("gba_bios.bin").unwrap();
         let mut io = IO::new(bios, std::fs::read(rom_file).unwrap());
         GBA {
