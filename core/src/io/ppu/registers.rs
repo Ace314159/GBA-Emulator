@@ -228,7 +228,7 @@ impl IORegister for OFS {
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => self.offset = self.offset & !0xFF | value as u16,
-            1 => self.offset = self.offset & !0x100 | (value as u16) << 8,
+            1 => self.offset = self.offset & !0x100 | (value as u16) << 8 & 0x100,
             _ => panic!("Invalid Byte!"),
         }
     }
