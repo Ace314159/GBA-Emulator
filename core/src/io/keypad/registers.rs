@@ -28,7 +28,7 @@ bitflags! {
         const R = 1 << 8;
         const L = 1 << 9;
         const IRQ_ENABLE = 1 << 14;
-        const IRQ_CONDITION = 1 << 15;
+        const IRQ_COND_AND = 1 << 15;
     }
 }
 

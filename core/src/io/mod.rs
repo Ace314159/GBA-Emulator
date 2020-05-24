@@ -10,7 +10,7 @@ use memory::RAM;
 use dma::DMA;
 use ppu::PPU;
 use keypad::Keypad;
-use interrupt_controller::InterruptController;
+use interrupt_controller::{InterruptController, InterruptRequest};
 
 pub struct IO {
     bios: ROM,
@@ -110,7 +110,9 @@ impl IIO for IO {
         }
     }
 
-    fn interrupts_requested(&self) -> bool {
+    fn interrupts_requested(&mut self) -> bool {
+        if self.keypad.interrupt_requested() { self.interrupt_controller.request |= InterruptRequest::KEYPAD }
+
         self.interrupt_controller.master_enable.bits() != 0 &&
         (self.interrupt_controller.request.bits() & self.interrupt_controller.enable.bits()) != 0
     }
@@ -341,7 +343,7 @@ impl MemoryRegion {
 
 pub trait IIO: MemoryHandler {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
-    fn interrupts_requested(&self) -> bool;
+    fn interrupts_requested(&mut self) -> bool;
 }
 
 pub trait IORegister {
