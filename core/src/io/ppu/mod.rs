@@ -170,6 +170,22 @@ impl PPU {
                         self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
                     }
                 },
+                Mode5 => {
+                    let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                        0xA000usize
+                    } else { 0usize };
+                    for dot_y in 0..Display::HEIGHT {
+                        for dot_x in 0..Display::WIDTH {
+                            self.pixels[dot_y * Display::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
+                                self.bg_palettes[0]
+                            } else {
+                                let pixel = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
+                                addr += 2;
+                                pixel
+                            }
+                        }
+                    }
+                }
                 _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
             }
             self.needs_to_render = true;
