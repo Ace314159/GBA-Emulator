@@ -130,51 +130,45 @@ impl PPU {
         if self.dot < 240 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
         } else { // HBlank
-            self.dispstat.insert(DISPSTATFlags::HBLANK);
             interrupts.insert(InterruptRequest::HBLANK);
-        }
-        if self.vcount < 160 && self.vcount != 227 { // Visible
-            self.dispstat.remove(DISPSTATFlags::VBLANK);
-        } else { // VBlank
-            interrupts.insert(InterruptRequest::VBLANK);
-            self.dispstat.insert(DISPSTATFlags::VBLANK);
-        }
+            self.dispstat.insert(DISPSTATFlags::HBLANK);
 
-        if self.vcount == 160 && self.dot == 0 {
-            use BGMode::*;
-            match self.dispcnt.mode {
-                Mode0 => {
-                    let mut bgs: Vec<(usize, u8)> = Vec::new();
-                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
-                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
-                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
-                    if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
-                    bgs.sort_by(|a, b| a.1.cmp(&b.1));
-
-                    let backdrop_color = self.bg_palettes[0];
-                    self.pixels.iter_mut().for_each(|x| *x = backdrop_color);
-                    for (bg_i, _) in bgs {
-                        self.render_text_screen(bg_i);
+            if self.vcount < 160 && self.dot == 241 {
+                use BGMode::*;
+                let start_index = self.vcount as usize * Display::WIDTH;
+                match self.dispcnt.mode {
+                    Mode0 => {
+                        let mut bgs: Vec<(usize, u8)> = Vec::new();
+                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
+                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
+                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
+                        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
+                        bgs.sort_by(|a, b| a.1.cmp(&b.1));
+    
+                        let backdrop_color = self.bg_palettes[0];
+                        self.pixels[start_index..start_index + Display::WIDTH]
+                        .iter_mut().for_each(|x| *x = backdrop_color);
+                        bgs.iter().for_each(|(bg_i, _)| self.render_text_line(*bg_i));
                     }
-                }
-                Mode3 => {
-                    for i in 0..Display::WIDTH * Display::HEIGHT {
-                        self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
-                    }
-                },
-                Mode4 => {
-                    let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
-                        0xA000usize
-                    } else { 0usize };
-                    for i in 0..Display::WIDTH * Display::HEIGHT {
-                        self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
-                    }
-                },
-                Mode5 => {
-                    let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
-                        0xA000usize
-                    } else { 0usize };
-                    for dot_y in 0..Display::HEIGHT {
+                    Mode3 => {
+                        for i in start_index..start_index + Display::WIDTH {
+                            self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
+                        }
+                    },
+                    Mode4 => {
+                        let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                            0xA000usize
+                        } else { 0usize };
+                        for i in start_index..start_index + Display::WIDTH {
+                            self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
+                        }
+                    },
+                    Mode5 => {
+                        let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                            0xA000usize
+                        } else { 0usize };
+                        let dot_y = self.vcount as usize;
+                        addr += dot_y * 160 * 2;
                         for dot_x in 0..Display::WIDTH {
                             self.pixels[dot_y * Display::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
                                 self.bg_palettes[0]
@@ -185,11 +179,18 @@ impl PPU {
                             }
                         }
                     }
+                    _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
                 }
-                _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
             }
-            self.needs_to_render = true;
         }
+        if self.vcount < 160 && self.vcount != 227 { // Visible
+            self.dispstat.remove(DISPSTATFlags::VBLANK);
+        } else { // VBlank
+            interrupts.insert(InterruptRequest::VBLANK);
+            self.dispstat.insert(DISPSTATFlags::VBLANK);
+        }
+
+        if self.vcount == 160 && self.dot == 0 { self.needs_to_render = true }
 
         self.dot += 1;
         if self.dot == 308 {
@@ -202,7 +203,7 @@ impl PPU {
         interrupts
     }
 
-    fn render_text_screen(&mut self, bg_i: usize) {
+    fn render_text_line(&mut self, bg_i: usize) {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
@@ -210,49 +211,48 @@ impl PPU {
         let map_start_addr = bgcnt.map_block as usize * 0x800;
         let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
 
-        for dot_y in 0..Display::HEIGHT {
-            for dot_x in 0..Display::WIDTH {
-                let x = dot_x + x_offset;
-                let y = dot_y + y_offset;
-                // Get Screen Entry
-                let mut map_x = x / 8;
-                let mut map_y = y / 8;
-                let map_start_addr = map_start_addr + match bgcnt.screen_size {
-                    0 => 0,
-                    1 => if (map_x / 32) % 2 == 1 { 0x800 } else { 0 },
-                    2 => if (map_y / 32) % 2 == 1 { 0x800 } else { 0 },
-                    3 => {
-                        let x_overflowed = (map_x / 32) % 2 == 1;
-                        let y_overflowed = (map_y / 32) % 2 == 1;
-                        if x_overflowed && y_overflowed { 0x800 * 3 }
-                        else if y_overflowed { 0x800 * 2 }
-                        else if x_overflowed { 0x800 * 1 }
-                        else { 0 }
-                    },
-                    _ => panic!("Invalid BG Size!"),
-                };
-                map_x %= 32;
-                map_y %= 32;
-                let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
-                let screen_entry = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]) as usize;
-                let tile_num = screen_entry & 0x3FF;
-                let flip_x = (screen_entry >> 10) & 0x1 != 0;
-                let flip_y = (screen_entry >> 11) & 0x1 != 0;
-                let palette_num = (screen_entry >> 12) & 0xF;
-                
-                // Convert from tile to pixels
-                let addr = tile_start_addr + 8 * bit_depth * tile_num;
-                let tile_x = if flip_x { 7 - x % 8 } else { x % 8 };
-                let tile_y = if flip_y { 7 - y % 8 } else { y % 8 };
-                let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
-                let (palette_num, color_num) = if bit_depth == 8 {
-                    (0, tile)
-                } else {
-                    (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
-                };
-                if color_num == 0 { continue }
-                self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
-            }
+        let dot_y = self.vcount as usize;
+        for dot_x in 0..Display::WIDTH {
+            let x = dot_x + x_offset;
+            let y = dot_y + y_offset;
+            // Get Screen Entry
+            let mut map_x = x / 8;
+            let mut map_y = y / 8;
+            let map_start_addr = map_start_addr + match bgcnt.screen_size {
+                0 => 0,
+                1 => if (map_x / 32) % 2 == 1 { 0x800 } else { 0 },
+                2 => if (map_y / 32) % 2 == 1 { 0x800 } else { 0 },
+                3 => {
+                    let x_overflowed = (map_x / 32) % 2 == 1;
+                    let y_overflowed = (map_y / 32) % 2 == 1;
+                    if x_overflowed && y_overflowed { 0x800 * 3 }
+                    else if y_overflowed { 0x800 * 2 }
+                    else if x_overflowed { 0x800 * 1 }
+                    else { 0 }
+                },
+                _ => panic!("Invalid BG Size!"),
+            };
+            map_x %= 32;
+            map_y %= 32;
+            let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
+            let screen_entry = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]) as usize;
+            let tile_num = screen_entry & 0x3FF;
+            let flip_x = (screen_entry >> 10) & 0x1 != 0;
+            let flip_y = (screen_entry >> 11) & 0x1 != 0;
+            let palette_num = (screen_entry >> 12) & 0xF;
+            
+            // Convert from tile to pixels
+            let addr = tile_start_addr + 8 * bit_depth * tile_num;
+            let tile_x = if flip_x { 7 - x % 8 } else { x % 8 };
+            let tile_y = if flip_y { 7 - y % 8 } else { y % 8 };
+            let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
+            let (palette_num, color_num) = if bit_depth == 8 {
+                (0, tile)
+            } else {
+                (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
+            };
+            if color_num == 0 { continue }
+            self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
         }
     }
 }
