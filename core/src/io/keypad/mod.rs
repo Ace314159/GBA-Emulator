@@ -16,6 +16,9 @@ impl Keypad {
         }
     }
 
+    pub fn press_key(&mut self, key: KEYINPUT) { self.keyinput.remove(key) }
+    pub fn release_key(&mut self, key: KEYINPUT) { self.keyinput.insert(key) }
+
     pub fn interrupt_requested(&self) -> bool {
         if self.keycnt.contains(KEYCNT::IRQ_ENABLE) {
             let irq_keys = self.keycnt - KEYCNT::IRQ_ENABLE - KEYCNT::IRQ_COND_AND;

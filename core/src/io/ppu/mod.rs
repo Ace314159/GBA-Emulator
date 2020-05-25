@@ -173,12 +173,11 @@ impl PPU {
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
                 if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
                 bgs.sort_by_key(|a| a.1);
-                bgs.reverse();
 
                 let backdrop_color = self.bg_palettes[0];
                 self.pixels[start_index..start_index + Display::WIDTH]
                 .iter_mut().for_each(|x| *x = backdrop_color);
-                bgs.iter().for_each(|(bg_i, _)| self.render_text_line(*bg_i, &mut bg_priorities));
+                bgs.iter().rev().for_each(|(bg_i, _)| self.render_text_line(*bg_i, &mut bg_priorities));
             }
             Mode3 => {
                 for i in start_index..start_index + Display::WIDTH {

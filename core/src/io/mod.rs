@@ -74,11 +74,11 @@ impl IO {
     }
 
     pub fn press_key(&mut self, key: keypad::KEYINPUT) {
-        self.keypad.keyinput.remove(key);
+        self.keypad.press_key(key);
     }
 
     pub fn release_key(&mut self, key: keypad::KEYINPUT) {
-        self.keypad.keyinput.insert(key);
+        self.keypad.release_key(key);
     }
 }
 
