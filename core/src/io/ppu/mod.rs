@@ -131,15 +131,15 @@ impl PPU {
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
         let mut interrupts = InterruptRequest::empty();
-        if self.dot < 240 { // Visible
+        if self.dot < 240 + 10 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
         } else { // HBlank
             interrupts.insert(InterruptRequest::HBLANK);
             self.dispstat.insert(DISPSTATFlags::HBLANK);
-            if self.vcount < 160 && self.dot == 241 { self.render_line() }
         }
         if self.vcount < 160 && self.vcount != 227 { // Visible
             self.dispstat.remove(DISPSTATFlags::VBLANK);
+            if self.dot == 241 { self.render_line() }
         } else { // VBlank
             interrupts.insert(InterruptRequest::VBLANK);
             self.dispstat.insert(DISPSTATFlags::VBLANK);
