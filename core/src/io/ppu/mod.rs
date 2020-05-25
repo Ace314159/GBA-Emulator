@@ -198,6 +198,16 @@ impl PPU {
                 bgs.iter().rev().for_each(|(bg_i, _)| if *bg_i != 2 { self.render_text_line(*bg_i, &mut bg_priorities) }
                 else { self.render_affine_line(*bg_i, &mut bg_priorities) });
             },
+            Mode2 => {
+                let mut bgs: Vec<(usize, u8)> = Vec::new();
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((2, self.bgcnts[2].priority)) }
+                bgs.sort_by_key(|a| a.1);
+
+                let backdrop_color = self.bg_palettes[0];
+                self.pixels[start_index..start_index + Display::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
+                bgs.iter().rev().for_each(|(bg_i, _)| self.render_affine_line(*bg_i, &mut bg_priorities));
+            },
             Mode3 => {
                 for i in start_index..start_index + Display::WIDTH {
                     self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
@@ -227,7 +237,6 @@ impl PPU {
                     }
                 }
             }
-            _ => unimplemented!("BG Mode {} not implemented", self.dispcnt.mode as u32),
         }
 
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_obj_line(&bg_priorities)}
