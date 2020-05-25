@@ -238,7 +238,6 @@ impl IORegister for OFS {
 pub struct RotationScalingParameter {
     fractional: u8,
     integer: u8,
-    sign: bool,
 }
 
 impl RotationScalingParameter {
@@ -246,27 +245,21 @@ impl RotationScalingParameter {
         RotationScalingParameter {
             fractional: 0,
             integer: 0,
-            sign: false,
         }
+    }
+
+    pub fn get_float(&self) -> f64 {
+        self.integer as i8 as f64 + self.fractional as f64 / 256.0
     }
 }
 
 impl IORegister for RotationScalingParameter {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => self.fractional,
-            1 => (self.sign as u8) << 7 | self.integer,
-            _ => panic!("Invalid Byte!"),
-        }
-    }
+    fn read(&self, _byte: u8) -> u8 { return 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => self.fractional = value,
-            1 => {
-                self.integer = value & 0x7F;
-                self.sign = value >> 7 & 0x1 != 0;
-            },
+            1 => self.integer = value,
             _ => panic!("Invalid Byte!"),
         }
     }
@@ -276,7 +269,6 @@ impl IORegister for RotationScalingParameter {
 pub struct ReferencePointCoord {
     fractional: u8,
     integer: u32,
-    sign: bool,
 }
 
 impl ReferencePointCoord {
@@ -284,21 +276,16 @@ impl ReferencePointCoord {
         ReferencePointCoord {
             fractional: 0,
             integer: 0,
-            sign: false,
         }
+    }
+
+    pub fn get_float(&self) -> f64 {
+        self.integer as i32 as f64 + self.fractional as f64 / 256.0
     }
 }
 
 impl IORegister for ReferencePointCoord {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => self.fractional,
-            1 => self.integer as u8,
-            2 => (self.integer >> 8) as u8,
-            3 => (self.sign as u8) << 3 | (self.integer >> 16) as u8,
-            _ => panic!("Invalid Byte!"),
-        }
-    }
+    fn read(&self, _byte: u8) -> u8 { 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
@@ -306,8 +293,8 @@ impl IORegister for ReferencePointCoord {
             1 => self.integer = self.integer & !0xFF | value as u32,
             2 => self.integer = self.integer & !0xFF00 | (value as u32) << 8,
             3 => {
-                self.integer = self.integer & !0x70000 | ((value as u32) & 0x7) << 16;
-                self.sign = value >> 4 & 0x1 != 0;
+                self.integer = self.integer & !0xFFFF_0000 | ((value as u32) & 0x7) << 16;
+                if value >> 4 & 0x1 != 0 { self.integer |= 0xFFF8_0000 }
             },
             _ => panic!("Invalid Byte!"),
         }

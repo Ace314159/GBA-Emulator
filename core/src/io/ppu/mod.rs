@@ -17,12 +17,14 @@ pub struct PPU {
     bgcnts: [BGCNT; 4],
     hofs: [OFS; 4],
     vofs: [OFS; 4],
-    pas: [RotationScalingParameter; 2],
-    pbs: [RotationScalingParameter; 2],
-    pcs: [RotationScalingParameter; 2],
-    pds: [RotationScalingParameter; 2],
+    dxs: [RotationScalingParameter; 2],
+    dmxs: [RotationScalingParameter; 2],
+    dys: [RotationScalingParameter; 2],
+    dmys: [RotationScalingParameter; 2],
     bgxs: [ReferencePointCoord; 2],
     bgys: [ReferencePointCoord; 2],
+    bgxs_latch: [ReferencePointCoord; 2],
+    bgys_latch: [ReferencePointCoord; 2],
     // Windows
     winhs: [WindowDimensions; 2],
     winvs: [WindowDimensions; 2],
@@ -58,12 +60,14 @@ impl PPU {
             bgcnts: [BGCNT::new(); 4],
             hofs: [OFS::new(); 4],
             vofs: [OFS::new(); 4],
-            pas: [RotationScalingParameter::new(); 2],
-            pbs: [RotationScalingParameter::new(); 2],
-            pcs: [RotationScalingParameter::new(); 2],
-            pds: [RotationScalingParameter::new(); 2],
+            dxs: [RotationScalingParameter::new(); 2],
+            dmxs: [RotationScalingParameter::new(); 2],
+            dys: [RotationScalingParameter::new(); 2],
+            dmys: [RotationScalingParameter::new(); 2],
             bgxs: [ReferencePointCoord::new(); 2],
             bgys: [ReferencePointCoord::new(); 2],
+            bgxs_latch: [ReferencePointCoord::new(); 2],
+            bgys_latch: [ReferencePointCoord::new(); 2],
             winhs: [WindowDimensions::new(); 2],
             winvs: [WindowDimensions::new(); 2],
             win_0_cnt: WindowControl::new(),
@@ -139,6 +143,10 @@ impl PPU {
         } else { // VBlank
             interrupts.insert(InterruptRequest::VBLANK);
             self.dispstat.insert(DISPSTATFlags::VBLANK);
+            if self.vcount == 226 && self.dot == 307 {
+                self.bgxs_latch = self.bgxs.clone();
+                self.bgys_latch = self.bgys.clone();
+            }
         }
 
         if self.vcount == 160 && self.dot == 0 { self.needs_to_render = true }
@@ -175,10 +183,21 @@ impl PPU {
                 bgs.sort_by_key(|a| a.1);
 
                 let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + Display::WIDTH]
-                .iter_mut().for_each(|x| *x = backdrop_color);
+                self.pixels[start_index..start_index + Display::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
                 bgs.iter().rev().for_each(|(bg_i, _)| self.render_text_line(*bg_i, &mut bg_priorities));
-            }
+            },
+            Mode1 => {
+                let mut bgs: Vec<(usize, u8)> = Vec::new();
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
+                bgs.sort_by_key(|a| a.1);
+
+                let backdrop_color = self.bg_palettes[0];
+                self.pixels[start_index..start_index + Display::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
+                bgs.iter().rev().for_each(|(bg_i, _)| if *bg_i != 2 { self.render_text_line(*bg_i, &mut bg_priorities) }
+                else { self.render_affine_line(*bg_i, &mut bg_priorities) });
+            },
             Mode3 => {
                 for i in start_index..start_index + Display::WIDTH {
                     self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
@@ -267,6 +286,44 @@ impl PPU {
                 self.pixels[(self.vcount as usize) * Display::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
                 break; // Set pixel, move onto the next one
             }
+        }
+    }
+    
+    fn render_affine_line(&mut self, bg_i: usize, bg_priorities: &mut[u16; Display::WIDTH]) {
+        let x_offset = self.bgxs_latch[bg_i - 2].get_float();
+        let y_offset = self.bgys_latch[bg_i - 2].get_float();
+        let dx = self.dxs[bg_i - 2].get_float();
+        let dmx = self.dmxs[bg_i - 2].get_float();
+        let dy = self.dys[bg_i - 2].get_float();
+        let dmy = self.dmys[bg_i - 2].get_float();
+        let bgcnt = self.bgcnts[bg_i];
+        let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
+        let map_start_addr = bgcnt.map_block as usize * 0x800;
+        let map_size = 128 << bgcnt.screen_size; // In Pixels
+
+        let dot_y = self.vcount as usize;
+        for dot_x in 0..Display::WIDTH {
+            let (x_raw, y_raw) = (
+                dx * (dot_x as f64) + dmx * (dot_y as f64) + x_offset,
+                dy * (dot_x as f64) + dmy * (dot_y as f64) + y_offset,
+            );
+            let (x, y) = if x_raw < 0.0 || x_raw >= Display::WIDTH as f64 ||
+            y_raw < 0.0 || y_raw >= Display::HEIGHT as f64 {
+                if bgcnt.wrap { ((x_raw % map_size as f64) as usize, (y_raw % map_size as f64) as usize) }
+                else { continue }
+            } else { (x_raw as usize, y_raw as usize) };
+            // Get Screen Entry
+            let map_x = (x / 8) % (map_size / 8);
+            let map_y = (y / 8) % (map_size / 8);
+            let addr = map_start_addr + map_y * map_size / 8 + map_x;
+            let tile_num = self.vram[addr] as usize;
+            
+            // Convert from tile to pixels
+            let (_, color_num) = self.get_color_from_tile(tile_start_addr, tile_num,
+                false, false, 8, x % 8, y % 8, 0);
+            if color_num == 0 { continue }
+            bg_priorities[dot_x] = bgcnt.priority as u16;
+            self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[color_num];
         }
     }
 
@@ -367,14 +424,14 @@ impl MemoryHandler for PPU {
             0x01D => self.hofs[3].read(1),
             0x01E => self.vofs[3].read(0),
             0x01F => self.vofs[3].read(1),
-            0x020 => self.pas[0].read(0),
-            0x021 => self.pas[0].read(1),
-            0x022 => self.pbs[0].read(0),
-            0x023 => self.pbs[0].read(1),
-            0x024 => self.pcs[0].read(0),
-            0x025 => self.pcs[0].read(1),
-            0x026 => self.pds[0].read(0),
-            0x027 => self.pds[0].read(1),
+            0x020 => self.dxs[0].read(0),
+            0x021 => self.dxs[0].read(1),
+            0x022 => self.dmxs[0].read(0),
+            0x023 => self.dmxs[0].read(1),
+            0x024 => self.dys[0].read(0),
+            0x025 => self.dys[0].read(1),
+            0x026 => self.dmys[0].read(0),
+            0x027 => self.dmys[0].read(1),
             0x028 => self.bgxs[0].read(0),
             0x029 => self.bgxs[0].read(1),
             0x02A => self.bgxs[0].read(2),
@@ -383,14 +440,14 @@ impl MemoryHandler for PPU {
             0x02D => self.bgys[0].read(1),
             0x02E => self.bgys[0].read(2),
             0x02F => self.bgys[0].read(3),
-            0x030 => self.pas[1].read(0),
-            0x031 => self.pas[1].read(1),
-            0x032 => self.pbs[1].read(0),
-            0x033 => self.pbs[1].read(1),
-            0x034 => self.pcs[1].read(0),
-            0x035 => self.pcs[1].read(1),
-            0x036 => self.pds[1].read(0),
-            0x037 => self.pds[1].read(1),
+            0x030 => self.dxs[1].read(0),
+            0x031 => self.dxs[1].read(1),
+            0x032 => self.dmxs[1].read(0),
+            0x033 => self.dmxs[1].read(1),
+            0x034 => self.dys[1].read(0),
+            0x035 => self.dys[1].read(1),
+            0x036 => self.dmys[1].read(0),
+            0x037 => self.dmys[1].read(1),
             0x038 => self.bgxs[1].read(0),
             0x039 => self.bgxs[1].read(1),
             0x03A => self.bgxs[1].read(2),
@@ -451,14 +508,14 @@ impl MemoryHandler for PPU {
             0x01D => self.hofs[3].write(1, value),
             0x01E => self.vofs[3].write(0, value),
             0x01F => self.vofs[3].write(1, value),
-            0x020 => self.pas[0].write(0, value),
-            0x021 => self.pas[0].write(1, value),
-            0x022 => self.pbs[0].write(0, value),
-            0x023 => self.pbs[0].write(1, value),
-            0x024 => self.pcs[0].write(0, value),
-            0x025 => self.pcs[0].write(1, value),
-            0x026 => self.pds[0].write(0, value),
-            0x027 => self.pds[0].write(1, value),
+            0x020 => self.dxs[0].write(0, value),
+            0x021 => self.dxs[0].write(1, value),
+            0x022 => self.dmxs[0].write(0, value),
+            0x023 => self.dmxs[0].write(1, value),
+            0x024 => self.dys[0].write(0, value),
+            0x025 => self.dys[0].write(1, value),
+            0x026 => self.dmys[0].write(0, value),
+            0x027 => self.dmys[0].write(1, value),
             0x028 => self.bgxs[0].write(0, value),
             0x029 => self.bgxs[0].write(1, value),
             0x02A => self.bgxs[0].write(2, value),
@@ -467,14 +524,14 @@ impl MemoryHandler for PPU {
             0x02D => self.bgys[0].write(1, value),
             0x02E => self.bgys[0].write(2, value),
             0x02F => self.bgys[0].write(3, value),
-            0x030 => self.pas[1].write(0, value),
-            0x031 => self.pas[1].write(1, value),
-            0x032 => self.pbs[1].write(0, value),
-            0x033 => self.pbs[1].write(1, value),
-            0x034 => self.pcs[1].write(0, value),
-            0x035 => self.pcs[1].write(1, value),
-            0x036 => self.pds[1].write(0, value),
-            0x037 => self.pds[1].write(1, value),
+            0x030 => self.dxs[1].write(0, value),
+            0x031 => self.dxs[1].write(1, value),
+            0x032 => self.dmxs[1].write(0, value),
+            0x033 => self.dmxs[1].write(1, value),
+            0x034 => self.dys[1].write(0, value),
+            0x035 => self.dys[1].write(1, value),
+            0x036 => self.dmys[1].write(0, value),
+            0x037 => self.dmys[1].write(1, value),
             0x038 => self.bgxs[1].write(0, value),
             0x039 => self.bgxs[1].write(1, value),
             0x03A => self.bgxs[1].write(2, value),
