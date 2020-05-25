@@ -1,7 +1,7 @@
 use super::super::IORegister;
 
 pub struct Address {
-    addr: u32,
+    pub addr: u32,
     byte3_mask: u32,
 }
 
@@ -15,12 +15,7 @@ impl Address {
 }
 
 impl IORegister for Address {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 ..= 3 => (self.addr >> (8 * byte)) as u8,
-            _ => panic!("Invalid Byte!"),
-        }
-    }
+    fn read(&self, _byte: u8) -> u8 { 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
         let mask = 0xFF << (8 * byte);
@@ -33,7 +28,7 @@ impl IORegister for Address {
 }
 
 pub struct WordCount {
-    count: u16,
+    pub count: u16,
     byte1_mask: u16,
 }
 
@@ -47,13 +42,7 @@ impl WordCount {
 }
 
 impl IORegister for WordCount {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => self.count as u8,
-            1 => (self.count >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
-        }
-    }
+    fn read(&self, _byte: u8) -> u8 { 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
@@ -65,14 +54,14 @@ impl IORegister for WordCount {
 }
 
 pub struct DMACNT {
-    dest_addr_ctrl: u8,
-    src_addr_ctrl: u8,
-    repeat: bool,
-    transfer_32: bool,
-    game_pak_drq: bool,
-    start_timing: u8,
-    irq: bool,
-    enable: bool,
+    pub dest_addr_ctrl: u8,
+    pub src_addr_ctrl: u8,
+    pub repeat: bool,
+    pub transfer_32: bool,
+    pub game_pak_drq: bool,
+    pub start_timing: u8,
+    pub irq: bool,
+    pub enable: bool,
 
     is_dma3: bool,
 }

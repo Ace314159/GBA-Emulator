@@ -74,6 +74,57 @@ impl IO {
     pub fn release_key(&mut self, key: keypad::KEYINPUT) {
         self.keypad.release_key(key);
     }
+
+    pub fn run_dmas(&mut self) {
+        let dma_channel = self.dma.get_channel_running();
+        if dma_channel < 4 {
+            let channel = &mut self.dma.channels[dma_channel];
+            let count = channel.count.count;
+            if count == 0 { return }
+            let mut src_addr = channel.sad.addr;
+            let mut dest_addr = channel.dad.addr;
+            let src_addr_ctrl = channel.cnt.src_addr_ctrl;
+            let dest_addr_ctrl = channel.cnt.dest_addr_ctrl;
+            let transfer_32 = channel.cnt.transfer_32;
+            let irq = channel.cnt.irq;
+            channel.cnt.enable = channel.cnt.repeat;
+
+            let access_width = if transfer_32 { 2 } else { 1 };
+            let addr_change = if transfer_32 { 4 } else { 2 };
+            let mut first = true;
+            for _ in 0..count {
+                let cycle_type = if first { Cycle::N } else { Cycle::S };
+                self.inc_clock(cycle_type, src_addr, access_width);
+                self.inc_clock(cycle_type, dest_addr, access_width);
+                if transfer_32 { self.write32(dest_addr, self.read32(src_addr)) }
+                else { self.write16(dest_addr, self.read16(src_addr)) }
+
+                src_addr = match src_addr_ctrl {
+                    0 | 3 => src_addr.wrapping_add(addr_change),
+                    1 => src_addr.wrapping_sub(addr_change),
+                    2 => src_addr,
+                    _ => panic!("Invalid DMA Source Address Control!"),
+                };
+                dest_addr = match dest_addr_ctrl {
+                    0 => dest_addr.wrapping_add(addr_change),
+                    1 => dest_addr.wrapping_sub(addr_change),
+                    2 => dest_addr,
+                    _ => panic!("Invalid DMA Source Address Control!"),
+                };
+                first = false;
+            }
+            for _ in 0..2 { self.inc_clock(Cycle::I, 0, 0) }
+
+            
+            if irq { self.interrupt_controller.request |= match dma_channel {
+                0 => InterruptRequest::DMA0,
+                1 => InterruptRequest::DMA1,
+                2 => InterruptRequest::DMA2,
+                3 => InterruptRequest::DMA3,
+                _ => panic!("Invalid DMA Channel!"),
+            } }
+        }
+    }
 }
 
 impl IIO for IO {
@@ -135,6 +186,7 @@ impl MemoryHandler for IO {
                 0x04000208 => self.interrupt_controller.master_enable.read(0),
                 0x04000209 => self.interrupt_controller.master_enable.read(1),
                 0x0400020A ..= 0x040002FF => 0, // Unused IO Register
+                0x04000089 => 0x2,
                 0x04000300 => self.haltcnt as u8,
                 0x04000301 => (self.haltcnt >> 8) as u8,
                 
