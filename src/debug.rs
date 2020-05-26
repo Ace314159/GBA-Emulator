@@ -1,4 +1,4 @@
-use imgui_glfw_rs::imgui::*;
+use imgui::*;
 
 pub struct Texture {
     tex: u32,
@@ -25,8 +25,8 @@ impl Texture {
         }
     }
 
-    pub fn render(&self, ui: &Ui, scale: f32) {
-        Image::new(ui, TextureId::from(self.tex as usize), [self.width * scale, self.height * scale]).build();
+    pub fn render(&self, scale: f32) -> Image {
+        Image::new(TextureId::from(self.tex as usize), [self.width * scale, self.height * scale])
     }
 }
 
