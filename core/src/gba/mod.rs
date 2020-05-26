@@ -31,8 +31,8 @@ impl GBA {
         self.io.get_pixels()
     }
 
-    pub fn get_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
-        self.io.get_map(bg_i)
+    pub fn render_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
+        self.io.render_map(bg_i)
     }
 
     pub fn press_key(&mut self, key: KEYINPUT) {

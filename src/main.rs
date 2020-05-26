@@ -15,7 +15,7 @@ fn main() {
 
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
-    let mut gba = GBA::new("bin/bigmap.gba".to_string());
+    let mut gba = GBA::new("bin/sbb_aff.gba".to_string());
     let mut map_bg_i = 0;
     let mut map_scale = 1.0;
     let scale_inc = 0.1;
@@ -24,7 +24,7 @@ fn main() {
     while !display.should_close() {
         gba.emulate();
         if gba.needs_to_render() {
-            let (map_pixels, map_width, map_height) = gba.get_map(map_bg_i);
+            let (map_pixels, map_width, map_height) = gba.render_map(map_bg_i);
             let map_texture = Texture::new(map_pixels, map_width, map_height);
             
             display.render(&mut gba, &mut imgui, |ui| {

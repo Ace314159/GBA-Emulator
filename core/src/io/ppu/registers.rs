@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use super::IORegister;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum BGMode {
     Mode0 = 0,
     Mode1 = 1,
