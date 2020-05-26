@@ -1,11 +1,17 @@
-extern crate glfw;
+extern crate imgui_glfw_rs;
 
-use glfw::{Action, Context, Glfw, Key, Window};
+use imgui_glfw_rs::{
+    imgui::{Context as ImContext, Ui},
+    ImguiGLFW,
+    glfw::{self, Action, Context, Glfw, Key, Window}
+};
 use std::time::SystemTime;
 
-use core::gba::{GBA, Display, KEYINPUT};
+use core::gba::{self, GBA, KEYINPUT};
 
 pub struct GLFWDisplay {
+    imgui_glfw: ImguiGLFW,
+    imgui: ImContext,
     glfw: Glfw,
     window: Window,
     events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
@@ -20,19 +26,22 @@ impl GLFWDisplay {
         let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         glfw.set_error_callback(glfw::FAIL_ON_ERRORS);
 
-        let width = (Display::WIDTH * Display::SCALE) as u32;
-        let height = (Display::HEIGHT * Display::SCALE) as u32;
+        let width = (gba::WIDTH * gba::SCALE) as u32;
+        let height = (gba::HEIGHT * gba::SCALE) as u32;
         let (mut window, events) = glfw.create_window(width, height, "GBA Emulator", glfw::WindowMode::Windowed)
             .expect("Failed to create GLFW window.");
-        gl::load_with(|name| window.get_proc_address(name));
-
         window.make_current();
-        window.set_key_polling(true);
+        window.set_all_polling(true);
+
+        let mut imgui = ImContext::create();
+
+        let imgui_glfw = ImguiGLFW::new(&mut imgui, &mut window);
 
         let mut screen_tex = 0u32;
         let mut fbo = 0u32;
         let color_black = [1f32, 0f32, 0f32];
-
+        
+        gl::load_with(|name| window.get_proc_address(name));
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
             gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
@@ -43,14 +52,16 @@ impl GLFWDisplay {
             gl::TexParameterfv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, &color_black as *const f32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl::TexStorage2D(gl::TEXTURE_2D, 1, gl::RGBA8, Display::WIDTH as i32, Display::HEIGHT as i32);
+            gl::TexStorage2D(gl::TEXTURE_2D, 1, gl::RGBA8, gba::WIDTH as i32, gba::HEIGHT as i32);
             
             gl::GenFramebuffers(1, &mut fbo as *mut u32);
             gl::BindFramebuffer(gl::READ_FRAMEBUFFER, fbo);
             gl::FramebufferTexture2D(gl::READ_FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, screen_tex, 0);
         }
 
-        GLFWDisplay {
+         GLFWDisplay {
+            imgui_glfw,
+            imgui,
             glfw,
             window,
             events,
@@ -60,33 +71,37 @@ impl GLFWDisplay {
             frames_passed: 0,
         }
     }
-}
 
-impl Display for GLFWDisplay {
-    fn should_close(&self) -> bool { self.window.should_close() }
+    pub fn should_close(&self) -> bool { self.window.should_close() }
 
-    fn render(&mut self, gba: &mut GBA) {
+    pub fn render<F>(&mut self, gba: &mut GBA, imgui_draw: F) where F: FnOnce(&mut Ui) {
         let pixels = gba.get_pixels();
         let (width, height) = self.window.get_size();
 
-        let (tex_x, tex_y) = if width * Display::HEIGHT as i32 > height * Display::WIDTH as i32 {
-            let scaled_width = (Display::WIDTH as f32 / Display::HEIGHT as f32 * height as f32) as i32;
+        let (tex_x, tex_y) = if width * gba::HEIGHT as i32 > height * gba::WIDTH as i32 {
+            let scaled_width = (gba::WIDTH as f32 / gba::HEIGHT as f32 * height as f32) as i32;
             ((width - scaled_width) / 2, 0)
-        } else if width * (Display::HEIGHT as i32) < height * Display::WIDTH as i32 {
-            let scaled_height = (Display::HEIGHT as f32 / Display::WIDTH as f32 * width as f32) as i32;
+        } else if width * (gba::HEIGHT as i32) < height * gba::WIDTH as i32 {
+            let scaled_height = (gba::HEIGHT as f32 / gba::WIDTH as f32 * width as f32) as i32;
             (0, (height - scaled_height) / 2)
         } else { (0, 0) };
 
         unsafe {
-            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, Display::WIDTH as i32, Display::HEIGHT as i32,
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, gba::WIDTH as i32, gba::HEIGHT as i32,
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, pixels.as_ptr() as *const std::ffi::c_void);
-            gl::BlitFramebuffer(0, 0, Display::WIDTH as i32, Display::HEIGHT as i32,
+            gl::BlitFramebuffer(0, 0, gba::WIDTH as i32, gba::HEIGHT as i32,
                 tex_x, height - tex_y, width - tex_x, tex_y, gl::COLOR_BUFFER_BIT, gl::NEAREST);
         }
 
+        let mut ui = self.imgui_glfw.frame(&mut self.window, &mut self.imgui);
+        imgui_draw(&mut ui);
+        self.imgui_glfw.draw(ui, &mut self.window);
         self.window.swap_buffers();
         self.glfw.poll_events();
         for (_, event) in glfw::flush_messages(&self.events) {
+            self.imgui_glfw.handle_event(&mut self.imgui, &event);
             match event {
                 glfw::WindowEvent::Key(key, _, action, _) => {
                     let keypad_key = match key {

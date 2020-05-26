@@ -1,6 +1,6 @@
 mod registers;
 
-use crate::gba::Display;
+use crate::gba;
 use super::MemoryHandler;
 use super::IORegister;
 use super::interrupt_controller::InterruptRequest;
@@ -42,7 +42,7 @@ pub struct PPU {
 
     // Important Rendering Variables
     dot: u16,
-    pub pixels: [u16; Display::WIDTH * Display::HEIGHT],
+    pub pixels: Vec<u16>,
     pub needs_to_render: bool,
 
     p: bool,
@@ -84,7 +84,7 @@ impl PPU {
 
             // Important Rendering Variables
             dot: 0,
-            pixels: [0; Display::WIDTH * Display::HEIGHT],
+            pixels: vec![0; gba::WIDTH * gba::HEIGHT],
             needs_to_render: false,
 
             p: false,
@@ -170,9 +170,9 @@ impl PPU {
     ];
 
     fn render_line(&mut self) {
-        let mut bg_priorities = [4u16; Display::WIDTH];
+        let mut bg_priorities = [4u16; gba::WIDTH];
         use BGMode::*;
-        let start_index = self.vcount as usize * Display::WIDTH;
+        let start_index = self.vcount as usize * gba::WIDTH;
         match self.dispcnt.mode {
             Mode0 => {
                 let mut bgs: Vec<(usize, u8)> = Vec::new();
@@ -183,7 +183,7 @@ impl PPU {
                 bgs.sort_by_key(|a| a.1);
 
                 let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + Display::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
+                self.pixels[start_index..start_index + gba::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
                 bgs.iter().rev().for_each(|(bg_i, _)| self.render_text_line(*bg_i, &mut bg_priorities));
             },
             Mode1 => {
@@ -194,7 +194,7 @@ impl PPU {
                 bgs.sort_by_key(|a| a.1);
 
                 let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + Display::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
+                self.pixels[start_index..start_index + gba::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
                 bgs.iter().rev().for_each(|(bg_i, _)| if *bg_i != 2 { self.render_text_line(*bg_i, &mut bg_priorities) }
                 else { self.render_affine_line(*bg_i, &mut bg_priorities) });
             },
@@ -205,11 +205,11 @@ impl PPU {
                 bgs.sort_by_key(|a| a.1);
 
                 let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + Display::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
+                self.pixels[start_index..start_index + gba::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
                 bgs.iter().rev().for_each(|(bg_i, _)| self.render_affine_line(*bg_i, &mut bg_priorities));
             },
             Mode3 => {
-                for i in start_index..start_index + Display::WIDTH {
+                for i in start_index..start_index + gba::WIDTH {
                     self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
                 }
             },
@@ -217,7 +217,7 @@ impl PPU {
                 let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
                     0xA000usize
                 } else { 0usize };
-                for i in start_index..start_index + Display::WIDTH {
+                for i in start_index..start_index + gba::WIDTH {
                     self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
                 }
             },
@@ -227,8 +227,8 @@ impl PPU {
                 } else { 0usize };
                 let dot_y = self.vcount as usize;
                 addr += dot_y * 160 * 2;
-                for dot_x in 0..Display::WIDTH {
-                    self.pixels[dot_y * Display::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
+                for dot_x in 0..gba::WIDTH {
+                    self.pixels[dot_y * gba::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
                         self.bg_palettes[0]
                     } else {
                         let pixel = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
@@ -242,7 +242,7 @@ impl PPU {
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_obj_line(&bg_priorities)}
     }
 
-    fn render_obj_line(&mut self, bg_priorities: &[u16; Display::WIDTH]) {
+    fn render_obj_line(&mut self, bg_priorities: &[u16; gba::WIDTH]) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         (0..self.oam.len()).filter(|i| i % 2 == 0 && i & 0x7 != 6)
         .for_each(|i| oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]));
@@ -261,7 +261,7 @@ impl PPU {
             (obj_y..y_end).contains(&y)
         }).collect::<Vec<_>>();
 
-        for dot_x in 0..Display::WIDTH {
+        for dot_x in 0..gba::WIDTH {
             for obj in objs.iter() {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
@@ -292,13 +292,13 @@ impl PPU {
                 let (palette_num, color_num) = self.get_color_from_tile(0x10000, tile_num,
                     false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 || bg_priorities[dot_x] < obj[2] >> 10 & 0x3 { continue }
-                self.pixels[(self.vcount as usize) * Display::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
+                self.pixels[(self.vcount as usize) * gba::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
                 break; // Set pixel, move onto the next one
             }
         }
     }
     
-    fn render_affine_line(&mut self, bg_i: usize, bg_priorities: &mut[u16; Display::WIDTH]) {
+    fn render_affine_line(&mut self, bg_i: usize, bg_priorities: &mut[u16; gba::WIDTH]) {
         let x_offset = self.bgxs_latch[bg_i - 2].get_float();
         let y_offset = self.bgys_latch[bg_i - 2].get_float();
         let dx = self.dxs[bg_i - 2].get_float();
@@ -311,13 +311,13 @@ impl PPU {
         let map_size = 128 << bgcnt.screen_size; // In Pixels
 
         let dot_y = self.vcount as usize;
-        for dot_x in 0..Display::WIDTH {
+        for dot_x in 0..gba::WIDTH {
             let (x_raw, y_raw) = (
                 dx * (dot_x as f64) + dmx * (dot_y as f64) + x_offset,
                 dy * (dot_x as f64) + dmy * (dot_y as f64) + y_offset,
             );
-            let (x, y) = if x_raw < 0.0 || x_raw >= Display::WIDTH as f64 ||
-            y_raw < 0.0 || y_raw >= Display::HEIGHT as f64 {
+            let (x, y) = if x_raw < 0.0 || x_raw >= gba::WIDTH as f64 ||
+            y_raw < 0.0 || y_raw >= gba::HEIGHT as f64 {
                 if bgcnt.wrap { ((x_raw % map_size as f64) as usize, (y_raw % map_size as f64) as usize) }
                 else { continue }
             } else { (x_raw as usize, y_raw as usize) };
@@ -332,11 +332,11 @@ impl PPU {
                 false, false, 8, x % 8, y % 8, 0);
             if color_num == 0 { continue }
             bg_priorities[dot_x] = bgcnt.priority as u16;
-            self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[color_num];
+            self.pixels[dot_y * gba::WIDTH + dot_x] = self.bg_palettes[color_num];
         }
     }
 
-    fn render_text_line(&mut self, bg_i: usize, bg_priorities: &mut [u16; Display::WIDTH]) {
+    fn render_text_line(&mut self, bg_i: usize, bg_priorities: &mut [u16; gba::WIDTH]) {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
@@ -345,7 +345,7 @@ impl PPU {
         let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
 
         let dot_y = self.vcount as usize;
-        for dot_x in 0..Display::WIDTH {
+        for dot_x in 0..gba::WIDTH {
             let x = dot_x + x_offset;
             let y = dot_y + y_offset;
             // Get Screen Entry
@@ -379,7 +379,7 @@ impl PPU {
                 bit_depth, x % 8, y % 8, palette_num);
             if color_num == 0 { continue }
             bg_priorities[dot_x] = bgcnt.priority as u16;
-            self.pixels[dot_y * Display::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
+            self.pixels[dot_y * gba::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
         }
     }
 

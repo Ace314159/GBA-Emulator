@@ -4,7 +4,6 @@ mod dma;
 pub mod keypad;
 mod interrupt_controller;
 
-use crate::gba::Display;
 use memory::ROM;
 use memory::RAM;
 use dma::DMA;
@@ -63,7 +62,7 @@ impl IO {
         needs_to_render
     }
 
-    pub fn get_pixels(&self) -> &[u16; Display::WIDTH * Display::HEIGHT] {
+    pub fn get_pixels(&self) -> &Vec<u16> {
         &self.ppu.pixels
     }
 

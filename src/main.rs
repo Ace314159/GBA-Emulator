@@ -1,6 +1,6 @@
 mod glfw_display;
 
-use core::gba::{GBA, Display};
+use core::gba::GBA;
 use glfw_display::GLFWDisplay;
 
 fn main() {
@@ -13,7 +13,9 @@ fn main() {
     while !display.should_close() {
         gba.emulate();
         if gba.needs_to_render() {
-            display.render(&mut gba);
+            display.render(&mut gba, |ui| {
+                ui.show_demo_window(&mut true);
+            });
         }
     }
 }
