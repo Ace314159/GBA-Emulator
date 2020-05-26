@@ -66,6 +66,10 @@ impl IO {
         &self.ppu.pixels
     }
 
+    pub fn get_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
+        self.ppu.get_map(bg_i)
+    }
+
     pub fn press_key(&mut self, key: keypad::KEYINPUT) {
         self.keypad.press_key(key);
     }

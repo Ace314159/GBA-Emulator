@@ -1,5 +1,3 @@
-extern crate imgui_glfw_rs;
-
 use imgui_glfw_rs::{
     imgui::{Context as ImContext, Ui},
     ImguiGLFW,
@@ -15,6 +13,7 @@ pub struct GLFWDisplay {
     glfw: Glfw,
     window: Window,
     events: std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
+    screen_tex: u32,
 
     prev_frame_time: SystemTime,
     prev_fps_update_time: SystemTime,
@@ -65,6 +64,7 @@ impl GLFWDisplay {
             glfw,
             window,
             events,
+            screen_tex,
 
             prev_frame_time: SystemTime::now(),
             prev_fps_update_time: SystemTime::now(),
@@ -74,7 +74,7 @@ impl GLFWDisplay {
 
     pub fn should_close(&self) -> bool { self.window.should_close() }
 
-    pub fn render<F>(&mut self, gba: &mut GBA, imgui_draw: F) where F: FnOnce(&mut Ui) {
+    pub fn render<F>(&mut self, gba: &mut GBA, imgui_draw: F) where F: FnOnce(&Ui) {
         let pixels = gba.get_pixels();
         let (width, height) = self.window.get_size();
 
@@ -88,6 +88,7 @@ impl GLFWDisplay {
 
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::BindTexture(gl::TEXTURE_2D, self.screen_tex);
             gl::Clear(gl::COLOR_BUFFER_BIT);
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, gba::WIDTH as i32, gba::HEIGHT as i32,
                 gl::RGBA, gl::UNSIGNED_SHORT_1_5_5_5_REV, pixels.as_ptr() as *const std::ffi::c_void);
