@@ -7,6 +7,7 @@ use core::gba::GBA;
 use display::Display;
 
 use debug::Texture;
+use glfw::Key;
 use imgui::*;
 
 fn main() {
@@ -16,17 +17,21 @@ fn main() {
     let mut display = Display::new(&mut imgui);
     let mut gba = GBA::new("bin/bigmap.gba".to_string());
     let mut map_bg_i = 0;
+    let mut map_scale = 1.0;
+    let scale_inc = 0.1;
+    
 
     while !display.should_close() {
         gba.emulate();
         if gba.needs_to_render() {
             let (map_pixels, map_width, map_height) = gba.get_map(map_bg_i);
-            let map_scale = 3.0;
             let map_texture = Texture::new(map_pixels, map_width, map_height);
             
             display.render(&mut gba, &mut imgui, |ui| {
+                if ui.io().keys_down[Key::Equal as usize] { map_scale += scale_inc }
+                if ui.io().keys_down[Key::Minus as usize] { map_scale -= scale_inc }
                 Window::new(im_str!("BG Map"))
-                .size([map_width as f32 * map_scale, map_height as f32 * map_scale], Condition::FirstUseEver)
+                .always_auto_resize(true)
                 .build(ui, || {
                     let labels = [im_str!("0"), im_str!("1"), im_str!("2"), im_str!("3")];
 
