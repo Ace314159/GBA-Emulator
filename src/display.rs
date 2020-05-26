@@ -234,8 +234,8 @@ impl Display {
             },
             CursorPos(x, y) => io.mouse_pos = [x as f32, y as f32],
             Scroll(x_offset, y_offset) => {
-                io.mouse_wheel += x_offset as f32;
-                io.mouse_wheel_h += y_offset as f32;
+                io.mouse_wheel_h += x_offset as f32;
+                io.mouse_wheel += y_offset as f32;
             },
             Key(key, _scancode, action, modifiers) => {
                 io.keys_down[key as usize] = action != Action::Release;
