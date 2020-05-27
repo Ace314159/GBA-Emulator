@@ -74,6 +74,10 @@ impl IO {
         self.ppu.render_tiles(bpp8)
     }
 
+    pub fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
+        self.ppu.render_palettes()
+    }
+
     pub fn press_key(&mut self, key: keypad::KEYINPUT) {
         self.keypad.press_key(key);
     }

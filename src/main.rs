@@ -20,6 +20,7 @@ fn main() {
     let mut map_bg_i = 0;
     let mut map_scale = 1.0;
     let mut tiles_scale = 1.0;
+    let mut palettes_scale = 1.0;
     let scale_inc = 0.1;
 
     let mut tiles_bpp8 = false;
@@ -29,8 +30,10 @@ fn main() {
         if gba.needs_to_render() {
             let (map_pixels, map_width, map_height) = gba.render_map(map_bg_i);
             let (tiles_pixels, tiles_width, tiles_height) = gba.render_tiles(tiles_bpp8);
+            let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
             let map_texture = Texture::new(map_pixels, map_width, map_height);
             let tiles_texture = Texture::new(tiles_pixels, tiles_width, tiles_height);
+            let palettes_texture = Texture::new(palettes_pixels, palettes_width, palettes_height);
             
             display.render(&mut gba, &mut imgui, |ui| {
                 Window::new(im_str!("BG Map"))
@@ -57,6 +60,17 @@ fn main() {
                     ui.checkbox(im_str!("256 colors"), &mut tiles_bpp8);
 
                     tiles_texture.render(tiles_scale).build(ui);
+                });
+
+                Window::new(im_str!("Palettes"))
+                .always_auto_resize(true)
+                .build(ui, || {
+                    if ui.is_window_focused() {
+                        if ui.io().keys_down[Key::Equal as usize] { palettes_scale += scale_inc }
+                        if ui.io().keys_down[Key::Minus as usize] { palettes_scale -= scale_inc }
+                    }
+
+                    palettes_texture.render(palettes_scale).build(ui);
                 });
             });
             

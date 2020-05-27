@@ -39,6 +39,10 @@ impl GBA {
         self.io.render_tiles(bpp8)
     }
 
+    pub fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
+        self.io.render_palettes()
+    }
+
     pub fn press_key(&mut self, key: KEYINPUT) {
         self.io.press_key(key);
     }
