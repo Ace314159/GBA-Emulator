@@ -285,6 +285,7 @@ impl PPU {
                     (y_diff as i16 / 8 * obj_width + x_diff) / 8
                 } else { y_diff as i16 / 8 * 0x20 + x_diff / 8 } as usize;
                 let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
+                let tile_num = if bit_depth == 8 { tile_num / 2 } else { tile_num };
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
