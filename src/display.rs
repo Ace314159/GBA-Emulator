@@ -238,7 +238,7 @@ impl Display {
                 io.mouse_wheel += y_offset as f32;
             },
             Key(key, _scancode, action, modifiers) => {
-                io.keys_down[key as usize] = action != Action::Release;
+                if (key as usize) < io.keys_down.len() { io.keys_down[key as usize] = action != Action::Release }
                 io.key_shift = modifiers.contains(Modifiers::Shift);
                 io.key_ctrl = modifiers.contains(Modifiers::Control);
                 io.key_alt = modifiers.contains(Modifiers::Alt);
