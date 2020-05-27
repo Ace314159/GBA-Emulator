@@ -206,7 +206,7 @@ impl MemoryHandler for IO {
             MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
             MemoryRegion::VRAM => self.ppu.read_vram(addr),
             MemoryRegion::OAM => self.ppu.read_oam(addr),
-            MemoryRegion::ROM => self.rom.read8(addr),
+            MemoryRegion::ROM => self.rom.read8(addr & 0x09FFFFFF),
             MemoryRegion::SRAM => self.sram.read8(addr),
             MemoryRegion::UNUSED => { if self.p { println!("Reading Unused Memory at {:08X}", addr) } 0 }
         }
@@ -241,7 +241,7 @@ impl MemoryHandler for IO {
             MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
             MemoryRegion::VRAM => self.ppu.write_vram(addr, value),
             MemoryRegion::OAM => self.ppu.write_oam(addr, value),
-            MemoryRegion::ROM => self.rom.write8(addr, value),
+            MemoryRegion::ROM => self.rom.write8(addr & 0x09FFFFFF, value),
             MemoryRegion::SRAM => self.sram.write8(addr, value),
             MemoryRegion::UNUSED => if self.p { println!("Writng Unused Memory at {:08X} {:08X}", addr, value) }
         }

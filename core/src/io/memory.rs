@@ -16,7 +16,9 @@ impl ROM {
 
 impl MemoryHandler for ROM {
     fn read8(&self, addr: u32) -> u8 {
-        self.mem[addr as usize - self.offset]
+        let addr = addr as usize - self.offset;
+        if addr > self.mem.len() { 0 }
+        else { self.mem[addr] }
     }
 
     fn write8(&mut self, _addr: u32, _value: u8) {}
