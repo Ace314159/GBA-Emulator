@@ -5,6 +5,7 @@ mod tests;
 mod arm;
 mod thumb;
 mod registers;
+mod luts;
 
 use crate::io::{IIO, Cycle};
 use registers::{Mode, Reg, RegValues};
@@ -12,6 +13,8 @@ use registers::{Mode, Reg, RegValues};
 pub struct CPU {
     regs: RegValues,
     instr_buffer: [u32; 2],
+    condition_lut: [bool; 256],
+    
     p: bool,
 }
 
@@ -20,6 +23,8 @@ impl CPU {
         let mut cpu = CPU {
             regs: RegValues::no_bios(),
             instr_buffer: [0; 2],
+            condition_lut: luts::gen_condition_table(),
+            
             p: false,
         };
         cpu.fill_arm_instr_buffer(io);
@@ -30,6 +35,8 @@ impl CPU {
         let mut cpu = CPU {
             regs: RegValues::new(),
             instr_buffer: [0; 2],
+            condition_lut: luts::gen_condition_table(),
+            
             p: false,
         };
         cpu.fill_arm_instr_buffer(io);
@@ -58,24 +65,7 @@ impl CPU {
     }
 
     pub(self) fn should_exec(&self, condition: u32) -> bool {
-        match condition {
-            0x0 => self.regs.get_z(),
-            0x1 => !self.regs.get_z(),
-            0x2 => self.regs.get_c(),
-            0x3 => !self.regs.get_c(),
-            0x4 => self.regs.get_n(),
-            0x5 => !self.regs.get_n(),
-            0x6 => self.regs.get_v(),
-            0x7 => !self.regs.get_v(),
-            0x8 => self.regs.get_c() && !self.regs.get_z(),
-            0x9 => !self.regs.get_c() || self.regs.get_z(),
-            0xA => self.regs.get_n() == self.regs.get_v(),
-            0xB => self.regs.get_n() != self.regs.get_v(),
-            0xC => !self.regs.get_z() && self.regs.get_n() == self.regs.get_v(),
-            0xD => self.regs.get_z() || self.regs.get_n() != self.regs.get_v(),
-            0xE => true,
-            _ => panic!("Unexpected condition!"),
-        }
+        self.condition_lut[(self.regs.get_flags() | condition) as usize]
     }
 
     pub(self) fn shift<I>(&mut self, io: &mut I, shift_type: u32, operand: u32, shift: u32,

@@ -210,12 +210,13 @@ impl RegValues {
         self.set_reg(Reg::SPSR, cpsr);
     }
 
-    pub fn get_n(&self) -> bool { self.cpsr.contains(StatusReg::N) }
-    pub fn get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
+    pub fn _get_n(&self) -> bool { self.cpsr.contains(StatusReg::N) }
+    pub fn _get_z(&self) -> bool { self.cpsr.contains(StatusReg::Z) }
     pub fn get_c(&self) -> bool { self.cpsr.contains(StatusReg::C) }
-    pub fn get_v(&self) -> bool { self.cpsr.contains(StatusReg::V) }
+    pub fn _get_v(&self) -> bool { self.cpsr.contains(StatusReg::V) }
     pub fn get_i(&self) -> bool { self.cpsr.contains(StatusReg::I) }
     pub fn _get_f(&self) -> bool { self.cpsr.contains(StatusReg::F) }
+    pub fn get_flags(&self) -> u32 { self.cpsr.bits >> 24 }
     pub fn get_t(&self) -> bool { self.cpsr.contains(StatusReg::T) }
     pub fn get_mode(&self) -> Mode { self.cpsr.get_mode() }
     pub fn set_n(&mut self, value: bool) { self.cpsr.set(StatusReg::N, value) }
