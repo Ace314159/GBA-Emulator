@@ -4,6 +4,7 @@ extern crate imgui_opengl_renderer;
 use glfw::{Action, Context, Glfw, Key, Window};
 
 use std::time::Instant;
+use std::collections::HashSet;
 
 use core::gba::{self, GBA, KEYINPUT};
 
@@ -146,7 +147,8 @@ impl Display {
         }
     }
 
-    pub fn render<F>(&mut self, gba: &mut GBA, imgui: &mut imgui::Context, imgui_draw: F) where F: FnOnce(&imgui::Ui) {
+    pub fn render<F>(&mut self, gba: &mut GBA, imgui: &mut imgui::Context, imgui_draw: F)
+        where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>) {
         let pixels = gba.get_pixels();
         let (width, height) = self.window.get_size();
 
@@ -171,10 +173,13 @@ impl Display {
         let io = imgui.io_mut();
 
         self.glfw.poll_events();
+
+        let mut keys_pressed = HashSet::new();
         for (_, event) in glfw::flush_messages(&self.events) {
             Display::handle_event(io, &event);
             match event {
                 glfw::WindowEvent::Key(key, _, action, _) => {
+                    if action != Action::Release { keys_pressed.insert(key); }
                     let keypad_key = match key {
                         Key::A => KEYINPUT::A,
                         Key::B => KEYINPUT::B,
@@ -201,7 +206,7 @@ impl Display {
         self.prepare_frame(io);
         io.update_delta_time(self.prev_frame_time);
         let ui = imgui.frame();
-        imgui_draw(&ui);
+        imgui_draw(&ui, keys_pressed);
         self.prepare_render(&ui);
         self.imgui_renderer.render(ui);
 

@@ -1,6 +1,8 @@
 use imgui::*;
 use glfw::Key;
 
+use std::collections::HashSet;
+
 pub struct TextureWindow {
     texture: Texture,
     scale: f32,
@@ -18,15 +20,16 @@ impl TextureWindow {
         }
     }
 
-    pub fn render<F>(&mut self, ui: &Ui, pixels: Vec<u16>, width: usize, height: usize, f: F) where F: FnOnce() {
+    pub fn render<F>(&mut self, ui: &Ui, keys_pressed: &HashSet<Key>,
+        pixels: Vec<u16>, width: usize, height: usize, f: F) where F: FnOnce() {
         self.texture.update_pixels(pixels, width, height);
         let title = self.title.clone();
         Window::new(&title)
         .always_auto_resize(true)
         .build(ui, || {
             if ui.is_window_focused() {
-                if ui.io().keys_down[Key::Equal as usize] { self.scale += TextureWindow::SCALE_OFFSET }
-                if ui.io().keys_down[Key::Minus as usize] { self.scale -= TextureWindow::SCALE_OFFSET }
+                if keys_pressed.contains(&Key::Equal) { self.scale += TextureWindow::SCALE_OFFSET }
+                if keys_pressed.contains(&Key::Minus) { self.scale -= TextureWindow::SCALE_OFFSET }
             }
             f();
             self.texture.render(self.scale).build(ui);

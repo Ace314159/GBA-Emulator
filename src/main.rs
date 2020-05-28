@@ -36,12 +36,13 @@ fn main() {
                 gba.render_tiles(tiles_palette as usize, tiles_block, tiles_bpp8);
             let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
 
-            display.render(&mut gba, &mut imgui, |ui| {
+            display.render(&mut gba, &mut imgui, |ui, keys_pressed| {
                 map_window.render(ui, map_pixels, map_width, map_height, || {
+                map_window.render(ui, &keys_pressed, map_pixels, map_width, map_height, || {
                     ComboBox::new(im_str!("BG")).build_simple(ui, &mut map_bg_i,
                         &[0usize, 1, 2, 3], &(|i| std::borrow::Cow::from(map_labels[*i])));
                 });
-                tiles_window.render(ui, tiles_pixels, tiles_width, tiles_height, || {
+                tiles_window.render(ui, &keys_pressed, tiles_pixels, tiles_width, tiles_height, || {
                     ComboBox::new(im_str!("Block")).build_simple(ui, &mut tiles_block,
                         &[0, 1, 2, 3, 4], &(|i| std::borrow::Cow::from(tiles_block_labels[*i])));
                     ui.checkbox(im_str!("256 colors"), &mut tiles_bpp8);
@@ -52,7 +53,7 @@ fn main() {
                         tiles_palette = if tiles_palette > 15 { 15 } else if tiles_palette < 0 { 0 } else { tiles_palette };
                     }
                 });
-                palettes_window.render(ui, palettes_pixels, palettes_width, palettes_height, || {});
+                palettes_window.render(ui, &keys_pressed, palettes_pixels, palettes_width, palettes_height, || {});
             });
             
         }
