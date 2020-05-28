@@ -6,8 +6,7 @@ mod debug;
 use core::gba::GBA;
 use display::Display;
 
-use debug::Texture;
-use glfw::Key;
+use debug::TextureWindow;
 use imgui::*;
 
 fn main() {
@@ -15,18 +14,13 @@ fn main() {
 
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
-    let mut gba = GBA::new("bin/bigmap.gba".to_string());
+    let mut gba = GBA::new("Pokemon Pinball - Ruby & Sapphire (USA).gba".to_string());
 
-    let mut map_texture = Texture::new();
-    let mut tiles_texture = Texture::new();
-    let mut palettes_texture = Texture::new();
+    let mut map_window = TextureWindow::new("BG Map");
+    let mut tiles_window = TextureWindow::new("BG Tiles");
+    let mut palettes_window = TextureWindow::new("Palettes");
 
     let mut map_bg_i = 0;
-    let mut map_scale = 1.0;
-    let mut tiles_scale = 1.0;
-    let mut palettes_scale = 1.0;
-    let scale_inc = 0.1;
-
     let mut tiles_bpp8 = false;
 
     while !display.should_close() {
@@ -35,47 +29,17 @@ fn main() {
             let (map_pixels, map_width, map_height) = gba.render_map(map_bg_i);
             let (tiles_pixels, tiles_width, tiles_height) = gba.render_tiles(tiles_bpp8);
             let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
-            map_texture.update_pixels(map_pixels, map_width, map_height);
-            tiles_texture.update_pixels(tiles_pixels, tiles_width, tiles_height);
-            palettes_texture.update_pixels(palettes_pixels, palettes_width, palettes_height);
-            
+
             display.render(&mut gba, &mut imgui, |ui| {
-                Window::new(im_str!("BG Map"))
-                .always_auto_resize(true)
-                .build(ui, || {
-                    if ui.is_window_focused() {
-                        if ui.io().keys_down[Key::Equal as usize] { map_scale += scale_inc }
-                        if ui.io().keys_down[Key::Minus as usize] { map_scale -= scale_inc }
-                    }
+                map_window.render(ui, map_pixels, map_width, map_height, || {
                     let labels = [im_str!("0"), im_str!("1"), im_str!("2"), im_str!("3")];
                     ComboBox::new(im_str!("BG")).build_simple(ui, &mut map_bg_i,
                         &[0usize, 1, 2, 3,], &(|i| std::borrow::Cow::from(labels[*i])));
-
-                    map_texture.render(map_scale).build(ui);
                 });
-
-                Window::new(im_str!("Tiles"))
-                .always_auto_resize(true)
-                .build(ui, || {
-                    if ui.is_window_focused() {
-                        if ui.io().keys_down[Key::Equal as usize] { tiles_scale += scale_inc }
-                        if ui.io().keys_down[Key::Minus as usize] { tiles_scale -= scale_inc }
-                    }
+                tiles_window.render(ui, tiles_pixels, tiles_width, tiles_height, || {
                     ui.checkbox(im_str!("256 colors"), &mut tiles_bpp8);
-
-                    tiles_texture.render(tiles_scale).build(ui);
                 });
-
-                Window::new(im_str!("Palettes"))
-                .always_auto_resize(true)
-                .build(ui, || {
-                    if ui.is_window_focused() {
-                        if ui.io().keys_down[Key::Equal as usize] { palettes_scale += scale_inc }
-                        if ui.io().keys_down[Key::Minus as usize] { palettes_scale -= scale_inc }
-                    }
-
-                    palettes_texture.render(palettes_scale).build(ui);
-                });
+                palettes_window.render(ui, palettes_pixels, palettes_width, palettes_height, || {});
             });
             
         }

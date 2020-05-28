@@ -1,4 +1,38 @@
 use imgui::*;
+use glfw::Key;
+
+pub struct TextureWindow {
+    texture: Texture,
+    scale: f32,
+    title: ImString,
+}
+
+impl TextureWindow {
+    const SCALE_OFFSET: f32 = 0.1;
+
+    pub fn new(title: &str) -> TextureWindow {
+        TextureWindow {
+            texture: Texture::new(),
+            scale: 1.0,
+            title: ImString::new(title.to_string()),
+        }
+    }
+
+    pub fn render<F>(&mut self, ui: &Ui, pixels: Vec<u16>, width: usize, height: usize, f: F) where F: FnOnce() {
+        self.texture.update_pixels(pixels, width, height);
+        let title = self.title.clone();
+        Window::new(&title)
+        .always_auto_resize(true)
+        .build(ui, || {
+            if ui.is_window_focused() {
+                if ui.io().keys_down[Key::Equal as usize] { self.scale += TextureWindow::SCALE_OFFSET }
+                if ui.io().keys_down[Key::Minus as usize] { self.scale -= TextureWindow::SCALE_OFFSET }
+            }
+            f();
+            self.texture.render(self.scale).build(ui);
+        });
+    }
+}
 
 pub struct Texture {
     tex: u32,
