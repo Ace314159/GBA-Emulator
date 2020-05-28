@@ -463,7 +463,8 @@ impl PPU {
         (pixels, width, height)
     }
 
-    pub fn render_tiles(&self, bpp8: bool) -> (Vec<u16>, usize, usize) {
+    pub fn render_tiles(&self, palette: usize, block: usize, bpp8: bool) -> (Vec<u16>, usize, usize) {
+        let tile_start_addr = if block > 3 { 0x10000 } else { block * 0x4000 };
         let tiles_size = if bpp8 { 16 } else { 32 };
         let size = tiles_size * 8;
         let mut pixels = vec![0; size * size];
@@ -473,9 +474,9 @@ impl PPU {
                 let start_i = (tile_y * size + tile_x) * 8;
                 for y in 0..8 {
                     for x in 0..8 {
-                        let (palette_num, color_num) = self.get_color_from_tile(0,
+                        let (palette_num, color_num) = self.get_color_from_tile(tile_start_addr,
                             tile_y * tiles_size + tile_x, false, false,
-                            bit_depth, x, y, 0);
+                            bit_depth, x, y, palette);
                         pixels[start_i + y * size + x] = self.bg_palettes[palette_num * 16 + color_num] | 0x8000;
                     }
                 }
