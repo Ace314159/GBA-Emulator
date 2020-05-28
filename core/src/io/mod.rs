@@ -98,7 +98,7 @@ impl IO {
             let dest_addr_ctrl = channel.cnt.dest_addr_ctrl;
             let transfer_32 = channel.cnt.transfer_32;
             let irq = channel.cnt.irq;
-            channel.cnt.enable = channel.cnt.repeat;
+            channel.cnt.enable = channel.cnt.start_timing != 0 && channel.cnt.repeat;
 
             let access_width = if transfer_32 { 2 } else { 1 };
             let addr_change = if transfer_32 { 4 } else { 2 };
