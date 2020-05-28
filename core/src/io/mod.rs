@@ -87,7 +87,7 @@ impl IO {
     }
 
     pub fn run_dmas(&mut self) {
-        let dma_channel = self.dma.get_channel_running();
+        let dma_channel = self.dma.get_channel_running(self.ppu.hblank_called(), self.ppu.vblank_called());
         if dma_channel < 4 {
             let channel = &mut self.dma.channels[dma_channel];
             let count = channel.count.count;

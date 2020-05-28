@@ -23,10 +23,10 @@ impl DMA {
         }
     }
 
-    pub fn get_channel_running(&mut self) -> usize {
+    pub fn get_channel_running(&mut self,  hblank_called: bool, vblank_called: bool) -> usize {
         if self.delay > 0 { self.delay -= 1; return 4 }
         for (i, channel) in self.channels.iter().enumerate() {
-            if (*channel).needs_to_transfer() { return i }
+            if (*channel).needs_to_transfer(hblank_called, vblank_called) { return i }
         }
         return 4;
     }
@@ -159,12 +159,12 @@ impl DMAChannel {
         }
     }
 
-    pub fn needs_to_transfer(&self) -> bool {
+    pub fn needs_to_transfer(&self, hblank_called: bool, vblank_called: bool) -> bool {
         if !self.cnt.enable { return false }
         match self.cnt.start_timing {
             0 => true,
-            1 => false, // TODO: VBlank
-            2 => false, // TODO: HBlank
+            1 => hblank_called,
+            2 => vblank_called,
             3 => false, // TODO: Special
             _ => panic!("Invalid DMA Start Timing: {}", self.cnt.start_timing),
         }

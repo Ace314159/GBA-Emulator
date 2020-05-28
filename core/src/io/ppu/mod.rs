@@ -45,6 +45,10 @@ pub struct PPU {
     pub pixels: Vec<u16>,
     pub needs_to_render: bool,
 
+    // Other
+    hblank_called: bool,
+    vblank_called: bool,
+
     p: bool,
 }
 
@@ -86,6 +90,10 @@ impl PPU {
             dot: 0,
             pixels: vec![0; gba::WIDTH * gba::HEIGHT],
             needs_to_render: false,
+
+            // Other
+            hblank_called: false,
+            vblank_called: false,
 
             p: false,
         }
@@ -134,6 +142,7 @@ impl PPU {
         if self.dot < 240 + 10 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
         } else { // HBlank
+            self.hblank_called = true;
             interrupts.insert(InterruptRequest::HBLANK);
             self.dispstat.insert(DISPSTATFlags::HBLANK);
         }
@@ -141,6 +150,7 @@ impl PPU {
             self.dispstat.remove(DISPSTATFlags::VBLANK);
             if self.dot == 241 { self.render_line() }
         } else { // VBlank
+            self.vblank_called = true;
             interrupts.insert(InterruptRequest::VBLANK);
             self.dispstat.insert(DISPSTATFlags::VBLANK);
             if self.vcount == 226 && self.dot == 307 {
@@ -160,6 +170,18 @@ impl PPU {
             }
         }
         interrupts
+    }
+
+    pub fn hblank_called(&mut self) -> bool {
+        let hblank_called = self.hblank_called;
+        self.hblank_called = false;
+        hblank_called
+    }
+
+    pub fn vblank_called(&mut self) -> bool {
+        let vblank_called = self.vblank_called;
+        self.vblank_called = false;
+        vblank_called
     }
 
     const OBJ_SIZES: [[(i16, u16); 3]; 4] = [
