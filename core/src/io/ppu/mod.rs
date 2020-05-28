@@ -303,8 +303,8 @@ impl PPU {
                 let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
                 let (x_diff, y_diff) = if affine {
                     let (x_diff, y_diff) = if double_size {
-                        (x_diff - obj_width / 2, y_diff.wrapping_sub(obj_height / 2))
-                    } else { (x_diff, y_diff) };
+                        (x_diff - obj_width / 2, y_diff as i16 - obj_height as i16 / 2)
+                    } else { (x_diff, y_diff as i16) };
                     let aff_param = obj[1] >> 9 & 0xF;
                     let params = affine_params[aff_param as usize];
                     let (pa, pb, pc, pd) = (
