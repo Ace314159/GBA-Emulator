@@ -7,7 +7,6 @@ use registers::*;
 
 pub struct DMA {
     pub channels: [DMAChannel; 4],
-    delay: usize,
 }
 
 impl DMA {
@@ -19,12 +18,10 @@ impl DMA {
                 DMAChannel::new(true, false, false),
                 DMAChannel::new(true, true, true),
             ],
-            delay: 0,
         }
     }
 
     pub fn get_channel_running(&mut self,  hblank_called: bool, vblank_called: bool) -> usize {
-        if self.delay > 0 { self.delay -= 1; return 4 }
         for (i, channel) in self.channels.iter().enumerate() {
             if (*channel).needs_to_transfer(hblank_called, vblank_called) { return i }
         }
@@ -98,7 +95,7 @@ impl MemoryHandler for DMA {
             0x040000B6 => self.channels[0].dad.write(2, value),
             0x040000B7 => self.channels[0].dad.write(3, value),
             0x040000B8 => self.channels[0].count.write(0, value),
-            0x040000B9 => { self.channels[0].count.write(1, value); self.delay = 2 },
+            0x040000B9 => self.channels[0].count.write(1, value),
             0x040000BA => self.channels[0].cnt.write(0, value),
             0x040000BB => self.channels[0].cnt.write(1, value),
             0x040000BC => self.channels[1].sad.write(0, value),
@@ -110,7 +107,7 @@ impl MemoryHandler for DMA {
             0x040000C2 => self.channels[1].dad.write(2, value),
             0x040000C3 => self.channels[1].dad.write(3, value),
             0x040000C4 => self.channels[1].count.write(0, value),
-            0x040000C5 => { self.channels[1].count.write(1, value); self.delay = 2 },
+            0x040000C5 => self.channels[1].count.write(1, value),
             0x040000C6 => self.channels[1].cnt.write(0, value),
             0x040000C7 => self.channels[1].cnt.write(1, value),
             0x040000C8 => self.channels[2].sad.write(0, value),
@@ -124,7 +121,7 @@ impl MemoryHandler for DMA {
             0x040000D0 => self.channels[2].count.write(0, value),
             0x040000D1 => self.channels[2].count.write(1, value),
             0x040000D2 => self.channels[2].cnt.write(0, value),
-            0x040000D3 => { self.channels[2].cnt.write(1, value); self.delay = 2 },
+            0x040000D3 => self.channels[2].cnt.write(1, value),
             0x040000D4 => self.channels[3].sad.write(0, value),
             0x040000D5 => self.channels[3].sad.write(1, value),
             0x040000D6 => self.channels[3].sad.write(2, value),
@@ -134,7 +131,7 @@ impl MemoryHandler for DMA {
             0x040000DA => self.channels[3].dad.write(2, value),
             0x040000DB => self.channels[3].dad.write(3, value),
             0x040000DC => self.channels[3].count.write(0, value),
-            0x040000DD => { self.channels[3].count.write(1, value); self.delay = 2 },
+            0x040000DD => self.channels[3].count.write(1, value),
             0x040000DE => self.channels[3].cnt.write(0, value),
             0x040000DF => self.channels[3].cnt.write(1, value),
             _ => panic!("Writing to Invalid DMA Address {}", addr),
