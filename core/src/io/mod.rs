@@ -91,7 +91,7 @@ impl IO {
         if dma_channel < 4 {
             let channel = &mut self.dma.channels[dma_channel];
             let count = channel.count.count;
-            if count == 0 { return }
+            let count = if count == 0 { channel.count.get_max() + 1 } else { count as u32 };
             let mut src_addr = channel.sad.addr;
             let mut dest_addr = channel.dad.addr;
             let src_addr_ctrl = channel.cnt.src_addr_ctrl;

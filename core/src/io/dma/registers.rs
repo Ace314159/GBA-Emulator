@@ -29,16 +29,18 @@ impl IORegister for Address {
 
 pub struct WordCount {
     pub count: u16,
-    byte1_mask: u16,
+    max: u16,
 }
 
 impl WordCount {
     pub fn new(is_16bit: bool) -> WordCount {
         WordCount {
             count: 0,
-            byte1_mask: if is_16bit { 0xFF00 } else { 0x3F00 },
+            max: if is_16bit { 0xFFFF } else { 0x3FFF },
         }
     }
+
+    pub fn get_max(&self) -> u32 { self.max as u32 }
 }
 
 impl IORegister for WordCount {
@@ -47,7 +49,7 @@ impl IORegister for WordCount {
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => self.count = self.count & !0x00FF | value as u16,
-            1 => self.count = self.count & !0xFF00 | (value as u16) << 8 & self.byte1_mask,
+            1 => self.count = self.count & !0xFF00 | (value as u16) << 8 & self.max,
             _ => panic!("Invalid Byte!"),
         }
     }
