@@ -288,11 +288,14 @@ impl CPU {
                 self.fill_arm_instr_buffer(io);
             } else { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
-            let addr = addr & !0x3;
             let value = self.regs.get_reg_i(src_dest_reg);
             let value = if src_dest_reg == 15 { value.wrapping_add(4) } else { value };
+            let addr = if transfer_byte {
+                io.write8(addr, value as u8); addr
+            } else {
+                io.write32(addr & !0x3, value); addr & !0x3
+            };
             io.inc_clock(Cycle::N, addr, 2);
-            if transfer_byte { io.write8(addr, value as u8) } else { io.write32(addr, value) }
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
