@@ -39,10 +39,12 @@ fn main() {
             display.render(&mut gba, &mut imgui, |ui, keys_pressed| {
                 map_window.render(ui, map_pixels, map_width, map_height, || {
                 map_window.render(ui, &keys_pressed, map_pixels, map_width, map_height, || {
+                    debug::control_combo_with_arrows(ui, &keys_pressed,  &mut map_bg_i, map_labels.len() - 1);
                     ComboBox::new(im_str!("BG")).build_simple(ui, &mut map_bg_i,
                         &[0usize, 1, 2, 3], &(|i| std::borrow::Cow::from(map_labels[*i])));
                 });
                 tiles_window.render(ui, &keys_pressed, tiles_pixels, tiles_width, tiles_height, || {
+                    debug::control_combo_with_arrows(ui, &keys_pressed, &mut tiles_block, tiles_block_labels.len() - 1);
                     ComboBox::new(im_str!("Block")).build_simple(ui, &mut tiles_block,
                         &[0, 1, 2, 3, 4], &(|i| std::borrow::Cow::from(tiles_block_labels[*i])));
                     ui.checkbox(im_str!("256 colors"), &mut tiles_bpp8);
