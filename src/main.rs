@@ -7,6 +7,7 @@ use core::gba::GBA;
 use display::Display;
 
 use debug::TextureWindow;
+use glfw::Key;
 use imgui::*;
 
 fn main() {
@@ -15,6 +16,7 @@ fn main() {
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
     let mut gba = GBA::new("Pokemon Pinball - Ruby & Sapphire (USA).gba".to_string());
+    let mut paused = false;
 
     let mut map_window = TextureWindow::new("BG Map");
     let mut tiles_window = TextureWindow::new("Tiles");
@@ -29,15 +31,23 @@ fn main() {
     let mut tiles_palette = 0;
 
     while !display.should_close() {
-        gba.emulate();
-        if gba.needs_to_render() {
+        if !paused { gba.emulate() }
+        if gba.needs_to_render() || paused {
             let (map_pixels, map_width, map_height) = gba.render_map(map_bg_i);
             let (tiles_pixels, tiles_width, tiles_height) =
                 gba.render_tiles(tiles_palette as usize, tiles_block, tiles_bpp8);
             let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
 
             display.render(&mut gba, &mut imgui, |ui, keys_pressed| {
-                map_window.render(ui, map_pixels, map_width, map_height, || {
+                if keys_pressed.contains(&Key::P) { paused = !paused }
+                if paused {
+                    Window::new(im_str!("Paused"))
+                    .no_decoration()
+                    .always_auto_resize(true)
+                    .build(ui, || {
+                        ui.text("Paused");
+                    });
+                }
                 map_window.render(ui, &keys_pressed, map_pixels, map_width, map_height, || {
                     debug::control_combo_with_arrows(ui, &keys_pressed,  &mut map_bg_i, map_labels.len() - 1);
                     ComboBox::new(im_str!("BG")).build_simple(ui, &mut map_bg_i,
