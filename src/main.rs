@@ -17,6 +17,10 @@ fn main() {
     let mut display = Display::new(&mut imgui);
     let mut gba = GBA::new("bin/bigmap.gba".to_string());
 
+    let mut map_texture = Texture::new();
+    let mut tiles_texture = Texture::new();
+    let mut palettes_texture = Texture::new();
+
     let mut map_bg_i = 0;
     let mut map_scale = 1.0;
     let mut tiles_scale = 1.0;
@@ -31,9 +35,9 @@ fn main() {
             let (map_pixels, map_width, map_height) = gba.render_map(map_bg_i);
             let (tiles_pixels, tiles_width, tiles_height) = gba.render_tiles(tiles_bpp8);
             let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
-            let map_texture = Texture::new(map_pixels, map_width, map_height);
-            let tiles_texture = Texture::new(tiles_pixels, tiles_width, tiles_height);
-            let palettes_texture = Texture::new(palettes_pixels, palettes_width, palettes_height);
+            map_texture.update_pixels(map_pixels, map_width, map_height);
+            tiles_texture.update_pixels(tiles_pixels, tiles_width, tiles_height);
+            palettes_texture.update_pixels(palettes_pixels, palettes_width, palettes_height);
             
             display.render(&mut gba, &mut imgui, |ui| {
                 Window::new(im_str!("BG Map"))
