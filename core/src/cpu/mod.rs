@@ -19,9 +19,9 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn no_bios<I>(io: &mut I) -> CPU where I: IIO {
+    pub fn _no_bios<I>(io: &mut I) -> CPU where I: IIO {
         let mut cpu = CPU {
-            regs: RegValues::no_bios(),
+            regs: RegValues::_no_bios(),
             instr_buffer: [0; 2],
             condition_lut: luts::gen_condition_table(),
             
