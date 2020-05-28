@@ -21,7 +21,7 @@ impl DMA {
         }
     }
 
-    pub fn get_channel_running(&mut self,  hblank_called: bool, vblank_called: bool) -> usize {
+    pub fn get_channel_running(&mut self, hblank_called: bool, vblank_called: bool) -> usize {
         for (i, channel) in self.channels.iter().enumerate() {
             if (*channel).needs_to_transfer(hblank_called, vblank_called) { return i }
         }
