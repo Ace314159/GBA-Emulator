@@ -251,6 +251,10 @@ impl RotationScalingParameter {
     pub fn get_float(&self) -> f64 {
         self.integer as i8 as f64 + self.fractional as f64 / 256.0
     }
+
+    pub fn get_float_from_u16(value: u16) -> f64 {
+        (value >> 8) as u8 as i8 as f64 + (value >> 0) as u8 as f64 / 256.0
+    }
 }
 
 impl IORegister for RotationScalingParameter {

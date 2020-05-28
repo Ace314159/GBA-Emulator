@@ -244,16 +244,21 @@ impl PPU {
 
     fn render_obj_line(&mut self, bg_priorities: &[u16; gba::WIDTH]) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
-        (0..self.oam.len()).filter(|i| i % 2 == 0 && i & 0x7 != 6)
-        .for_each(|i| oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]));
+        let mut affine_params = [[0u16; 4]; 0x20];
+        (0..self.oam.len()).filter(|i| i % 2 == 0)
+        .for_each(|i| {
+            if i & 0x7 == 6 {
+                affine_params[(i - 6) / 32][(i - 6) / 8 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]);
+            } else { oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]) }
+        });
         let objs = oam_parsed.iter().filter(|obj| {
             let obj_shape = (obj[0] >> 14 & 0x3) as usize;
             let obj_size = (obj[1] >> 14 & 0x3) as usize;
             let (_, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
-            let rot_scaling = obj[0] >> 8 & 0x1 != 0;
-            let double_size_disable = obj[0] >> 9 & 0x1 != 0;
-            if !rot_scaling && double_size_disable { return false }
-            let obj_height = if double_size_disable { obj_height * 2 } else { obj_height };
+            let affine = obj[0] >> 8 & 0x1 != 0;
+            let double_size_or_disable = obj[0] >> 9 & 0x1 != 0;
+            if !affine && double_size_or_disable { return false }
+            let obj_height = if double_size_or_disable { obj_height * 2 } else { obj_height };
             
             let obj_y = (obj[0] as u16) & 0xFF;
             let y_end = obj_y + obj_height;
@@ -265,6 +270,7 @@ impl PPU {
             for obj in objs.iter() {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
+                let affine = obj[0] >> 8 & 0x1 != 0;
                 let double_size = obj[0] >> 9 & 0x1 != 0;
                 let (obj_width, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
                 let obj_width = if double_size { obj_width * 2 } else { obj_width };
@@ -277,10 +283,30 @@ impl PPU {
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
                 let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
-                let flip_x = obj[1] >> 12 & 0x1 != 0;
-                let flip_y = obj[1] >> 13 & 0x1 != 0;
-                let x_diff = if flip_x { obj_width - 1 - x_diff } else { x_diff };
-                let y_diff = if flip_y { obj_height - 1 - y_diff } else { y_diff };
+                let (x_diff, y_diff) = if affine {
+                    let aff_param = obj[1] >> 9 & 0xF;
+                    let params = affine_params[aff_param as usize];
+                    let (pa, pb, pc, pd) = (
+                        RotationScalingParameter::get_float_from_u16(params[0]),
+                        RotationScalingParameter::get_float_from_u16(params[1]),
+                        RotationScalingParameter::get_float_from_u16(params[2]),
+                        RotationScalingParameter::get_float_from_u16(params[3]),
+                    );
+                    let (x_offset, y_offset) = (obj_width as f64 / 2.0, obj_height as f64 / 2.0);
+                    let (x_raw, y_raw) = (
+                        pa * (x_diff as f64 - x_offset) + pb * (y_diff as f64 - y_offset) + x_offset,
+                        pc * (x_diff as f64 - x_offset) + pd * (y_diff as f64 - y_offset) + y_offset,
+                    );
+                    if x_raw < 0.0 || y_raw < 0.0 || x_raw > obj_width as f64 || y_raw > obj_height as f64 { continue }
+                    (x_raw as u16 as i16, y_raw as u16)
+                } else {
+                    let flip_x = obj[1] >> 12 & 0x1 != 0;
+                    let flip_y = obj[1] >> 13 & 0x1 != 0;
+                    (
+                        if flip_x { obj_width - 1 - x_diff } else { x_diff },
+                        if flip_y { obj_height - 1 - y_diff } else { y_diff },
+                    )
+                };
                 let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
                     (y_diff as i16 / 8 * obj_width + x_diff) / 8
                 } else { y_diff as i16 / 8 * 0x20 + x_diff / 8 } as usize;
