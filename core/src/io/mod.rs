@@ -254,7 +254,7 @@ pub trait MemoryHandler {
 
     fn read16(&self, addr: u32) -> u16 {
         (self.read8(addr + 0) as u16) << 0 |
-        (self.read8(addr + 1) as u16) << 8 
+        (self.read8(addr + 1) as u16) << 8
     }
     fn write16(&mut self, addr: u32, value: u16) {
         self.write8(addr + 0, (value >> 0) as u8);
@@ -262,16 +262,12 @@ pub trait MemoryHandler {
     }
 
     fn read32(&self, addr: u32) -> u32 {
-        (self.read8(addr + 0) as u32) << 0 |
-        (self.read8(addr + 1) as u32) << 8 |
-        (self.read8(addr + 2) as u32) << 16 |
-        (self.read8(addr + 3) as u32) << 24
+        (self.read16(addr + 0) as u32) << 0 |
+        (self.read16(addr + 2) as u32) << 16
     }
     fn write32(&mut self, addr: u32, value: u32) {
-        self.write8(addr + 0, (value >> 0) as u8);
-        self.write8(addr + 1, (value >> 8) as u8);
-        self.write8(addr + 2, (value >> 16) as u8);
-        self.write8(addr + 3, (value >> 24) as u8);
+        self.write16(addr + 0, (value >> 0) as u16);
+        self.write16(addr + 2, (value >> 16) as u16);
     }
 }
 
