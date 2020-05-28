@@ -258,10 +258,10 @@ impl PPU {
             let affine = obj[0] >> 8 & 0x1 != 0;
             let double_size_or_disable = obj[0] >> 9 & 0x1 != 0;
             if !affine && double_size_or_disable { return false }
-            let obj_height = if double_size_or_disable { obj_height * 2 } else { obj_height };
+            let obj_y_bounds = if double_size_or_disable { obj_height * 2 } else { obj_height };
             
             let obj_y = (obj[0] as u16) & 0xFF;
-            let y_end = obj_y + obj_height;
+            let y_end = obj_y + obj_y_bounds;
             let y = self.vcount as u16 + if y_end > 256 { 256 } else { 0 };
             (obj_y..y_end).contains(&y)
         }).collect::<Vec<_>>();
@@ -271,19 +271,22 @@ impl PPU {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
                 let affine = obj[0] >> 8 & 0x1 != 0;
-                let double_size = obj[0] >> 9 & 0x1 != 0;
                 let (obj_width, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
-                let obj_width = if double_size { obj_width * 2 } else { obj_width };
                 let dot_x_signed = dot_x as i16;
                 let obj_x = (obj[1] & 0x1FF) as u16;
                 let obj_x = if obj_x & 0x100 != 0 { 0xFE00 | obj_x } else { obj_x } as i16;
                 let obj_y = (obj[0] & 0xFF) as u16;
-                if !(obj_x..obj_x + obj_width).contains(&dot_x_signed) { continue }
+                let double_size = obj[0] >> 9 & 0x1 != 0;
+                let obj_x_bounds = if double_size { obj_width * 2 } else { obj_width };
+                if !(obj_x..obj_x + obj_x_bounds).contains(&dot_x_signed) { continue }
 
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
                 let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
                 let (x_diff, y_diff) = if affine {
+                    let (x_diff, y_diff) = if double_size {
+                        (x_diff - obj_width / 2, y_diff.wrapping_sub(obj_height / 2))
+                    } else { (x_diff, y_diff) };
                     let aff_param = obj[1] >> 9 & 0xF;
                     let params = affine_params[aff_param as usize];
                     let (pa, pb, pc, pd) = (
@@ -297,7 +300,7 @@ impl PPU {
                         pa * (x_diff as f64 - x_offset) + pb * (y_diff as f64 - y_offset) + x_offset,
                         pc * (x_diff as f64 - x_offset) + pd * (y_diff as f64 - y_offset) + y_offset,
                     );
-                    if x_raw < 0.0 || y_raw < 0.0 || x_raw > obj_width as f64 || y_raw > obj_height as f64 { continue }
+                    if x_raw < 0.0 || y_raw < 0.0 || x_raw >= obj_width as f64 || y_raw >= obj_height as f64 { continue }
                     (x_raw as u16 as i16, y_raw as u16)
                 } else {
                     let flip_x = obj[1] >> 12 & 0x1 != 0;
