@@ -69,7 +69,7 @@ impl MemoryHandler for TestIO {
 }
 
 macro_rules! run_instr { ($instr_name:ident, $instr:expr, $($reg:ident = $val:expr),*) => { {
-    println!("{:08X}", $instr);
+    debug!("{:08X}", $instr);
     let mut io = TestIO::new();
     let mut cpu = CPU::new(&mut io);
     $(

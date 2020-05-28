@@ -3,6 +3,7 @@ extern crate imgui;
 mod display;
 mod debug;
 
+use core::simplelog::*;
 use core::gba::GBA;
 use display::Display;
 
@@ -12,6 +13,10 @@ use imgui::*;
 
 fn main() {
     std::env::set_current_dir("ROMs").unwrap();
+        CombinedLogger::init(vec![
+            TermLogger::new(LevelFilter::Error, Config::default(), TerminalMode::Mixed),
+            //WriteLogger::new(LevelFilter::Trace, Config::default(), std::fs::File::create("stdout.log").unwrap()),
+        ]).unwrap();
 
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);

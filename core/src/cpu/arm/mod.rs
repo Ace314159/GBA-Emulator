@@ -20,9 +20,9 @@ impl CPU {
 
     pub(super) fn emulate_arm_instr<I>(&mut self, io: &mut I) where I: IIO {
         let instr = self.instr_buffer[0];
-        if self.p {
+        {
             use Reg::*;
-            println!("{:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} \
+            trace!("{:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} {:08X} \
             {:08X} {:08X} {:08X} {:08X} cpsr: {:08X} | {:08X}",
             self.regs.get_reg(R0), self.regs.get_reg(R1), self.regs.get_reg(R2), self.regs.get_reg(R3),
             self.regs.get_reg(R4), self.regs.get_reg(R5), self.regs.get_reg(R6), self.regs.get_reg(R7),

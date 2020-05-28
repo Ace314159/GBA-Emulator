@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 bitflags = "1.2.1"
+log = "0.4.8"
+simplelog = "0.8.0"
 
 [profile.release]
 debug = true

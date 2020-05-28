@@ -48,8 +48,6 @@ pub struct PPU {
     // Other
     hblank_called: bool,
     vblank_called: bool,
-
-    p: bool,
 }
 
 impl PPU {
@@ -94,8 +92,6 @@ impl PPU {
             // Other
             hblank_called: false,
             vblank_called: false,
-
-            p: false,
         }
     }
 
@@ -635,8 +631,7 @@ impl MemoryHandler for PPU {
             0x049 => self.win_1_cnt.read(0),
             0x04A => self.win_out_cnt.read(0),
             0x04B => self.win_obj_cnt.read(0),
-            _ => { if self.p { println!("Ignoring PPU Read at 0x{:08X}", addr) } 0 },
-            // unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
+            _ => { warn!("Ignoring PPU Read at 0x{:08X}", addr); 0 },
         }
     }
 
@@ -719,8 +714,7 @@ impl MemoryHandler for PPU {
             0x049 => self.win_1_cnt.write(0, value),
             0x04A => self.win_out_cnt.write(0, value),
             0x04B => self.win_obj_cnt.write(0, value),
-            _ => if self.p { println!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value) },
-            //unimplemented!("PPU Handler for 0x{:08X} not implemented!", addr),
+            _ => warn!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value),
         }
     }
 }

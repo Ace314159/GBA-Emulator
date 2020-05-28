@@ -14,8 +14,6 @@ pub struct CPU {
     regs: RegValues,
     instr_buffer: [u32; 2],
     condition_lut: [bool; 256],
-    
-    p: bool,
 }
 
 impl CPU {
@@ -24,8 +22,6 @@ impl CPU {
             regs: RegValues::_no_bios(),
             instr_buffer: [0; 2],
             condition_lut: luts::gen_condition_table(),
-            
-            p: false,
         };
         cpu.fill_arm_instr_buffer(io);
         cpu
@@ -36,8 +32,6 @@ impl CPU {
             regs: RegValues::new(),
             instr_buffer: [0; 2],
             condition_lut: luts::gen_condition_table(),
-            
-            p: false,
         };
         cpu.fill_arm_instr_buffer(io);
         cpu

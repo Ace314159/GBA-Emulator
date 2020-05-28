@@ -170,7 +170,7 @@ fn test_data_proc() {
     assert_regs!(cpu.regs, R0 = !100, R15 = 4, CPSR = 0x80000000);
     assert_cycle_times(io, 1, 0, 0);
 
-    println!("Second Set");
+    debug!("Second Set");
     fn make_reg_instr(opcode: u32, set_status: bool, op1_reg: u32, dest: u32, shift: u32,
         shift_by_type: u32, shift_by_reg: bool, op2: u32) -> u32 {
         0b1110 << 28 | 0b00 << 26 | (false as u32) << 25 | opcode << 21 | (set_status as u32) << 20 |

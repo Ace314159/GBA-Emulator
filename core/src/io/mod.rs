@@ -28,8 +28,6 @@ pub struct IO {
     // Registers
     haltcnt: u16,
     waitcnt: WaitStateControl,
-
-    p: bool,
 }
 
 impl IO {
@@ -51,8 +49,6 @@ impl IO {
             // Registers
             haltcnt: 0,
             waitcnt: WaitStateControl::new(),
-
-            p: false,
         }
     }
 
@@ -201,14 +197,14 @@ impl MemoryHandler for IO {
                 0x04000300 => self.haltcnt as u8,
                 0x04000301 => (self.haltcnt >> 8) as u8,
                 
-                _ => { if self.p { println!("Reading Unimplemented IO Register at {:08X}", addr) } 0 }
+                _ => { warn!("Reading Unimplemented IO Register at {:08X}", addr); 0 }
             },
             MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
             MemoryRegion::VRAM => self.ppu.read_vram(addr),
             MemoryRegion::OAM => self.ppu.read_oam(addr),
             MemoryRegion::ROM => self.rom.read8(addr & 0x09FFFFFF),
             MemoryRegion::SRAM => self.sram.read8(addr),
-            MemoryRegion::UNUSED => { if self.p { println!("Reading Unused Memory at {:08X}", addr) } 0 }
+            MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); 0 }
         }
     }
 
@@ -236,14 +232,14 @@ impl MemoryHandler for IO {
                 0x0400020A ..= 0x040002FF => {}, // Unused IO Register
                 0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
                 0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
-                _ => if self.p { println!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, value) }
+                _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, value)
             },
             MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
             MemoryRegion::VRAM => self.ppu.write_vram(addr, value),
             MemoryRegion::OAM => self.ppu.write_oam(addr, value),
             MemoryRegion::ROM => self.rom.write8(addr & 0x09FFFFFF, value),
             MemoryRegion::SRAM => self.sram.write8(addr, value),
-            MemoryRegion::UNUSED => if self.p { println!("Writng Unused Memory at {:08X} {:08X}", addr, value) }
+            MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, value)
         }
     }
 }
