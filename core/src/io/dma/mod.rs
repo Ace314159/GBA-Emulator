@@ -162,7 +162,7 @@ impl DMAChannel {
             0 => true,
             1 => hblank_called,
             2 => vblank_called,
-            3 => false, // TODO: Special
+            3 => { warn!("Special DMA not implemented!"); false }, // TODO: Special
             _ => panic!("Invalid DMA Start Timing: {}", self.cnt.start_timing),
         }
     } 
