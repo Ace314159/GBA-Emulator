@@ -328,11 +328,11 @@ impl PPU {
                         if flip_y { obj_height - 1 - y_diff } else { y_diff },
                     )
                 };
+                let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
+                let base_tile_num = if bit_depth == 8 { base_tile_num / 2 } else { base_tile_num };
                 let tile_num = base_tile_num + if self.dispcnt.contains(DISPCNTFlags::OBJ_TILES1D) {
                     (y_diff as i16 / 8 * obj_width + x_diff) / 8
-                } else { y_diff as i16 / 8 * 0x20 + x_diff / 8 } as usize;
-                let bit_depth = if obj[0] >> 13 & 0x1 != 0 { 8 } else { 4 };
-                let tile_num = if bit_depth == 8 { tile_num / 2 } else { tile_num };
+                } else { y_diff as i16 / 8 * 0x80 / (bit_depth as i16) + x_diff / 8 } as usize;
                 let tile_x = x_diff % 8;
                 let tile_y = y_diff % 8;
                 let palette_num = (obj[2] >> 12 & 0xF) as usize;
