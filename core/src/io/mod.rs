@@ -10,6 +10,7 @@ use dma::DMA;
 use ppu::PPU;
 use keypad::Keypad;
 use interrupt_controller::{InterruptController, InterruptRequest};
+use crate::gba::VisibleMemoryRegion;
 
 pub struct IO {
     bios: ROM,
@@ -72,6 +73,10 @@ impl IO {
 
     pub fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
         self.ppu.render_palettes()
+    }
+
+    pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: u32) -> u8 {
+        self.read8(region.get_start_addr() + addr)
     }
 
     pub fn press_key(&mut self, key: keypad::KEYINPUT) {

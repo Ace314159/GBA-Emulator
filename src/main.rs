@@ -1,15 +1,17 @@
 extern crate imgui;
+extern crate imgui_memory_editor;
 
 mod display;
 mod debug;
 
 use core::simplelog::*;
-use core::gba::GBA;
+use core::gba::{GBA, VisibleMemoryRegion};
 use display::Display;
 
 use debug::TextureWindow;
 use glfw::Key;
 use imgui::*;
+use imgui_memory_editor::MemoryEditor;
 
 fn main() {
     std::env::set_current_dir("ROMs").unwrap();
@@ -34,6 +36,9 @@ fn main() {
     let mut tiles_block = 0;
     let mut tiles_bpp8 = false;
     let mut tiles_palette = 0;
+    let mut mem_region = VisibleMemoryRegion::BIOS;
+    let mut mem_editor = MemoryEditor::new(0)
+        .read_fn(|addr| gba.peek_mem(mem_region, addr));
 
     while !display.should_close() {
         if !paused { gba.emulate() }
@@ -42,6 +47,9 @@ fn main() {
             let (tiles_pixels, tiles_width, tiles_height) =
                 gba.render_tiles(tiles_palette as usize, tiles_block, tiles_bpp8);
             let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
+            mem_editor = mem_editor
+                .base_addr(mem_region.get_start_addr() as usize)
+                .mem_size(mem_region.get_size());
 
             display.render(&mut gba, &mut imgui, |ui, keys_pressed| {
                 if keys_pressed.contains(&Key::P) { paused = !paused }
@@ -71,6 +79,18 @@ fn main() {
                     }
                 });
                 palettes_window.render(ui, &keys_pressed, palettes_pixels, palettes_width, palettes_height, || {});
+                let mut mem_region_i = mem_region as usize;
+                Window::new(im_str!("Memory Viewer"))
+                .build(ui, || {
+                    debug::control_combo_with_arrows(ui, &keys_pressed, &mut mem_region_i, 8);
+                    ComboBox::new(im_str!("Memory Region")).build_simple(ui, &mut mem_region_i,
+                        &[0, 1, 2, 3, 4, 5, 6, 7, 8],
+                        &(|i| std::borrow::Cow::from(ImString::new(
+                            VisibleMemoryRegion::from_index(*i).get_name()
+                    ))));
+                    mem_editor.build_without_window(&ui);
+                });
+                mem_region = VisibleMemoryRegion::from_index(mem_region_i);
             });
             
         }
