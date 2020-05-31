@@ -162,6 +162,7 @@ impl IIO for IO {
             0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
             0x0E000000 ..= 0x0E00FFFF => 1,
+            0x0E010000 ..= 0x0FFFFFFF => 1,
             _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
         };
 
@@ -209,8 +210,8 @@ impl MemoryHandler for IO {
                 _ => { warn!("Reading Unimplemented IO Register at {:08X}", addr); 0 }
             },
             MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
-            MemoryRegion::VRAM => self.ppu.read_vram(addr),
-            MemoryRegion::OAM => self.ppu.read_oam(addr),
+            MemoryRegion::VRAM => self.ppu.read_vram(addr & addr & 0x1FFFF),
+            MemoryRegion::OAM => self.ppu.read_oam(addr & 0x3FF),
             MemoryRegion::ROM => self.rom.read8(addr & 0x09FFFFFF),
             MemoryRegion::SRAM => self.sram.read8(addr),
             MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); 0 }
@@ -246,8 +247,8 @@ impl MemoryHandler for IO {
                 _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, value)
             },
             MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
-            MemoryRegion::VRAM => self.ppu.write_vram(addr, value),
-            MemoryRegion::OAM => self.ppu.write_oam(addr, value),
+            MemoryRegion::VRAM => self.ppu.write_vram(addr & 0x1FFFF, value),
+            MemoryRegion::OAM => self.ppu.write_oam(addr & 0x3FF, value),
             MemoryRegion::ROM => self.rom.write8(addr & 0x09FFFFFF, value),
             MemoryRegion::SRAM => self.sram.write8(addr, value),
             MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, value)
@@ -437,7 +438,7 @@ impl MGBATestSuite {
     }
 
     pub fn enabled(&self) -> bool {
-        self.enable == 0xC0DE
+        false //self.enable == 0xC0DE
     }
 
     pub fn write_enable(&mut self, addr: u32, value: u8) {
