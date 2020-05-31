@@ -11,6 +11,7 @@
             "preLaunchTask": "build",
             "program": "${workspaceRoot}/target/debug/gba-emulator.exe",
             "stopAtEntry": false,
+            // "args": [">", "stdout.log"],
             "cwd": "${workspaceRoot}",
             "environment": [{"name": "RUST_BACKTRACE", "value": "0"}],
             "externalConsole": true,

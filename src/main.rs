@@ -15,14 +15,24 @@ use imgui_memory_editor::MemoryEditor;
 
 fn main() {
     std::env::set_current_dir("ROMs").unwrap();
-        CombinedLogger::init(vec![
-            TermLogger::new(LevelFilter::Error, Config::default(), TerminalMode::Mixed),
-            //WriteLogger::new(LevelFilter::Trace, Config::default(), std::fs::File::create("stdout.log").unwrap()),
-        ]).unwrap();
+    CombinedLogger::init(vec![
+        TermLogger::new(LevelFilter::Error, Config::default(), TerminalMode::Mixed),
+        TermLogger::new(LevelFilter::Off,
+            ConfigBuilder::new()
+            .set_time_level(LevelFilter::Off)
+            .set_thread_level(LevelFilter::Off)
+            .set_target_level(LevelFilter::Off)
+            .set_location_level(LevelFilter::Off)
+            .set_time_level(LevelFilter::Off)
+            .set_max_level(LevelFilter::Off)
+            .add_filter_allow_str("core::cpu")
+            .build(),
+            TerminalMode::Mixed),//std::fs::File::create("stdout.log").unwrap()),
+    ]).unwrap();
 
     let mut imgui = Context::create();
     let mut display = Display::new(&mut imgui);
-    let mut gba = GBA::new("Pokemon Pinball - Ruby & Sapphire (USA).gba".to_string());
+    let mut gba = GBA::new("Kirby - Nightmare in Dream Land (USA).gba".to_string());
     let mut paused = false;
 
     let mut map_window = TextureWindow::new("BG Map");
