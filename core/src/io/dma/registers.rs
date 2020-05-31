@@ -9,7 +9,7 @@ impl Address {
     pub fn new(any_memory: bool) -> Address {
         Address {
             addr: 0,
-            byte3_mask: if any_memory { 0xFF00_0000 } else { 0x7F00_0000 },
+            byte3_mask: if any_memory { 0x0FF0_0000 } else { 0x07F0_0000 },
         }
     }
 }
