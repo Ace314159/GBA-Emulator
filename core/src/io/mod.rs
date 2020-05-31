@@ -29,6 +29,8 @@ pub struct IO {
     // Registers
     haltcnt: u16,
     waitcnt: WaitStateControl,
+
+    mgba_test_suite: MGBATestSuite,
 }
 
 impl IO {
@@ -50,6 +52,8 @@ impl IO {
             // Registers
             haltcnt: 0,
             waitcnt: WaitStateControl::new(),
+
+            mgba_test_suite: MGBATestSuite::new()
         }
     }
 
@@ -201,7 +205,7 @@ impl MemoryHandler for IO {
                 0x04000089 => 0x2,
                 0x04000300 => self.haltcnt as u8,
                 0x04000301 => (self.haltcnt >> 8) as u8,
-                
+                0x4FFF780 ..= 0x4FFF781 => self.mgba_test_suite.read8(addr),
                 _ => { warn!("Reading Unimplemented IO Register at {:08X}", addr); 0 }
             },
             MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
@@ -237,6 +241,8 @@ impl MemoryHandler for IO {
                 0x0400020A ..= 0x040002FF => {}, // Unused IO Register
                 0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
                 0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
+                0x4FFF600 ..= 0x4FFF701 => self.mgba_test_suite.write8(addr, value),
+                0x4FFF780 ..= 0x4FFF781 => self.mgba_test_suite.write_enable(addr, value),
                 _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, value)
             },
             MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
@@ -387,6 +393,91 @@ impl IORegister for WaitStateControl {
                 // Type Flag is read only
             }
             _ => panic!("Invalid Byte!"),
+        }
+    }
+}
+
+
+enum MGBALogLevel {
+    Fatal,
+    Error,
+    Warn,
+    Info,
+    Debug
+}
+
+impl MGBALogLevel {
+    pub fn new(val: u16) -> Self {
+        use MGBALogLevel::*;
+        match val {
+            0 => Fatal,
+            1 => Error,
+            2 => Warn,
+            3 => Info,
+            4 => Debug,
+            _ => panic!("Invalid mGBA Log Level!"),
+        }
+    }
+}
+
+struct MGBATestSuite {
+    buffer: [char; 0x100],
+    // Registers
+    enable: u16,
+    flags: u16,
+}
+
+impl MGBATestSuite {
+    pub fn new() -> MGBATestSuite {
+        MGBATestSuite {
+            buffer: ['\0'; 0x100],
+            enable: 0,
+            flags: 0,
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enable == 0xC0DE
+    }
+
+    pub fn write_enable(&mut self, addr: u32, value: u8) {
+        match addr {
+            0x4FFF780 => self.enable = self.enable & !0x00FF | (value as u16) << 0 & 0x00FF,
+            0x4FFF781 => self.enable = self.enable & !0xFF00 | (value as u16) << 8 & 0xFF00,
+            _ => (),
+        }
+    }
+}
+
+impl MemoryHandler for MGBATestSuite {
+    fn read8(&self, addr: u32) -> u8 {
+        match addr {
+            0x4FFF780 => if self.enabled() { 0xEA } else { 0 },
+            0x4FFF781 => if self.enabled() { 0x1D } else { 0 },
+            _ => 0,
+        }
+    }
+
+    fn write8(&mut self, addr: u32, value: u8) {
+        if !self.enabled() { return }
+        match addr {
+            0x4FFF600 ..= 0x4FFF6FF => self.buffer[(addr - 0x4FFF600) as usize] = value as char,
+            0x4FFF700 => self.flags = self.flags & !0x00FF | (value as u16) << 0 & 0x00FF,
+            0x4FFF701 => {
+                self.flags = self.flags & !0xFF00 | (value as u16) << 8 & 0xFF00;
+                if self.flags & 0x100 != 0 {
+                    use MGBALogLevel::*;
+                    let str: String = self.buffer.iter().collect();
+                    match MGBALogLevel::new(self.flags & 0x7) {
+                        Fatal => print!("{}", str),
+                        Error => print!("{}", str),
+                        Warn => print!("{}", str),
+                        Info => print!("{}", str),
+                        Debug => print!("{}", str),
+                    }
+                }
+            },
+            _ => (), 
         }
     }
 }
