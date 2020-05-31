@@ -154,14 +154,10 @@ impl CPU {
         let result = op1.overflowing_add(op2);
         let result2 = result.0.overflowing_add(self.regs.get_c() as u32);
         if change_status {
-            let signed_result = (op1 as i32).overflowing_add(op2 as i32);
-            if signed_result.1 { self.regs.set_v(true); }
-            else {
-                self.regs.set_v(signed_result.0.overflowing_add(self.regs.get_c() as i32).1);
-            }
             self.regs.set_c(result.1 || result2.1);
             self.regs.set_z(result2.0 == 0);
             self.regs.set_n(result2.0 & 0x8000_0000 != 0);
+            self.regs.set_v((!(op1 ^ op2)) & (op1 ^ result2.0) & 0x8000_0000 != 0);
         }
         result2.0 as u32
     }
