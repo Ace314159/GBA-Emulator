@@ -118,23 +118,21 @@ impl PPU {
     }
 
     pub fn read_vram(&self, addr: u32) -> u8 {
-        let addr = (addr & 0x1_FFFF) as usize;
-        if addr < 0x1_0000 { self.vram[addr] }
-        else { self.vram[addr & 0x17FFF] }
+        if addr < 0x1_0000 { self.vram[addr as usize] }
+        else { self.vram[(addr & 0x17FFF) as usize] }
     }
 
     pub fn write_vram(&mut self, addr: u32, value: u8) {
-        let addr = (addr & 0x1_FFFF) as usize;
-        if addr < 0x1_0000 { self.vram[addr] = value }
-        else { self.vram[addr & 0x17FFF] = value}
+        if addr < 0x1_0000 { self.vram[(addr) as usize] = value }
+        else { self.vram[(addr & 0x17FFF) as usize] = value}
     }
 
     pub fn read_oam(&self, addr: u32) -> u8 {
-        self.oam[(addr - 0x07000000) as usize]
+        self.oam[addr as usize]
     }
 
     pub fn write_oam(&mut self, addr: u32, value: u8) {
-        self.oam[(addr - 0x07000000) as usize] = value;
+        self.oam[addr as usize] = value;
     }
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
