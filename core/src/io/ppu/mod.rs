@@ -118,11 +118,15 @@ impl PPU {
     }
 
     pub fn read_vram(&self, addr: u32) -> u8 {
-        self.vram[(addr - 0x06000000) as usize]
+        let addr = (addr & 0x1_FFFF) as usize;
+        if addr < 0x1_0000 { self.vram[addr] }
+        else { self.vram[addr & 0x17FFF] }
     }
 
     pub fn write_vram(&mut self, addr: u32, value: u8) {
-        self.vram[(addr - 0x06000000) as usize] = value;
+        let addr = (addr & 0x1_FFFF) as usize;
+        if addr < 0x1_0000 { self.vram[addr] = value }
+        else { self.vram[addr & 0x17FFF] = value}
     }
 
     pub fn read_oam(&self, addr: u32) -> u8 {
