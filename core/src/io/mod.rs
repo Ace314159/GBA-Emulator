@@ -4,8 +4,7 @@ mod dma;
 pub mod keypad;
 mod interrupt_controller;
 
-use memory::ROM;
-use memory::RAM;
+use memory::{BIOS, RAM, ROM};
 use dma::DMA;
 use ppu::PPU;
 use keypad::Keypad;
@@ -13,7 +12,7 @@ use interrupt_controller::{InterruptController, InterruptRequest};
 use crate::gba::VisibleMemoryRegion;
 
 pub struct IO {
-    bios: ROM,
+    bios: BIOS,
     wram256: RAM,
     wram32: RAM,
     rom: ROM,
@@ -36,7 +35,7 @@ pub struct IO {
 impl IO {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> IO {
         IO {
-            bios: ROM::new(0, bios),
+            bios: BIOS::new(bios),
             wram256: RAM::new(0x02000000, 0x40000, 0),
             wram32: RAM::new(0x03000000, 0x8000, 0),
             rom: ROM::new(0x08000000, rom),
@@ -213,7 +212,7 @@ impl MemoryHandler for IO {
             MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
             MemoryRegion::VRAM => self.ppu.read_vram(addr & addr & 0x1FFFF),
             MemoryRegion::OAM => self.ppu.read_oam(addr & 0x3FF),
-            MemoryRegion::ROM => self.rom.read8(addr & 0x09FFFFFF),
+            MemoryRegion::ROM => self.rom.read8(addr),
             MemoryRegion::SRAM => self.sram.read8(addr),
             MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); 0 }
         }
@@ -250,7 +249,7 @@ impl MemoryHandler for IO {
             MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
             MemoryRegion::VRAM => self.ppu.write_vram(addr & 0x1FFFF, value),
             MemoryRegion::OAM => self.ppu.write_oam(addr & 0x3FF, value),
-            MemoryRegion::ROM => self.rom.write8(addr & 0x09FFFFFF, value),
+            MemoryRegion::ROM => self.rom.write8(addr, value),
             MemoryRegion::SRAM => self.sram.write8(addr, value),
             MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, value)
         }
