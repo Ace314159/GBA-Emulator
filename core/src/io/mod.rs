@@ -155,9 +155,9 @@ impl IIO for IO {
             0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
             0x04000000 ..= 0x040003FE => 1, // IO
             0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
-            0x05000000 ..= 0x050003FF => if access_width < 2 { 1 } else { 2 }, // Palette RAM
-            0x06000000 ..= 0x06017FFF => if access_width < 2 { 1 } else { 2 }, // VRAM
-            0x07000000 ..= 0x070003FF => 1, // OAM
+            0x05000000 ..= 0x05FFFFFF => if access_width < 2 { 1 } else { 2 }, // Palette RAM
+            0x06000000 ..= 0x06FFFFFF => if access_width < 2 { 1 } else { 2 }, // VRAM
+            0x07000000 ..= 0x07FFFFFF => 1, // OAM
             0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
             0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
