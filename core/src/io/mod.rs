@@ -37,10 +37,10 @@ impl IO {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> IO {
         IO {
             bios: ROM::new(0, bios),
-            wram256: RAM::new(0x02000000, 0x40000),
-            wram32: RAM::new(0x03000000, 0x8000),
+            wram256: RAM::new(0x02000000, 0x40000, 0),
+            wram32: RAM::new(0x03000000, 0x8000, 0),
             rom: ROM::new(0x08000000, rom),
-            sram: RAM::new(0x0E000000, 0x10000),
+            sram: RAM::new(0x0E000000, 0x10000, 0xFF),
             clocks_ahead: 0,
 
             // IO

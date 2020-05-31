@@ -30,9 +30,9 @@ pub struct RAM {
 }
 
 impl RAM {
-    pub fn new(start_addr: u32, size: usize) -> RAM {
+    pub fn new(start_addr: u32, size: usize, initial_value: u8) -> RAM {
         RAM {
-            mem: vec![0; size],
+            mem: vec![initial_value; size],
             offset: start_addr as usize,
         }
     }
