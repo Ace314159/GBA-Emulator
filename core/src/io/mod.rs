@@ -163,6 +163,7 @@ impl IIO for IO {
             0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
             0x0E000000 ..= 0x0E00FFFF => 1,
             0x0E010000 ..= 0x0FFFFFFF => 1,
+            _ if addr & 0xF0000000 != 0 => 1,
             _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
         };
 
