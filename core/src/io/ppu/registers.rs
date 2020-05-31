@@ -383,3 +383,134 @@ impl IORegister for WindowControl {
         }
     }
 }
+
+bitflags! {
+    pub struct BLDCNTTargetPixelSelection: u8 {
+        const BG0 = 1 << 0;
+        const BG1 = 1 << 1;
+        const BG2 = 1 << 2;
+        const BG3 = 1 << 3;
+        const OBJ = 1 << 4;
+        const BD = 1 << 5;
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ColorSpecialEffect {
+    None = 0,
+    AlphaBlend = 1,
+    BrightnessInc = 2,
+    BrightnessDec = 3,
+}
+
+impl ColorSpecialEffect {
+    pub fn from(value: u8) -> ColorSpecialEffect {
+        use ColorSpecialEffect::*;
+        match value {
+            0 => None,
+            1 => AlphaBlend,
+            2 => BrightnessInc,
+            3 => BrightnessDec,
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct BLDCNT {
+    target_pixel1: BLDCNTTargetPixelSelection,
+    effect: ColorSpecialEffect,
+    target_pixel2: BLDCNTTargetPixelSelection,
+}
+
+impl BLDCNT {
+    pub fn new() -> BLDCNT {
+        BLDCNT {
+            target_pixel1: BLDCNTTargetPixelSelection::empty(),
+            effect: ColorSpecialEffect::None,
+            target_pixel2: BLDCNTTargetPixelSelection::empty(),
+        }
+    }
+}
+
+impl IORegister for BLDCNT {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => (self.effect as u8) << 6 | self.target_pixel1.bits,
+            1 => self.target_pixel2.bits,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => {
+                self.target_pixel1 = BLDCNTTargetPixelSelection::from_bits_truncate(value & 0x3F);
+                self.effect = ColorSpecialEffect::from(value >> 6);
+            },
+            1 => self.target_pixel2 = BLDCNTTargetPixelSelection::from_bits_truncate(value & 0x3F),
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+}
+
+pub struct BLDALPHA {
+    eva: u8,
+    evb: u8,
+}
+
+impl BLDALPHA {
+    pub fn new() -> BLDALPHA {
+        BLDALPHA {
+            eva: 0,
+            evb: 0,
+        }
+    }
+}
+
+impl IORegister for BLDALPHA {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.eva,
+            1 => self.evb,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.eva = value & 0x1F,
+            1 => self.evb = value & 0x1F,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+}
+
+pub struct BLDY {
+    evy: u8,
+}
+
+impl BLDY {
+    pub fn new() -> BLDY {
+        BLDY {
+            evy: 0,
+        }
+    }
+}
+
+impl IORegister for BLDY {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.evy,
+            1 => 0,
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.evy = value & 0x1F,
+            1 => (),
+            _ => panic!("Invalid Byte!"),
+        }
+    }
+}
