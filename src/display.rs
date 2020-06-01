@@ -119,8 +119,10 @@ impl Display {
         let (window_width, window_height) = self.window.get_size();
         io.display_size = [window_width as f32, window_height as f32];
         let (display_width, display_height) = self.window.get_framebuffer_size();
-        io.display_framebuffer_scale =
-        [display_width as f32 / window_width as f32, display_height as f32 / window_height as f32];
+        if display_width > 0 && display_height > 0 {
+            io.display_framebuffer_scale =
+            [display_width as f32 / window_width as f32, display_height as f32 / window_height as f32];
+        }
     }
 
     fn prepare_render(&mut self, ui: &imgui::Ui) {
