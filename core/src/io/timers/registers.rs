@@ -2,11 +2,11 @@ use super::IORegister;
 
 #[derive(Clone, Copy)]
 pub struct TMCNT {
-    period: u16, // Parsed value of prescaler_selection
+    pub prescaler_period: u16, // Parsed value of prescaler_selection
     prescaler_selection: u8,
-    count_up: bool,
-    irq: bool,
-    start: bool,
+    pub count_up: bool,
+    pub irq: bool,
+    pub start: bool,
 }
 
 impl IORegister for TMCNT {
@@ -25,7 +25,7 @@ impl IORegister for TMCNT {
                 self.irq = value >> 6 & 0x1 != 0;
                 self.count_up = value >> 2 & 0x1 != 0;
                 self.prescaler_selection = value & 0x3;
-                self.period = match self.prescaler_selection {
+                self.prescaler_period = match self.prescaler_selection {
                     0 => 1,
                     1 => 64,
                     2 => 256,
@@ -42,7 +42,7 @@ impl IORegister for TMCNT {
 impl TMCNT {
     pub fn new() -> TMCNT {
         TMCNT {
-            period: 1, // Parsed value of prescaler_selection
+            prescaler_period: 1, // Parsed value of prescaler_selection
             prescaler_selection: 0,
             count_up: false,
             irq: false,
