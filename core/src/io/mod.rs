@@ -1,11 +1,13 @@
 mod memory;
 mod ppu;
 mod dma;
+mod timers;
 pub mod keypad;
 mod interrupt_controller;
 
 use memory::{BIOS, RAM, ROM};
 use dma::DMA;
+use timers::*;
 use ppu::PPU;
 use keypad::Keypad;
 use interrupt_controller::{InterruptController, InterruptRequest};
@@ -22,6 +24,7 @@ pub struct IO {
     // IO
     ppu: PPU,
     dma: DMA,
+    timers: Timers,
     keypad: Keypad,
     interrupt_controller: InterruptController,
 
@@ -45,6 +48,7 @@ impl IO {
             // IO
             ppu: PPU::new(),
             dma: DMA::new(),
+            timers: Timers::new(),
             keypad: Keypad::new(),
             interrupt_controller: InterruptController::new(),
 
@@ -189,6 +193,7 @@ impl MemoryHandler for IO {
             MemoryRegion::IO => match addr {
                 0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
                 0x040000B0 ..= 0x040000DF => self.dma.read8(addr),
+                0x04000100 ..= 0x0400010F => self.timers.read8(addr),
                 0x04000130 => self.keypad.keyinput.read(0),
                 0x04000131 => self.keypad.keyinput.read(1),
                 0x04000132 => self.keypad.keycnt.read(0),
@@ -226,6 +231,7 @@ impl MemoryHandler for IO {
             MemoryRegion::IO => match addr {
                 0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
                 0x040000B0 ..= 0x040000DF => self.dma.write8(addr, value),
+                0x04000100 ..= 0x0400010F => self.timers.write8(addr, value),
                 0x04000130 => self.keypad.keyinput.write(0, value),
                 0x04000131 => self.keypad.keyinput.write(1, value),
                 0x04000132 => self.keypad.keycnt.write(0, value),
