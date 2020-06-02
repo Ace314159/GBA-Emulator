@@ -56,7 +56,7 @@ impl IO {
             haltcnt: 0,
             waitcnt: WaitStateControl::new(),
 
-            mgba_test_suite: MGBATestSuite::new()
+            mgba_test_suite: MGBATestSuite::new(),
         }
     }
 
@@ -148,8 +148,8 @@ impl IO {
 
 impl IIO for IO {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32) {
-        if cycle_type == Cycle::I { self.clocks_ahead += 1; return }
-        self.clocks_ahead += match addr {
+        let clocks_inc = if cycle_type == Cycle::I { 1 }
+        else { match addr {
             0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
             0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
             0x02000000 ..= 0x0203FFFF => [3, 3, 6][access_width as usize], // WRAM - On-board 256K
@@ -168,9 +168,10 @@ impl IIO for IO {
             0x0E010000 ..= 0x0FFFFFFF => 1,
             _ if addr & 0xF0000000 != 0 => 1,
             _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
-        };
+        }};
 
-        self.interrupt_controller.request |= self.timers.clock();
+        for _ in 0..clocks_inc { self.interrupt_controller.request |= self.timers.clock() }
+        self.clocks_ahead += clocks_inc;
         while self.clocks_ahead >= 4 {
             self.clocks_ahead -= 4;
             self.interrupt_controller.request |= self.ppu.emulate_dot();
