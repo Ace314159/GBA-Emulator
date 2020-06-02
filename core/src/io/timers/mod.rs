@@ -63,6 +63,7 @@ impl Timers {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Timer {
     pub reload: u16,
     pub cnt: TMCNT,

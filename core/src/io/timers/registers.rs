@@ -1,5 +1,6 @@
 use super::IORegister;
 
+#[derive(Clone, Copy)]
 pub struct TMCNT {
     period: u16, // Parsed value of prescaler_selection
     prescaler_selection: u8,
