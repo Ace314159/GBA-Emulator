@@ -32,116 +32,32 @@ impl DMA {
 impl MemoryHandler for DMA {
     fn read8(&self, addr: u32) -> u8 {
         match addr {
-            0x040000B0 => self.channels[0].sad.read(0),
-            0x040000B1 => self.channels[0].sad.read(1),
-            0x040000B2 => self.channels[0].sad.read(2),
-            0x040000B3 => self.channels[0].sad.read(3),
-            0x040000B4 => self.channels[0].dad.read(0),
-            0x040000B5 => self.channels[0].dad.read(1),
-            0x040000B6 => self.channels[0].dad.read(2),
-            0x040000B7 => self.channels[0].dad.read(3),
-            0x040000B8 => self.channels[0].count.read(0),
-            0x040000B9 => self.channels[0].count.read(1),
-            0x040000BA => self.channels[0].cnt.read(0),
-            0x040000BB => self.channels[0].cnt.read(1),
-            0x040000BC => self.channels[1].sad.read(0),
-            0x040000BD => self.channels[1].sad.read(1),
-            0x040000BE => self.channels[1].sad.read(2),
-            0x040000BF => self.channels[1].sad.read(3),
-            0x040000C0 => self.channels[1].dad.read(0),
-            0x040000C1 => self.channels[1].dad.read(1),
-            0x040000C2 => self.channels[1].dad.read(2),
-            0x040000C3 => self.channels[1].dad.read(3),
-            0x040000C4 => self.channels[1].count.read(0),
-            0x040000C5 => self.channels[1].count.read(1),
-            0x040000C6 => self.channels[1].cnt.read(0),
-            0x040000C7 => self.channels[1].cnt.read(1),
-            0x040000C8 => self.channels[2].sad.read(0),
-            0x040000C9 => self.channels[2].sad.read(1),
-            0x040000CA => self.channels[2].sad.read(2),
-            0x040000CB => self.channels[2].sad.read(3),
-            0x040000CC => self.channels[2].dad.read(0),
-            0x040000CD => self.channels[2].dad.read(1),
-            0x040000CE => self.channels[2].dad.read(2),
-            0x040000CF => self.channels[2].dad.read(3),
-            0x040000D0 => self.channels[2].count.read(0),
-            0x040000D1 => self.channels[2].count.read(1),
-            0x040000D2 => self.channels[2].cnt.read(0),
-            0x040000D3 => self.channels[2].cnt.read(1),
-            0x040000D4 => self.channels[3].sad.read(0),
-            0x040000D5 => self.channels[3].sad.read(1),
-            0x040000D6 => self.channels[3].sad.read(2),
-            0x040000D7 => self.channels[3].sad.read(3),
-            0x040000D8 => self.channels[3].dad.read(0),
-            0x040000D9 => self.channels[3].dad.read(1),
-            0x040000DA => self.channels[3].dad.read(2),
-            0x040000DB => self.channels[3].dad.read(3),
-            0x040000DC => self.channels[3].count.read(0),
-            0x040000DD => self.channels[3].count.read(1),
-            0x040000DE => self.channels[3].cnt.read(0),
-            0x040000DF => self.channels[3].cnt.read(1),
+            0x040000B0 ..= 0x040000BB => self.channels[0].read(addr as u8 - 0xB0),
+            0x040000BC ..= 0x040000C7 => self.channels[1].read(addr as u8 - 0xBC),
+            0x040000C8 ..= 0x040000D3 => self.channels[2].read(addr as u8 - 0xC8),
+            0x040000D4 ..= 0x040000DF => self.channels[3].read(addr as u8 - 0xD4),
             _ => panic!("Reading from Invalid DMA Address {}", addr),
         }
     }
 
     fn write8(&mut self, addr: u32, value: u8) {
         match addr {
-            0x040000B0 => self.channels[0].sad.write(0, value),
-            0x040000B1 => self.channels[0].sad.write(1, value),
-            0x040000B2 => self.channels[0].sad.write(2, value),
-            0x040000B3 => self.channels[0].sad.write(3, value),
-            0x040000B4 => self.channels[0].dad.write(0, value),
-            0x040000B5 => self.channels[0].dad.write(1, value),
-            0x040000B6 => self.channels[0].dad.write(2, value),
-            0x040000B7 => self.channels[0].dad.write(3, value),
-            0x040000B8 => self.channels[0].count.write(0, value),
-            0x040000B9 => self.channels[0].count.write(1, value),
-            0x040000BA => self.channels[0].cnt.write(0, value),
-            0x040000BB => self.channels[0].cnt.write(1, value),
-            0x040000BC => self.channels[1].sad.write(0, value),
-            0x040000BD => self.channels[1].sad.write(1, value),
-            0x040000BE => self.channels[1].sad.write(2, value),
-            0x040000BF => self.channels[1].sad.write(3, value),
-            0x040000C0 => self.channels[1].dad.write(0, value),
-            0x040000C1 => self.channels[1].dad.write(1, value),
-            0x040000C2 => self.channels[1].dad.write(2, value),
-            0x040000C3 => self.channels[1].dad.write(3, value),
-            0x040000C4 => self.channels[1].count.write(0, value),
-            0x040000C5 => self.channels[1].count.write(1, value),
-            0x040000C6 => self.channels[1].cnt.write(0, value),
-            0x040000C7 => self.channels[1].cnt.write(1, value),
-            0x040000C8 => self.channels[2].sad.write(0, value),
-            0x040000C9 => self.channels[2].sad.write(1, value),
-            0x040000CA => self.channels[2].sad.write(2, value),
-            0x040000CB => self.channels[2].sad.write(3, value),
-            0x040000CC => self.channels[2].dad.write(0, value),
-            0x040000CD => self.channels[2].dad.write(1, value),
-            0x040000CE => self.channels[2].dad.write(2, value),
-            0x040000CF => self.channels[2].dad.write(3, value),
-            0x040000D0 => self.channels[2].count.write(0, value),
-            0x040000D1 => self.channels[2].count.write(1, value),
-            0x040000D2 => self.channels[2].cnt.write(0, value),
-            0x040000D3 => self.channels[2].cnt.write(1, value),
-            0x040000D4 => self.channels[3].sad.write(0, value),
-            0x040000D5 => self.channels[3].sad.write(1, value),
-            0x040000D6 => self.channels[3].sad.write(2, value),
-            0x040000D7 => self.channels[3].sad.write(3, value),
-            0x040000D8 => self.channels[3].dad.write(0, value),
-            0x040000D9 => self.channels[3].dad.write(1, value),
-            0x040000DA => self.channels[3].dad.write(2, value),
-            0x040000DB => self.channels[3].dad.write(3, value),
-            0x040000DC => self.channels[3].count.write(0, value),
-            0x040000DD => self.channels[3].count.write(1, value),
-            0x040000DE => self.channels[3].cnt.write(0, value),
-            0x040000DF => self.channels[3].cnt.write(1, value),
+            0x040000B0 ..= 0x040000BB => self.channels[0].write(addr as u8 - 0xB0, value),
+            0x040000BC ..= 0x040000C7 => self.channels[1].write(addr as u8 - 0xBC, value),
+            0x040000C8 ..= 0x040000D3 => self.channels[2].write(addr as u8 - 0xC8, value),
+            0x040000D4 ..= 0x040000DF => self.channels[3].write(addr as u8 - 0xD4, value),
             _ => panic!("Writing to Invalid DMA Address {}", addr),
         }
     }
 }
 
 pub struct DMAChannel {
-    pub sad: Address,
-    pub dad: Address,
+    pub sad_latch: u32,
+    pub dad_latch: u32,
+    pub count_latch: u32,
+
+    sad: Address,
+    dad: Address,
     pub count: WordCount,
     pub cnt: DMACNT,
 }
@@ -149,6 +65,10 @@ pub struct DMAChannel {
 impl DMAChannel {
     pub fn new(src_any_memory: bool, dest_any_memory: bool, count_is16bit: bool) -> DMAChannel {
         DMAChannel {
+            sad_latch: 0,
+            dad_latch: 0,
+            count_latch: 0,
+
             sad: Address::new(src_any_memory),
             dad: Address::new(dest_any_memory),
             count: WordCount::new(count_is16bit),
@@ -163,7 +83,55 @@ impl DMAChannel {
             1 => hblank_called,
             2 => vblank_called,
             3 => { warn!("Special DMA not implemented!"); false }, // TODO: Special
-            _ => panic!("Invalid DMA Start Timing: {}", self.cnt.start_timing),
+            _ => unreachable!(),
         }
-    } 
+    }
+
+    pub fn latch(&mut self) {
+        self.sad_latch = self.sad.addr;
+        self.dad_latch = self.dad.addr;
+        self.count_latch = if self.count.count == 0 { self.count.get_max() + 1 } else { self.count.count as u32 };
+    }
+}
+
+impl IORegister for DMAChannel {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0x0 => self.sad.read(0),
+            0x1 => self.sad.read(1),
+            0x2 => self.sad.read(2),
+            0x3 => self.sad.read(3),
+            0x4 => self.dad.read(0),
+            0x5 => self.dad.read(1),
+            0x6 => self.dad.read(2),
+            0x7 => self.dad.read(3),
+            0x8 => self.count.read(0),
+            0x9 => self.count.read(1),
+            0xA => self.cnt.read(0),
+            0xB => self.cnt.read(1),
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0x0 => self.sad.write(0, value),
+            0x1 => self.sad.write(1, value),
+            0x2 => self.sad.write(2, value),
+            0x3 => self.sad.write(3, value),
+            0x4 => self.dad.write(0, value),
+            0x5 => self.dad.write(1, value),
+            0x6 => self.dad.write(2, value),
+            0x7 => self.dad.write(3, value),
+            0x8 => self.count.write(0, value),
+            0x9 => self.count.write(1, value),
+            0xA => self.cnt.write(0, value),
+            0xB => {
+                let prev_enable = self.cnt.enable;
+                self.cnt.write(1, value);
+                if !prev_enable && self.cnt.enable { self.latch() }
+            },
+            _ => unreachable!(),
+        }
+    }
 }

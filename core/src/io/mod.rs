@@ -98,10 +98,9 @@ impl IO {
         let dma_channel = self.dma.get_channel_running(self.ppu.hblank_called(), self.ppu.vblank_called());
         if dma_channel < 4 {
             let channel = &mut self.dma.channels[dma_channel];
-            let count = channel.count.count;
-            let count = if count == 0 { channel.count.get_max() + 1 } else { count as u32 };
-            let mut src_addr = channel.sad.addr;
-            let mut dest_addr = channel.dad.addr;
+            let count = channel.count_latch;
+            let mut src_addr = channel.sad_latch;
+            let mut dest_addr = channel.dad_latch;
             let src_addr_ctrl = channel.cnt.src_addr_ctrl;
             let dest_addr_ctrl = channel.cnt.dest_addr_ctrl;
             let transfer_32 = channel.cnt.transfer_32;
@@ -111,6 +110,7 @@ impl IO {
             let access_width = if transfer_32 { 2 } else { 1 };
             let addr_change = if transfer_32 { 4 } else { 2 };
             let mut first = true;
+            let original_dest_addr = dest_addr;
             for _ in 0..count {
                 let cycle_type = if first { Cycle::N } else { Cycle::S };
                 self.inc_clock(cycle_type, src_addr, access_width);
@@ -119,19 +119,24 @@ impl IO {
                 else { self.write16(dest_addr, self.read16(src_addr)) }
 
                 src_addr = match src_addr_ctrl {
-                    0 | 3 => src_addr.wrapping_add(addr_change),
+                    0 => src_addr.wrapping_add(addr_change),
                     1 => src_addr.wrapping_sub(addr_change),
                     2 => src_addr,
                     _ => panic!("Invalid DMA Source Address Control!"),
                 };
                 dest_addr = match dest_addr_ctrl {
-                    0 => dest_addr.wrapping_add(addr_change),
+                    0 | 3 => dest_addr.wrapping_add(addr_change),
                     1 => dest_addr.wrapping_sub(addr_change),
                     2 => dest_addr,
-                    _ => panic!("Invalid DMA Source Address Control!"),
+                    _ => unreachable!(),
                 };
                 first = false;
             }
+            let channel = &mut self.dma.channels[dma_channel];
+            channel.sad_latch = src_addr;
+            channel.dad_latch = dest_addr;
+            if channel.cnt.enable { channel.count_latch = channel.count.count as u32 } // Only reload Count
+            if dest_addr_ctrl == 3 { channel.dad_latch = original_dest_addr }
             for _ in 0..2 { self.inc_clock(Cycle::I, 0, 0) }
 
             
