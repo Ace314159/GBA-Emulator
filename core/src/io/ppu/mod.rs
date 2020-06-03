@@ -146,20 +146,26 @@ impl PPU {
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
         let mut interrupts = InterruptRequest::empty();
-        if self.dot < 240 + 10 { // Visible
+        if self.dot == 0 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
-        } else { // HBlank
+        } else if self.dot == 251 { // HBlank
             self.hblank_called = true;
-            interrupts.insert(InterruptRequest::HBLANK);
             self.dispstat.insert(DISPSTATFlags::HBLANK);
+            if self.dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
+                interrupts.insert(InterruptRequest::HBLANK);
+            }
         }
         if self.vcount < 160 && self.vcount != 227 { // Visible
             self.dispstat.remove(DISPSTATFlags::VBLANK);
             if self.dot == 241 { self.render_line() }
         } else { // VBlank
-            self.vblank_called = true;
-            interrupts.insert(InterruptRequest::VBLANK);
-            self.dispstat.insert(DISPSTATFlags::VBLANK);
+            if self.vcount == 160 && self.dot == 0 {
+                self.vblank_called = true;
+                self.dispstat.insert(DISPSTATFlags::VBLANK);
+                if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
+                    interrupts.insert(InterruptRequest::VBLANK)
+                }
+            }
             if self.vcount == 226 && self.dot == 307 {
                 self.bgxs_latch = self.bgxs.clone();
                 self.bgys_latch = self.bgys.clone();
@@ -172,7 +178,7 @@ impl PPU {
         if self.dot == 308 {
             self.dot = 0;
             self.vcount = (self.vcount + 1) % 228;
-            if self.vcount == self.dispstat.vcount_setting {
+            if self.vcount == self.dispstat.vcount_setting && self.dispstat.contains(DISPSTATFlags::VCOUNTER_IRQ_ENALBE) {
                 interrupts.insert(InterruptRequest::VCOUNTER_MATCH);
             }
         }
