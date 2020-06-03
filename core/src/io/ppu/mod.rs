@@ -146,13 +146,17 @@ impl PPU {
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
         let mut interrupts = InterruptRequest::empty();
-        if self.dot == 0 { // Visible
+        if self.dot < 240 { // Visible
             self.dispstat.remove(DISPSTATFlags::HBLANK);
-        } else if self.dot == 251 { // HBlank
-            self.hblank_called = true;
-            self.dispstat.insert(DISPSTATFlags::HBLANK);
-            if self.dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
-                interrupts.insert(InterruptRequest::HBLANK);
+        } else { // HBlank
+            if self.dot == 240 {
+                if self.dispstat.contains(DISPSTATFlags::HBLANK_IRQ_ENABLE) {
+                    interrupts.insert(InterruptRequest::HBLANK);
+                }
+            }
+            if self.dot == 250 { // TODO: Take into account half
+                self.hblank_called = true;
+                self.dispstat.insert(DISPSTATFlags::HBLANK);
             }
         }
         if self.vcount < 160 && self.vcount != 227 { // Visible
@@ -161,10 +165,10 @@ impl PPU {
         } else { // VBlank
             if self.vcount == 160 && self.dot == 0 {
                 self.vblank_called = true;
-                self.dispstat.insert(DISPSTATFlags::VBLANK);
-                if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
-                    interrupts.insert(InterruptRequest::VBLANK)
-                }
+            }
+            self.dispstat.insert(DISPSTATFlags::VBLANK);
+            if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
+                interrupts.insert(InterruptRequest::VBLANK)
             }
             if self.vcount == 226 && self.dot == 307 {
                 self.bgxs_latch = self.bgxs.clone();
