@@ -375,8 +375,8 @@ impl PPU {
                 dx * (dot_x as f64) + dmx * (dot_y as f64) + x_offset,
                 dy * (dot_x as f64) + dmy * (dot_y as f64) + y_offset,
             );
-            let (x, y) = if x_raw < 0.0 || x_raw >= gba::WIDTH as f64 ||
-            y_raw < 0.0 || y_raw >= gba::HEIGHT as f64 {
+            let (x, y) = if x_raw < 0.0 || x_raw > map_size as f64 ||
+            y_raw < 0.0 || y_raw > map_size as f64 {
                 if bgcnt.wrap { ((x_raw % map_size as f64) as usize, (y_raw % map_size as f64) as usize) }
                 else { continue }
             } else { (x_raw as usize, y_raw as usize) };
