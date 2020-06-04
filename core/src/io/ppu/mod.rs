@@ -573,7 +573,7 @@ struct OBJPixel {
 impl OBJPixel {
     pub fn none() -> OBJPixel {
         OBJPixel {
-            color: 0,
+            color: PPU::TRANSPARENT_COLOR,
             priority: 4,
         }
     }
