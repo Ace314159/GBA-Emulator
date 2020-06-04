@@ -80,8 +80,8 @@ impl DMAChannel {
         if !self.cnt.enable { return false }
         match self.cnt.start_timing {
             0 => true,
-            1 => hblank_called,
-            2 => vblank_called,
+            1 => vblank_called,
+            2 => hblank_called,
             3 => { warn!("Special DMA not implemented!"); false }, // TODO: Special
             _ => unreachable!(),
         }
