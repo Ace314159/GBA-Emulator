@@ -106,6 +106,8 @@ impl IO {
             let transfer_32 = channel.cnt.transfer_32;
             let irq = channel.cnt.irq;
             channel.cnt.enable = channel.cnt.start_timing != 0 && channel.cnt.repeat;
+            info!("Running DMA{}: Writing to {:08X} from {:08X}, size: {}", dma_channel, dest_addr,
+            src_addr, if transfer_32 { 32 } else { 16 });
 
             let access_width = if transfer_32 { 2 } else { 1 };
             let addr_change = if transfer_32 { 4 } else { 2 };
