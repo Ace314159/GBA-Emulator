@@ -40,7 +40,7 @@ pub struct PPU {
 
     // Palettes
     bg_palettes: [u16; 0x100],
-    obj_paletes: [u16; 0x100],
+    obj_palettes: [u16; 0x100],
     // VRAM
     vram: [u8; 0x18000],
     oam: [u8; 0x400],
@@ -48,6 +48,8 @@ pub struct PPU {
     // Important Rendering Variables
     dot: u16,
     pub pixels: Vec<u16>,
+    bg_lines: [[u16; gba::WIDTH]; 4],
+    objs_line: [OBJPixel; gba::WIDTH],
     pub needs_to_render: bool,
 
     // Other
@@ -56,6 +58,8 @@ pub struct PPU {
 }
 
 impl PPU {
+    const TRANSPARENT_COLOR: u16 = 0x8000;
+
     pub fn new() -> PPU {
         PPU {
             // Registers
@@ -88,7 +92,7 @@ impl PPU {
 
             // Palettes
             bg_palettes: [0; 0x100],
-            obj_paletes: [0; 0x100],
+            obj_palettes: [0; 0x100],
             // VRAM
             vram: [0; 0x18000],
             oam: [0; 0x400],
@@ -96,6 +100,8 @@ impl PPU {
             // Important Rendering Variables
             dot: 0,
             pixels: vec![0; gba::WIDTH * gba::HEIGHT],
+            bg_lines: [[0; gba::WIDTH]; 4],
+            objs_line: [OBJPixel::new(); gba::WIDTH],
             needs_to_render: false,
 
             // Other
@@ -106,7 +112,7 @@ impl PPU {
 
     pub fn read_palette_ram(&self, addr: u32) -> u8 {
         let addr = (addr & 0x3FF) as usize;
-        let palettes = if addr < 0x200 { &self.bg_palettes } else { &self.obj_paletes };
+        let palettes = if addr < 0x200 { &self.bg_palettes } else { &self.obj_palettes };
         let index = (addr & 0x1FF) / 2;
         if addr % 2 == 0 {
             (palettes[index] >> 0) as u8
@@ -117,12 +123,12 @@ impl PPU {
 
     pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
         let addr = (addr & 0x3FF) as usize;
-        let palettes = if addr < 0x200 { &mut self.bg_palettes } else { &mut self.obj_paletes };
+        let palettes = if addr < 0x200 { &mut self.bg_palettes } else { &mut self.obj_palettes };
         let index = (addr & 0x1FF) / 2;
         if addr % 2 == 0 {
             palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
         } else {
-            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8;
+            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000; // Clear high bit 
         }
     }
 
@@ -209,56 +215,56 @@ impl PPU {
     ];
 
     fn render_line(&mut self) {
-        let mut bg_priorities = [4u16; gba::WIDTH];
+        self.bg_lines = [[0; gba::WIDTH]; 4];
+        self.objs_line = [OBJPixel::new(); gba::WIDTH];
+        
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line() }
+
         use BGMode::*;
-        let start_index = self.vcount as usize * gba::WIDTH;
         match self.dispcnt.mode {
             Mode0 => {
-                let mut bgs: Vec<(usize, u8)> = Vec::new();
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
-                bgs.sort_by_key(|a| a.1);
+                let mut bgs: Vec<usize> = Vec::new();
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push(0) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push(1) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push(2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push(3) }
 
-                let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + gba::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
-                bgs.iter().rev().for_each(|(bg_i, _)| self.render_text_line(*bg_i, &mut bg_priorities));
+                bgs.iter().for_each(|bg_i| self.render_text_line(*bg_i));
+                self.process_lines(0, 3);
             },
             Mode1 => {
-                let mut bgs: Vec<(usize, u8)> = Vec::new();
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push((0, self.bgcnts[0].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push((1, self.bgcnts[1].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
-                bgs.sort_by_key(|a| a.1);
+                let mut bgs: Vec<usize> = Vec::new();
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0) { bgs.push(0) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1) { bgs.push(1) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push(2) }
 
-                let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + gba::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
-                bgs.iter().rev().for_each(|(bg_i, _)| if *bg_i != 2 { self.render_text_line(*bg_i, &mut bg_priorities) }
-                else { self.render_affine_line(*bg_i, &mut bg_priorities) });
+                bgs.iter().for_each(|bg_i| if *bg_i != 2 { self.render_text_line(*bg_i) }
+                else { self.render_affine_line(*bg_i) });
+                self.process_lines(0, 2);
             },
             Mode2 => {
-                let mut bgs: Vec<(usize, u8)> = Vec::new();
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push((2, self.bgcnts[2].priority)) }
-                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push((3, self.bgcnts[3].priority)) }
-                bgs.sort_by_key(|a| a.1);
+                let mut bgs: Vec<usize> = Vec::new();
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2) { bgs.push(2) }
+                if self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3) { bgs.push(3) }
 
-                let backdrop_color = self.bg_palettes[0];
-                self.pixels[start_index..start_index + gba::WIDTH].iter_mut().for_each(|x| *x = backdrop_color);
-                bgs.iter().rev().for_each(|(bg_i, _)| self.render_affine_line(*bg_i, &mut bg_priorities));
+                bgs.iter().for_each(|bg_i| self.render_affine_line(*bg_i));
+                self.process_lines(2, 3);
             },
             Mode3 => {
-                for i in start_index..start_index + gba::WIDTH {
-                    self.pixels[i] = u16::from_le_bytes([self.vram[i * 2], self.vram[i * 2 + 1]]);
+                for i in 0..gba::WIDTH {
+                    let addr = (self.vcount as usize * gba::WIDTH + i) * 2;
+                    self.bg_lines[2][i] = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
                 }
+                self.process_lines(2, 2);
             },
             Mode4 => {
                 let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
-                    0xA000usize
-                } else { 0usize };
-                for i in start_index..start_index + gba::WIDTH {
-                    self.pixels[i] = self.bg_palettes[self.vram[start_addr + i] as usize];
+                    0xA000
+                } else { 0 } + self.vcount as usize * gba::WIDTH;
+                for i in 0..gba::WIDTH {
+                    self.bg_lines[2][i] = self.bg_palettes[self.vram[start_addr + i] as usize];
                 }
+                self.process_lines(2, 2);
             },
             Mode5 => {
                 let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
@@ -267,7 +273,7 @@ impl PPU {
                 let dot_y = self.vcount as usize;
                 addr += dot_y * 160 * 2;
                 for dot_x in 0..gba::WIDTH {
-                    self.pixels[dot_y * gba::WIDTH + dot_x] = if dot_x >= 160 || dot_y >= 128 {
+                    self.bg_lines[2][dot_x] = if dot_x >= 160 || dot_y >= 128 {
                         self.bg_palettes[0]
                     } else {
                         let pixel = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
@@ -275,13 +281,37 @@ impl PPU {
                         pixel
                     }
                 }
+                self.process_lines(2, 2);
             }
         }
+    }
+    
+    fn process_lines(&mut self, start_line: usize, end_line: usize) {
+        let start_index = self.vcount as usize * gba::WIDTH;
 
-        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_obj_line(&bg_priorities)}
+        let mut bgs : Vec<(usize, u8)> = Vec::new();
+        for bg_i in start_line..=end_line {
+            if self.dispcnt.bits() & (1 << (8 + bg_i)) != 0 { bgs.push((bg_i, self.bgcnts[bg_i].priority)) }
+        }
+        bgs.sort_by_key(|a| a.1);
+        for dot_x in 0..gba::WIDTH {
+            self.pixels[start_index + dot_x] = self.bg_palettes[0]; // Default is backdrop color
+            let mut bg_priority = 4;
+            for (bg_i, priority) in bgs.iter().rev() {
+                let color = self.bg_lines[*bg_i][dot_x];
+                if color != PPU::TRANSPARENT_COLOR {
+                    self.pixels[start_index + dot_x] = color;
+                    bg_priority = *priority;
+                }
+            }
+            if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) && self.objs_line[dot_x].priority <= bg_priority {
+                let color = self.objs_line[dot_x].color;
+                if color != PPU::TRANSPARENT_COLOR { self.pixels[start_index + dot_x] = color }
+            }
+        }
     }
 
-    fn render_obj_line(&mut self, bg_priorities: &[u16; gba::WIDTH]) {
+    fn render_objs_line(&mut self) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         let mut affine_params = [[0u16; 4]; 0x20];
         (0..self.oam.len()).filter(|i| i % 2 == 0)
@@ -360,14 +390,17 @@ impl PPU {
                 // Flipped at tile level, so no need to flip again
                 let (palette_num, color_num) = self.get_color_from_tile(0x10000, tile_num,
                     false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
-                if color_num == 0 || bg_priorities[dot_x] < obj[2] >> 10 & 0x3 { continue }
-                self.pixels[(self.vcount as usize) * gba::WIDTH + dot_x] = self.obj_paletes[palette_num * 16 + color_num];
+                if color_num == 0 { continue }
+                self.objs_line[dot_x] = OBJPixel {
+                    color: self.obj_palettes[palette_num * 16 + color_num],
+                    priority: (obj[2] >> 10 & 0x3) as u8,
+                };
                 break; // Set pixel, move onto the next one
             }
         }
     }
     
-    fn render_affine_line(&mut self, bg_i: usize, bg_priorities: &mut[u16; gba::WIDTH]) {
+    fn render_affine_line(&mut self, bg_i: usize) {
         let x_offset = self.bgxs_latch[bg_i - 2].get_float();
         let y_offset = self.bgys_latch[bg_i - 2].get_float();
         let dx = self.dxs[bg_i - 2].get_float();
@@ -399,13 +432,12 @@ impl PPU {
             // Convert from tile to pixels
             let (_, color_num) = self.get_color_from_tile(tile_start_addr, tile_num,
                 false, false, 8, x % 8, y % 8, 0);
-            if color_num == 0 { continue }
-            bg_priorities[dot_x] = bgcnt.priority as u16;
-            self.pixels[dot_y * gba::WIDTH + dot_x] = self.bg_palettes[color_num];
+            self.bg_lines[bg_i][gba::WIDTH + dot_x] = if color_num == 0 { PPU::TRANSPARENT_COLOR }
+            else { self.bg_palettes[color_num] };
         }
     }
 
-    fn render_text_line(&mut self, bg_i: usize, bg_priorities: &mut [u16; gba::WIDTH]) {
+    fn render_text_line(&mut self, bg_i: usize) {
         let x_offset = self.hofs[bg_i].offset as usize;
         let y_offset = self.vofs[bg_i].offset as usize;
         let bgcnt = self.bgcnts[bg_i];
@@ -446,9 +478,8 @@ impl PPU {
             // Convert from tile to pixels
             let (palette_num, color_num) = self.get_color_from_tile(tile_start_addr, tile_num, flip_x, flip_y,
                 bit_depth, x % 8, y % 8, palette_num);
-            if color_num == 0 { continue }
-            bg_priorities[dot_x] = bgcnt.priority as u16;
-            self.pixels[dot_y * gba::WIDTH + dot_x] = self.bg_palettes[palette_num * 16 + color_num];
+            self.bg_lines[bg_i][dot_x] = if color_num == 0 { PPU::TRANSPARENT_COLOR }
+            else { self.bg_palettes[palette_num * 16 + color_num]};
         }
     }
 
@@ -462,6 +493,21 @@ impl PPU {
             (0, tile)
         } else {
             (palette_num, ((tile >> 4 * (tile_x % 2)) & 0xF))
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct OBJPixel {
+    color: u16,
+    priority: u8,
+}
+
+impl OBJPixel {
+    pub fn new() -> OBJPixel {
+        OBJPixel {
+            color: 0,
+            priority: 4,
         }
     }
 }
