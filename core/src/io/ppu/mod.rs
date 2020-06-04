@@ -173,11 +173,11 @@ impl PPU {
         } else { // VBlank
             if self.vcount == 160 && self.dot == 0 {
                 self.vblank_called = true;
-                self.dispstat.insert(DISPSTATFlags::VBLANK);
                 if self.dispstat.contains(DISPSTATFlags::VBLANK_IRQ_ENABLE) {
                     interrupts.insert(InterruptRequest::VBLANK)
                 }
             }
+            self.dispstat.insert(DISPSTATFlags::VBLANK);
             if self.vcount == 226 && self.dot == 307 {
                 self.bgxs_latch = self.bgxs.clone();
                 self.bgys_latch = self.bgys.clone();
