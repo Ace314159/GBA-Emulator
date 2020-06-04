@@ -101,7 +101,7 @@ impl PPU {
             dot: 0,
             pixels: vec![0; gba::WIDTH * gba::HEIGHT],
             bg_lines: [[0; gba::WIDTH]; 4],
-            objs_line: [OBJPixel::new(); gba::WIDTH],
+            objs_line: [OBJPixel::none(); gba::WIDTH],
             needs_to_render: false,
 
             // Other
@@ -215,9 +215,6 @@ impl PPU {
     ];
 
     fn render_line(&mut self) {
-        self.bg_lines = [[0; gba::WIDTH]; 4];
-        self.objs_line = [OBJPixel::new(); gba::WIDTH];
-        
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line() }
 
         use BGMode::*;
@@ -336,6 +333,7 @@ impl PPU {
         }).collect::<Vec<_>>();
 
         for dot_x in 0..gba::WIDTH {
+            self.objs_line[dot_x] = OBJPixel::none();
             for obj in objs.iter() {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
@@ -421,7 +419,10 @@ impl PPU {
             let (x, y) = if x_raw < 0.0 || x_raw > map_size as f64 ||
             y_raw < 0.0 || y_raw > map_size as f64 {
                 if bgcnt.wrap { ((x_raw % map_size as f64) as usize, (y_raw % map_size as f64) as usize) }
-                else { continue }
+                else {
+                    self.bg_lines[bg_i][dot_x] = PPU::TRANSPARENT_COLOR;
+                    continue
+                }
             } else { (x_raw as usize, y_raw as usize) };
             // Get Screen Entry
             let map_x = (x / 8) % (map_size / 8);
@@ -432,7 +433,7 @@ impl PPU {
             // Convert from tile to pixels
             let (_, color_num) = self.get_color_from_tile(tile_start_addr, tile_num,
                 false, false, 8, x % 8, y % 8, 0);
-            self.bg_lines[bg_i][gba::WIDTH + dot_x] = if color_num == 0 { PPU::TRANSPARENT_COLOR }
+            self.bg_lines[bg_i][dot_x] = if color_num == 0 { PPU::TRANSPARENT_COLOR }
             else { self.bg_palettes[color_num] };
         }
     }
@@ -504,7 +505,7 @@ struct OBJPixel {
 }
 
 impl OBJPixel {
-    pub fn new() -> OBJPixel {
+    pub fn none() -> OBJPixel {
         OBJPixel {
             color: 0,
             priority: 4,
