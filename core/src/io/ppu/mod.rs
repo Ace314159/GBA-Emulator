@@ -393,6 +393,7 @@ impl PPU {
         for dot_x in 0..gba::WIDTH {
             self.objs_line[dot_x] = OBJPixel::none();
             self.windows_lines[2][dot_x] = false;
+            let mut set_color = false;
             for obj in objs.iter() {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
@@ -409,10 +410,9 @@ impl PPU {
                 let mode = obj[0] >> 10 & 0x3;
                 if mode == 2 {
                     self.windows_lines[2][dot_x] = true;
-                    self.objs_line[dot_x] = OBJPixel::none();
-                    break
+                    continue
                 }
-
+                if set_color { continue }
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
                 let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
@@ -459,7 +459,8 @@ impl PPU {
                     color: self.obj_palettes[palette_num * 16 + color_num],
                     priority: (obj[2] >> 10 & 0x3) as u8,
                 };
-                break; // Set pixel, move onto the next one
+                set_color = true;
+                continue // Look for OBJ window pixels
             }
         }
     }

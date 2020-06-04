@@ -12,7 +12,7 @@ impl GBA {
         let bios = std::fs::read("gba_bios.bin").unwrap();
         let mut io = IO::new(bios, std::fs::read(rom_file).unwrap());
         GBA {
-            cpu: CPU::new(true, &mut io),
+            cpu: CPU::new(false, &mut io),
             io,
         }
     }
