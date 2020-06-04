@@ -50,6 +50,7 @@ pub struct PPU {
     pub pixels: Vec<u16>,
     bg_lines: [[u16; gba::WIDTH]; 4],
     objs_line: [OBJPixel; gba::WIDTH],
+    windows_lines: [[bool; gba::WIDTH]; 3],
     pub needs_to_render: bool,
 
     // Other
@@ -102,6 +103,7 @@ impl PPU {
             pixels: vec![0; gba::WIDTH * gba::HEIGHT],
             bg_lines: [[0; gba::WIDTH]; 4],
             objs_line: [OBJPixel::none(); gba::WIDTH],
+            windows_lines: [[false; gba::WIDTH]; 3],
             needs_to_render: false,
 
             // Other
@@ -215,6 +217,8 @@ impl PPU {
     ];
 
     fn render_line(&mut self) {
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW0) { self.render_window(0) }
+        if self.dispcnt.contains(DISPCNTFlags::DISPLAY_WINDOW1) { self.render_window(1) }
         if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) { self.render_objs_line() }
 
         use BGMode::*;
@@ -291,19 +295,73 @@ impl PPU {
             if self.dispcnt.bits() & (1 << (8 + bg_i)) != 0 { bgs.push((bg_i, self.bgcnts[bg_i].priority)) }
         }
         bgs.sort_by_key(|a| a.1);
+        let master_enabled = [
+            self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG0),
+            self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG1),
+            self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG2),
+            self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3),
+            self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ),
+        ];
         for dot_x in 0..gba::WIDTH {
+            let window_control = if self.windows_lines[0][dot_x] {
+                self.win_0_cnt
+            } else if self.windows_lines[1][dot_x] {
+                self.win_1_cnt
+            } else if self.windows_lines[2][dot_x] {
+                self.win_obj_cnt
+            } else if self.dispcnt.windows_enabled() {
+                self.win_out_cnt
+            } else {
+                WindowControl::all()
+            };
+            let enabled = [
+                master_enabled[0] && window_control.bg0_enable,
+                master_enabled[1] && window_control.bg1_enable,
+                master_enabled[2] && window_control.bg2_enable,
+                master_enabled[3] && window_control.bg3_enable,
+                master_enabled[4] && window_control.obj_enable,
+            ];
+
             self.pixels[start_index + dot_x] = self.bg_palettes[0]; // Default is backdrop color
             let mut bg_priority = 4;
             for (bg_i, priority) in bgs.iter().rev() {
                 let color = self.bg_lines[*bg_i][dot_x];
-                if color != PPU::TRANSPARENT_COLOR {
+                if color != PPU::TRANSPARENT_COLOR && enabled[*bg_i] {
                     self.pixels[start_index + dot_x] = color;
                     bg_priority = *priority;
                 }
             }
-            if self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ) && self.objs_line[dot_x].priority <= bg_priority {
+            if enabled[4] && self.objs_line[dot_x].priority <= bg_priority {
                 let color = self.objs_line[dot_x].color;
                 if color != PPU::TRANSPARENT_COLOR { self.pixels[start_index + dot_x] = color }
+            }
+        }
+    }
+
+    fn render_window(&mut self, window_i: usize) {
+        let y1 = self.winvs[window_i].coord1;
+        let y2 = self.winvs[window_i].coord2;
+        let y_in_window = if y1 > y2 {
+            self.vcount < y1 && self.vcount >= y2
+        } else {
+            !(y1..y2).contains(&self.vcount)
+        };
+        if y_in_window {
+            for dot_x in 0..gba::WIDTH as u8 {
+                self.windows_lines[window_i][dot_x as usize] = false;
+            }
+            return
+        }
+        
+        let x1 = self.winhs[window_i].coord1;
+        let x2 = self.winhs[window_i].coord2;
+        if x1 > x2 {
+            for dot_x in 0..gba::WIDTH as u8 {
+                self.windows_lines[window_i][dot_x as usize] = dot_x >= x1 || dot_x < x2;
+            }
+        } else {
+            for dot_x in 0..gba::WIDTH as u8 {
+                self.windows_lines[window_i][dot_x as usize] = (x1..x2).contains(&dot_x);
             }
         }
     }
@@ -334,6 +392,7 @@ impl PPU {
 
         for dot_x in 0..gba::WIDTH {
             self.objs_line[dot_x] = OBJPixel::none();
+            self.windows_lines[2][dot_x] = false;
             for obj in objs.iter() {
                 let obj_shape = (obj[0] >> 14 & 0x3) as usize;
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
@@ -346,6 +405,13 @@ impl PPU {
                 let double_size = obj[0] >> 9 & 0x1 != 0;
                 let obj_x_bounds = if double_size { obj_width * 2 } else { obj_width };
                 if !(obj_x..obj_x + obj_x_bounds).contains(&dot_x_signed) { continue }
+                
+                let mode = obj[0] >> 10 & 0x3;
+                if mode == 2 {
+                    self.windows_lines[2][dot_x] = true;
+                    self.objs_line[dot_x] = OBJPixel::none();
+                    break
+                }
 
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;

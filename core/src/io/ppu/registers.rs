@@ -57,6 +57,10 @@ impl DISPCNT {
             mode: BGMode::Mode0,
         }
     }
+    
+    pub fn windows_enabled(&self) -> bool {
+        (self.bits() >> 13) != 0
+    }
 }
 
 impl Deref for DISPCNT {
@@ -307,8 +311,8 @@ impl IORegister for ReferencePointCoord {
 
 #[derive(Clone, Copy)]
 pub struct WindowDimensions {
-    coord2: u8,
-    coord1: u8,
+    pub coord2: u8,
+    pub coord1: u8,
 }
 
 impl WindowDimensions {
@@ -338,13 +342,14 @@ impl IORegister for WindowDimensions {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct WindowControl {
-    bg0_enable: bool,
-    bg1_enable: bool,
-    bg2_enable: bool,
-    bg3_enable: bool,
-    obj_enable: bool,
-    color_special_enable: bool,
+    pub bg0_enable: bool,
+    pub bg1_enable: bool,
+    pub bg2_enable: bool,
+    pub bg3_enable: bool,
+    pub obj_enable: bool,
+    pub color_special_enable: bool,
 }
 
 impl WindowControl {
@@ -356,6 +361,17 @@ impl WindowControl {
             bg3_enable: false,
             obj_enable: false,
             color_special_enable: false,
+        }
+    }
+
+    pub fn all() -> WindowControl {
+        WindowControl {
+            bg0_enable: true,
+            bg1_enable: true,
+            bg2_enable: true,
+            bg3_enable: true,
+            obj_enable: true,
+            color_special_enable: true,
         }
     }
 }
