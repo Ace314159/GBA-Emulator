@@ -163,8 +163,8 @@ impl PPU {
                 }
             }
             if self.dot == 250 { // TODO: Take into account half
-                self.hblank_called = true;
                 self.dispstat.insert(DISPSTATFlags::HBLANK);
+                if self.vcount < 160 { self.hblank_called = true } // HDMA only occurs on visible scanlines
             }
         }
         if self.vcount < 160 && self.vcount != 227 { // Visible
