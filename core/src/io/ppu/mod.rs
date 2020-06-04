@@ -190,8 +190,13 @@ impl PPU {
         if self.dot == 308 {
             self.dot = 0;
             self.vcount = (self.vcount + 1) % 228;
-            if self.vcount == self.dispstat.vcount_setting && self.dispstat.contains(DISPSTATFlags::VCOUNTER_IRQ_ENALBE) {
-                interrupts.insert(InterruptRequest::VCOUNTER_MATCH);
+            if self.vcount == self.dispstat.vcount_setting {
+                self.dispstat.insert(DISPSTATFlags::VCOUNTER);
+                if self.dispstat.contains(DISPSTATFlags::VCOUNTER_IRQ_ENALBE) {
+                    interrupts.insert(InterruptRequest::VCOUNTER_MATCH);
+                }
+            } else {
+                self.dispstat.remove(DISPSTATFlags::VCOUNTER);
             }
         }
         interrupts
