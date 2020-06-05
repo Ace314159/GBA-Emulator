@@ -333,6 +333,9 @@ impl PPU {
             } else {
                 WindowControl::all()
             };
+            self.windows_lines[0][dot_x] = false;
+            self.windows_lines[1][dot_x] = false;
+            self.windows_lines[2][dot_x] = false;
             let enabled = [
                 master_enabled[0] && window_control.bg0_enable,
                 master_enabled[1] && window_control.bg1_enable,
