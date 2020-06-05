@@ -186,9 +186,11 @@ impl PPU {
 
         self.dot += 1;
         if self.dot == 308 {
-            self.bgxs_latch = self.bgxs.clone();
-            self.bgys_latch = self.bgys.clone();
             self.dot = 0;
+            if self.vcount == 227 {
+                self.bgxs_latch = self.bgxs.clone();
+                self.bgys_latch = self.bgys.clone();
+            }
             self.vcount = (self.vcount + 1) % 228;
             if self.vcount == self.dispstat.vcount_setting {
                 self.dispstat.insert(DISPSTATFlags::VCOUNTER);
