@@ -404,7 +404,7 @@ impl PPU {
                 let obj_size = (obj[1] >> 14 & 0x3) as usize;
                 let affine = obj[0] >> 8 & 0x1 != 0;
                 let (obj_width, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
-                let dot_x_signed = dot_x as i16;
+                let dot_x_signed = (dot_x as i16) / self.mosaic.obj_size.h_size as i16 * self.mosaic.obj_size.h_size as i16;
                 let obj_x = (obj[1] & 0x1FF) as u16;
                 let obj_x = if obj_x & 0x100 != 0 { 0xFE00 | obj_x } else { obj_x } as i16;
                 let obj_y = (obj[0] & 0xFF) as u16;
@@ -420,7 +420,8 @@ impl PPU {
                 if set_color { continue }
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
-                let y_diff = (self.vcount as u16).wrapping_sub(obj_y) & 0xFF;
+                let y_mosaic = self.vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
+                let y_diff = (y_mosaic as u16).wrapping_sub(obj_y) & 0xFF;
                 let (x_diff, y_diff) = if affine {
                     let (x_diff, y_diff) = if double_size {
                         (x_diff - obj_width / 2, y_diff as i16 - obj_height as i16 / 2)
