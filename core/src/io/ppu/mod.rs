@@ -257,33 +257,47 @@ impl PPU {
                 self.process_lines(2, 3);
             },
             Mode3 => {
-                for i in 0..gba::WIDTH {
-                    let addr = (self.vcount as usize * gba::WIDTH + i) * 2;
-                    self.bg_lines[2][i] = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
+                let (mosaic_x, mosaic_y) = if self.bgcnts[2].mosaic {
+                    (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size)
+                } else { (1, 1) };
+                for dot_x in 0..gba::WIDTH {
+                    let y = self.vcount / mosaic_y * mosaic_y;
+                    let x = dot_x / mosaic_x * mosaic_x;
+                    let addr = (y as usize * gba::WIDTH + x) * 2;
+                    self.bg_lines[2][dot_x] = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
                 }
                 self.process_lines(2, 2);
             },
             Mode4 => {
+                let (mosaic_x, mosaic_y) = if self.bgcnts[2].mosaic {
+                    (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size)
+                } else { (1, 1) };
+                let y = self.vcount / mosaic_y * mosaic_y;
                 let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
                     0xA000
-                } else { 0 } + self.vcount as usize * gba::WIDTH;
-                for i in 0..gba::WIDTH {
-                    self.bg_lines[2][i] = self.bg_palettes[self.vram[start_addr + i] as usize];
+                } else { 0 } + y as usize * gba::WIDTH;
+                for dot_x in 0..gba::WIDTH {
+                    let x = dot_x / mosaic_x * mosaic_x;
+                    self.bg_lines[2][dot_x] = self.bg_palettes[self.vram[start_addr + x] as usize];
                 }
                 self.process_lines(2, 2);
             },
             Mode5 => {
-                let mut addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
-                    0xA000usize
-                } else { 0usize };
+                let (mosaic_x, mosaic_y) = if self.bgcnts[2].mosaic {
+                    (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
+                } else { (1, 1) };
                 let dot_y = self.vcount as usize;
-                addr += dot_y * 160 * 2;
+                let y = dot_y / mosaic_y * mosaic_y;
+                let start_addr = if self.dispcnt.contains(DISPCNTFlags::DISPLAY_FRAME_SELECT) {
+                    0xA000usize
+                } else { 0usize } + y * 160 * 2;
                 for dot_x in 0..gba::WIDTH {
                     self.bg_lines[2][dot_x] = if dot_x >= 160 || dot_y >= 128 {
                         self.bg_palettes[0]
                     } else {
+                        let x = dot_x / mosaic_x * mosaic_x;
+                        let addr = start_addr + 2 * x;
                         let pixel = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]);
-                        addr += 2;
                         pixel
                     }
                 }
@@ -420,8 +434,8 @@ impl PPU {
                 if set_color { continue }
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
-                let y_mosaic = self.vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
-                let y_diff = (y_mosaic as u16).wrapping_sub(obj_y) & 0xFF;
+                let y = self.vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
+                let y_diff = (y as u16).wrapping_sub(obj_y) & 0xFF;
                 let (x_diff, y_diff) = if affine {
                     let (x_diff, y_diff) = if double_size {
                         (x_diff - obj_width / 2, y_diff as i16 - obj_height as i16 / 2)
@@ -482,6 +496,9 @@ impl PPU {
         let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
         let map_start_addr = bgcnt.map_block as usize * 0x800;
         let map_size = 128 << bgcnt.screen_size; // In Pixels
+        let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
+            (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
+        } else { (1, 1) };
 
         for dot_x in 0..gba::WIDTH {
             let (x_raw, y_raw) = (base_x.integer(), base_y.integer());
@@ -496,8 +513,8 @@ impl PPU {
                 }
             } else { (x_raw as usize, y_raw as usize) };
             // Get Screen Entry
-            let map_x = (x / 8) % (map_size / 8);
-            let map_y = (y / 8) % (map_size / 8);
+            let map_x = (x / mosaic_x * mosaic_x / 8) % (map_size / 8);
+            let map_y = (y / mosaic_y * mosaic_y / 8) % (map_size / 8);
             let addr = map_start_addr + map_y * map_size / 8 + map_x;
             let tile_num = self.vram[addr] as usize;
             
@@ -516,11 +533,14 @@ impl PPU {
         let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
         let map_start_addr = bgcnt.map_block as usize * 0x800;
         let bit_depth = if bgcnt.bpp8 { 8 } else { 4 }; // Also bytes per row of tile
+        let (mosaic_x, mosaic_y) = if bgcnt.mosaic {
+            (self.mosaic.bg_size.h_size as usize, self.mosaic.bg_size.v_size as usize)
+        } else { (1, 1) };
 
         let dot_y = self.vcount as usize;
         for dot_x in 0..gba::WIDTH {
-            let x = dot_x + x_offset;
-            let y = dot_y + y_offset;
+            let x = (dot_x + x_offset) / mosaic_x * mosaic_x;
+            let y = (dot_y + y_offset) / mosaic_y * mosaic_y;
             // Get Screen Entry
             let mut map_x = x / 8;
             let mut map_y = y / 8;
