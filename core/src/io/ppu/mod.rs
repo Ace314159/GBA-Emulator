@@ -471,26 +471,24 @@ impl PPU {
     }
     
     fn render_affine_line(&mut self, bg_i: usize) {
-        let x_offset = self.bgxs_latch[bg_i - 2].get_float();
-        let y_offset = self.bgys_latch[bg_i - 2].get_float();
-        let dx = self.dxs[bg_i - 2].get_float();
-        let dmx = self.dmxs[bg_i - 2].get_float();
-        let dy = self.dys[bg_i - 2].get_float();
-        let dmy = self.dmys[bg_i - 2].get_float();
+        let mut base_x = self.bgxs_latch[bg_i - 2];
+        let mut base_y = self.bgys_latch[bg_i - 2];
+        self.bgxs_latch[bg_i - 2] += self.dmxs[bg_i - 2];
+        self.bgys_latch[bg_i - 2] += self.dmys[bg_i - 2];
+        let dx = self.dxs[bg_i - 2];
+        let dy = self.dys[bg_i - 2];
         let bgcnt = self.bgcnts[bg_i];
         let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
         let map_start_addr = bgcnt.map_block as usize * 0x800;
         let map_size = 128 << bgcnt.screen_size; // In Pixels
 
-        let dot_y = self.vcount as usize;
         for dot_x in 0..gba::WIDTH {
-            let (x_raw, y_raw) = (
-                dx * (dot_x as f64) + dmx * (dot_y as f64) + x_offset,
-                dy * (dot_x as f64) + dmy * (dot_y as f64) + y_offset,
-            );
-            let (x, y) = if x_raw < 0.0 || x_raw > map_size as f64 ||
-            y_raw < 0.0 || y_raw > map_size as f64 {
-                if bgcnt.wrap { ((x_raw % map_size as f64) as usize, (y_raw % map_size as f64) as usize) }
+            let (x_raw, y_raw) = (base_x.integer(), base_y.integer());
+            base_x += dx;
+            base_y += dy;
+            let (x, y) = if x_raw < 0 || x_raw > map_size as i32 ||
+            y_raw < 0 || y_raw > map_size as i32 {
+                if bgcnt.wrap { ((x_raw % map_size as i32) as usize, (y_raw % map_size as i32) as usize) }
                 else {
                     self.bg_lines[bg_i][dot_x] = PPU::TRANSPARENT_COLOR;
                     continue

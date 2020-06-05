@@ -240,24 +240,18 @@ impl IORegister for OFS {
 
 #[derive(Clone, Copy)]
 pub struct RotationScalingParameter {
-    fractional: u8,
-    integer: u8,
+    value: i16,
 }
 
 impl RotationScalingParameter {
     pub fn new() -> RotationScalingParameter {
         RotationScalingParameter {
-            fractional: 0,
-            integer: 0,
+            value: 0,
         }
     }
 
-    pub fn get_float(&self) -> f64 {
-        self.integer as i8 as f64 + self.fractional as f64 / 256.0
-    }
-
     pub fn get_float_from_u16(value: u16) -> f64 {
-        (value >> 8) as u8 as i8 as f64 + (value >> 0) as u8 as f64 / 256.0
+        (value >> 8) as u8 as i32 as f64 + (value >> 0) as u8 as f64 / 256.0
     }
 }
 
@@ -265,9 +259,9 @@ impl IORegister for RotationScalingParameter {
     fn read(&self, _byte: u8) -> u8 { return 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
+        let offset = byte * 8;
         match byte {
-            0 => self.fractional = value,
-            1 => self.integer = value,
+            0 | 1 => self.value = ((self.value as u32) & !(0xFF << offset) | (value as u32) << offset) as i16,
             _ => panic!("Invalid Byte!"),
         }
     }
@@ -275,20 +269,18 @@ impl IORegister for RotationScalingParameter {
 
 #[derive(Clone, Copy)]
 pub struct ReferencePointCoord {
-    fractional: u8,
-    integer: u32,
+    value: i32,
 }
 
 impl ReferencePointCoord {
     pub fn new() -> ReferencePointCoord {
         ReferencePointCoord {
-            fractional: 0,
-            integer: 0,
+            value: 0,
         }
     }
 
-    pub fn get_float(&self) -> f64 {
-        self.integer as i32 as f64 + self.fractional as f64 / 256.0
+    pub fn integer(&self) -> i32 {
+        self.value >> 8
     }
 }
 
@@ -296,15 +288,22 @@ impl IORegister for ReferencePointCoord {
     fn read(&self, _byte: u8) -> u8 { 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
+        let offset = byte * 8;
         match byte {
-            0 => self.fractional = self.fractional & !0xFF | value,
-            1 => self.integer = self.integer & !0xFF | value as u32,
-            2 => self.integer = self.integer & !0xFF00 | (value as u32) << 8,
+            0 ..= 2 => self.value = (self.value as u32 & !(0xFF << offset) | (value as u32) << offset) as i32,
             3 => {
-                self.integer = self.integer & !0xFFFF_0000 | ((value as u32) & 0x7) << 16;
-                if value >> 4 & 0x1 != 0 { self.integer |= 0xFFF8_0000 }
+                self.value = (self.value as u32 & !(0xFF << offset) | (value as u32 & 0xF) << offset) as i32;
+                if self.value & 0x0800_0000 != 0 { self.value = ((self.value as u32) | 0xF000_0000) as i32 }
             },
             _ => panic!("Invalid Byte!"),
+        }
+    }
+}
+
+impl std::ops::AddAssign<RotationScalingParameter> for ReferencePointCoord {
+    fn add_assign(&mut self, rhs: RotationScalingParameter) {
+        *self = Self {
+            value: self.value.wrapping_add(rhs.value as i32),
         }
     }
 }
