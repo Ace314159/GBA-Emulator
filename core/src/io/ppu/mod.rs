@@ -344,19 +344,76 @@ impl PPU {
                 master_enabled[4] && window_control.obj_enable,
             ];
 
-            self.pixels[start_index + dot_x] = self.bg_palettes[0]; // Default is backdrop color
-            let mut bg_priority = 4;
-            for (bg_i, priority) in bgs.iter().rev() {
+            // Store top 2 layers
+            let mut colors = [self.bg_palettes[0], self.bg_palettes[0]]; // Default is backdrop color
+            let mut layers = [Layer::BD, Layer::BD];
+            let mut priorities = [4, 4];
+            let mut i = 0;
+            for (bg_i, priority) in bgs.iter() {
                 let color = self.bg_lines[*bg_i][dot_x];
                 if color != PPU::TRANSPARENT_COLOR && enabled[*bg_i] {
-                    self.pixels[start_index + dot_x] = color;
-                    bg_priority = *priority;
+                    colors[i] = color;
+                    layers[i] = Layer::from(*bg_i);
+                    priorities[i] = priority*priority;
+                    if i == 0 { i += 1 }
+                    else { break }
                 }
             }
-            if enabled[4] && self.objs_line[dot_x].priority <= bg_priority {
-                let color = self.objs_line[dot_x].color;
-                if color != PPU::TRANSPARENT_COLOR { self.pixels[start_index + dot_x] = color }
+            let obj_color = self.objs_line[dot_x].color;
+            if enabled[4] && obj_color != PPU::TRANSPARENT_COLOR {
+                if self.objs_line[dot_x].priority <= priorities[0] {
+                    colors[1] = colors[0];
+                    layers[1] = layers[0];
+                    colors[0] = obj_color;
+                    layers[0] = Layer::OBJ;
+                    // Priority is irrelevant so no need to change it
+                } else if self.objs_line[dot_x].priority <= priorities[1] {
+                    colors[1] = obj_color;
+                    layers[1] = Layer::OBJ;
+                }
             }
+
+            let trans_obj = layers[0] == Layer::OBJ && self.objs_line[dot_x].semitransparent;
+            let target1_enabled = self.bldcnt.target_pixel1.enabled[layers[0] as usize] || trans_obj;
+            let target2_enabled = self.bldcnt.target_pixel2.enabled[layers[1] as usize];
+            let final_color = if window_control.color_special_enable && target1_enabled {
+                let effect = if trans_obj && target2_enabled { ColorSFX::AlphaBlend } else { self.bldcnt.effect };
+                match effect {
+                    ColorSFX::None => colors[0],
+                    ColorSFX::AlphaBlend => {
+                        if target2_enabled {
+                            let mut new_color = 0;
+                            for i in (0..3).rev() {
+                                let val1 = colors[0] >> (5 * i) & 0x1F;
+                                let val2 = colors[1] >> (5 * i) & 0x1F;
+                                let new_val = std::cmp::min(0x1F,
+                                    (val1 * self.bldalpha.eva + val2 * self.bldalpha.evb) >> 4);
+                                new_color = new_color << 5 | new_val;
+                            }
+                            new_color
+                        } else { colors[0] }
+                    },
+                    ColorSFX::BrightnessInc => {
+                        let mut new_color = 0;
+                        for i in (0..3).rev() {
+                            let val = colors[0] >> (5 * i) & 0x1F;
+                            let new_val = val + (((0x1F - val) * self.bldy.evy as u16) >> 4);
+                            new_color = new_color << 5 | new_val & 0x1F;
+                        }
+                        new_color
+                    },
+                    ColorSFX::BrightnessDec => {
+                        let mut new_color = 0;
+                        for i in (0..3).rev() {
+                            let val = colors[0] >> (5 * i) & 0x1F;
+                            let new_val = val - ((val * self.bldy.evy as u16) >> 4);
+                            new_color = new_color << 5 | new_val & 0x1F;
+                        }
+                        new_color
+                    },
+                }
+            } else { colors[0] };
+            self.pixels[start_index + dot_x] = final_color;
         }
     }
 
@@ -481,6 +538,7 @@ impl PPU {
                 self.objs_line[dot_x] = OBJPixel {
                     color: self.obj_palettes[palette_num * 16 + color_num],
                     priority: (obj[2] >> 10 & 0x3) as u8,
+                    semitransparent: mode == 1,
                 };
                 set_color = true;
                 continue // Look for OBJ window pixels
@@ -593,10 +651,36 @@ impl PPU {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum Layer {
+    BG0 = 0,
+    BG1 = 1,
+    BG2 = 2,
+    BG3 = 3,
+    OBJ = 4,
+    BD = 5,
+}
+
+impl Layer {
+    pub fn from(value: usize) -> Layer {
+        use Layer::*;
+        match value {
+            0 => BG0,
+            1 => BG1,
+            2 => BG2,
+            3 => BG3,
+            4 => OBJ,
+            5 => BD,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct OBJPixel {
     color: u16,
     priority: u8,
+    semitransparent: bool,
 }
 
 impl OBJPixel {
@@ -604,6 +688,7 @@ impl OBJPixel {
         OBJPixel {
             color: PPU::TRANSPARENT_COLOR,
             priority: 4,
+            semitransparent: false,
         }
     }
 }

@@ -341,7 +341,7 @@ impl IORegister for WindowDimensions {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct WindowControl {
     pub bg0_enable: bool,
     pub bg1_enable: bool,
@@ -454,28 +454,47 @@ impl IORegister for MOSAIC {
     }
 }
 
-bitflags! {
-    pub struct BLDCNTTargetPixelSelection: u8 {
-        const BG0 = 1 << 0;
-        const BG1 = 1 << 1;
-        const BG2 = 1 << 2;
-        const BG3 = 1 << 3;
-        const OBJ = 1 << 4;
-        const BD = 1 << 5;
+pub struct BLDCNTTargetPixelSelection {
+    pub enabled: [bool; 6]
+}
+
+impl BLDCNTTargetPixelSelection {
+    pub fn new() -> BLDCNTTargetPixelSelection {
+        BLDCNTTargetPixelSelection {
+            enabled: [false; 6],
+        }
+    }
+
+    pub fn read(&self) -> u8 {
+        (self.enabled[0] as u8) << 0 |
+        (self.enabled[1] as u8) << 1 |
+        (self.enabled[2] as u8) << 2 |
+        (self.enabled[3] as u8) << 3 |
+        (self.enabled[4] as u8) << 4 |
+        (self.enabled[5] as u8) << 5
+    }
+
+    pub fn write(&mut self, value: u8) {
+        self.enabled[0] = value >> 0 & 0x1 != 0;
+        self.enabled[1] = value >> 1 & 0x1 != 0;
+        self.enabled[2] = value >> 2 & 0x1 != 0;
+        self.enabled[3] = value >> 3 & 0x1 != 0;
+        self.enabled[4] = value >> 4 & 0x1 != 0;
+        self.enabled[5] = value >> 5 & 0x1 != 0;
     }
 }
 
 #[derive(Clone, Copy)]
-pub enum ColorSpecialEffect {
+pub enum ColorSFX {
     None = 0,
     AlphaBlend = 1,
     BrightnessInc = 2,
     BrightnessDec = 3,
 }
 
-impl ColorSpecialEffect {
-    pub fn from(value: u8) -> ColorSpecialEffect {
-        use ColorSpecialEffect::*;
+impl ColorSFX {
+    pub fn from(value: u8) -> ColorSFX {
+        use ColorSFX::*;
         match value {
             0 => None,
             1 => AlphaBlend,
@@ -487,17 +506,17 @@ impl ColorSpecialEffect {
 }
 
 pub struct BLDCNT {
-    target_pixel1: BLDCNTTargetPixelSelection,
-    effect: ColorSpecialEffect,
-    target_pixel2: BLDCNTTargetPixelSelection,
+    pub target_pixel1: BLDCNTTargetPixelSelection,
+    pub effect: ColorSFX,
+    pub target_pixel2: BLDCNTTargetPixelSelection,
 }
 
 impl BLDCNT {
     pub fn new() -> BLDCNT {
         BLDCNT {
-            target_pixel1: BLDCNTTargetPixelSelection::empty(),
-            effect: ColorSpecialEffect::None,
-            target_pixel2: BLDCNTTargetPixelSelection::empty(),
+            target_pixel1: BLDCNTTargetPixelSelection::new(),
+            effect: ColorSFX::None,
+            target_pixel2: BLDCNTTargetPixelSelection::new(),
         }
     }
 }
@@ -505,8 +524,8 @@ impl BLDCNT {
 impl IORegister for BLDCNT {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => (self.effect as u8) << 6 | self.target_pixel1.bits,
-            1 => self.target_pixel2.bits,
+            0 => (self.effect as u8) << 6 | self.target_pixel1.read(),
+            1 => self.target_pixel2.read(),
             _ => panic!("Invalid Byte!"),
         }
     }
@@ -514,23 +533,27 @@ impl IORegister for BLDCNT {
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => {
-                self.target_pixel1 = BLDCNTTargetPixelSelection::from_bits_truncate(value & 0x3F);
-                self.effect = ColorSpecialEffect::from(value >> 6);
+                self.target_pixel1.write(value);
+                self.effect = ColorSFX::from(value >> 6);
             },
-            1 => self.target_pixel2 = BLDCNTTargetPixelSelection::from_bits_truncate(value & 0x3F),
+            1 => self.target_pixel2.write(value),
             _ => panic!("Invalid Byte!"),
         }
     }
 }
 
 pub struct BLDALPHA {
-    eva: u8,
-    evb: u8,
+    raw_eva: u8,
+    raw_evb: u8,
+    pub eva: u16,
+    pub evb: u16,
 }
 
 impl BLDALPHA {
     pub fn new() -> BLDALPHA {
         BLDALPHA {
+            raw_eva: 0,
+            raw_evb: 0,
             eva: 0,
             evb: 0,
         }
@@ -540,23 +563,29 @@ impl BLDALPHA {
 impl IORegister for BLDALPHA {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => self.eva,
-            1 => self.evb,
+            0 => self.raw_eva,
+            1 => self.raw_evb,
             _ => panic!("Invalid Byte!"),
         }
     }
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
-            0 => self.eva = value & 0x1F,
-            1 => self.evb = value & 0x1F,
+            0 => {
+                self.raw_eva = value & 0x1F;
+                self.eva = std::cmp::min(0x10, self.raw_eva as u16);
+            }
+            1 => {
+                self.raw_evb = value & 0x1F;
+                self.evb = std::cmp::min(0x10, self.raw_evb as u16);
+            }
             _ => panic!("Invalid Byte!"),
         }
     }
 }
 
 pub struct BLDY {
-    evy: u8,
+    pub evy: u8,
 }
 
 impl BLDY {
@@ -568,17 +597,11 @@ impl BLDY {
 }
 
 impl IORegister for BLDY {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => self.evy,
-            1 => 0,
-            _ => panic!("Invalid Byte!"),
-        }
-    }
+    fn read(&self, _byte: u8) -> u8 { 0 }
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
-            0 => self.evy = value & 0x1F,
+            0 => self.evy = std::cmp::min(0x10, value & 0x1F),
             1 => (),
             _ => panic!("Invalid Byte!"),
         }
