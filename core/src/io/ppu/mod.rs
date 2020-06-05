@@ -487,13 +487,7 @@ impl PPU {
                 let double_size = obj[0] >> 9 & 0x1 != 0;
                 let obj_x_bounds = if double_size { obj_width * 2 } else { obj_width };
                 if !(obj_x..obj_x + obj_x_bounds).contains(&dot_x_signed) { continue }
-                
-                let mode = obj[0] >> 10 & 0x3;
-                if mode == 2 {
-                    self.windows_lines[2][dot_x] = true;
-                    continue
-                }
-                if set_color { continue }
+
                 let base_tile_num = (obj[2] & 0x3FF) as usize;
                 let x_diff = dot_x_signed - obj_x;
                 let y = self.vcount / self.mosaic.obj_size.v_size * self.mosaic.obj_size.v_size;
@@ -537,13 +531,19 @@ impl PPU {
                 let (palette_num, color_num) = self.get_color_from_tile(0x10000, tile_num,
                     false, false, bit_depth, tile_x as usize, tile_y as usize, palette_num);
                 if color_num == 0 { continue }
-                self.objs_line[dot_x] = OBJPixel {
-                    color: self.obj_palettes[palette_num * 16 + color_num],
-                    priority: (obj[2] >> 10 & 0x3) as u8,
-                    semitransparent: mode == 1,
-                };
-                set_color = true;
-                continue // Look for OBJ window pixels
+                let mode = obj[0] >> 10 & 0x3;
+                if mode == 2 {
+                    self.windows_lines[2][dot_x] = true;
+                    if set_color { break } // Continue to look for color pixels
+                } else if !set_color {
+                    self.objs_line[dot_x] = OBJPixel {
+                        color: self.obj_palettes[palette_num * 16 + color_num],
+                        priority: (obj[2] >> 10 & 0x3) as u8,
+                        semitransparent: mode == 1,
+                    };
+                    set_color = true;
+                    if self.windows_lines[2][dot_x] { break } // Continue to look for OBJ window pixels
+                }
             }
         }
     }
