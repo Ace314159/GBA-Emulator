@@ -581,6 +581,7 @@ impl PPU {
     fn get_color_from_tile(&self, tile_start_addr: usize, tile_num: usize, flip_x: bool, flip_y: bool,
         bit_depth: usize, tile_x: usize, tile_y: usize, palette_num: usize) -> (usize, usize) {
         let addr = tile_start_addr + 8 * bit_depth * tile_num;
+        if tile_start_addr < 0x10000 && addr >= 0x10000 { return (0, 0) } // BG maps can't use OBJ tiles
         let tile_x = if flip_x { 7 - tile_x } else { tile_x };
         let tile_y = if flip_y { 7 - tile_y } else { tile_y };
         let tile = self.vram[addr + tile_y * bit_depth + tile_x / (8 / bit_depth)] as usize;
