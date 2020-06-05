@@ -399,6 +399,61 @@ impl IORegister for WindowControl {
     }
 }
 
+pub struct MosaicSize {
+    pub h_size: u8,
+    pub v_size: u8,
+}
+
+impl MosaicSize {
+    pub fn new() -> MosaicSize {
+        MosaicSize {
+            h_size: 1,
+            v_size: 1,
+        }
+    }
+
+    pub fn read(&self) -> u8 {
+        (self.v_size - 1) << 4 | (self.h_size - 1)
+    }
+
+    pub fn write(&mut self, value: u8) {
+        self.h_size = (value & 0xF) + 1;
+        self.v_size = (value >> 4) + 1;
+    }
+}
+
+pub struct MOSAIC {
+    pub bg_size: MosaicSize,
+    pub obj_size: MosaicSize,
+}
+
+impl MOSAIC {
+    pub fn new() -> MOSAIC {
+        MOSAIC {
+            bg_size: MosaicSize::new(),
+            obj_size: MosaicSize::new(),
+        }
+    }
+}
+
+impl IORegister for MOSAIC {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => self.bg_size.read(),
+            1 => self.obj_size.read(),
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.bg_size.write(value),
+            1 => self.obj_size.write(value),
+            _ => unreachable!(),
+        }
+    }
+}
+
 bitflags! {
     pub struct BLDCNTTargetPixelSelection: u8 {
         const BG0 = 1 << 0;

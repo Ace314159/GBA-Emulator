@@ -26,6 +26,7 @@ pub struct PPU {
     bgys: [ReferencePointCoord; 2],
     bgxs_latch: [ReferencePointCoord; 2],
     bgys_latch: [ReferencePointCoord; 2],
+    mosaic: MOSAIC,
     // Windows
     winhs: [WindowDimensions; 2],
     winvs: [WindowDimensions; 2],
@@ -86,6 +87,7 @@ impl PPU {
             win_1_cnt: WindowControl::new(),
             win_out_cnt: WindowControl::new(),
             win_obj_cnt: WindowControl::new(),
+            mosaic: MOSAIC::new(),
             // Color Special Effects
             bldcnt: BLDCNT::new(),
             bldalpha: BLDALPHA::new(),
@@ -661,6 +663,8 @@ impl MemoryHandler for PPU {
             0x049 => self.win_1_cnt.read(0),
             0x04A => self.win_out_cnt.read(0),
             0x04B => self.win_obj_cnt.read(0),
+            0x04C => self.mosaic.read(0),
+            0x04D => self.mosaic.read(1),
             0x050 => self.bldcnt.read(0),
             0x051 => self.bldcnt.read(1),
             0x052 => self.bldalpha.read(0),
@@ -750,6 +754,8 @@ impl MemoryHandler for PPU {
             0x049 => self.win_1_cnt.write(0, value),
             0x04A => self.win_out_cnt.write(0, value),
             0x04B => self.win_obj_cnt.write(0, value),
+            0x04C => self.mosaic.write(0, value),
+            0x04D => self.mosaic.write(1, value),
             0x050 => self.bldcnt.write(0, value),
             0x051 => self.bldcnt.write(1, value),
             0x052 => self.bldalpha.write(0, value),
