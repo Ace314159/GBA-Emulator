@@ -178,16 +178,14 @@ impl PPU {
                 }
             }
             self.dispstat.insert(DISPSTATFlags::VBLANK);
-            if self.vcount == 226 && self.dot == 307 {
-                self.bgxs_latch = self.bgxs.clone();
-                self.bgys_latch = self.bgys.clone();
-            }
         }
 
         if self.vcount == 160 && self.dot == 0 { self.needs_to_render = true }
 
         self.dot += 1;
         if self.dot == 308 {
+            self.bgxs_latch = self.bgxs.clone();
+            self.bgys_latch = self.bgys.clone();
             self.dot = 0;
             self.vcount = (self.vcount + 1) % 228;
             if self.vcount == self.dispstat.vcount_setting {
