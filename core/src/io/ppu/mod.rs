@@ -456,7 +456,7 @@ impl PPU {
                 affine_params[(i - 6) / 32][(i - 6) / 8 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]);
             } else { oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]) }
         });
-        let objs = oam_parsed.iter().filter(|obj| {
+        let mut objs = oam_parsed.iter().filter(|obj| {
             let obj_shape = (obj[0] >> 14 & 0x3) as usize;
             let obj_size = (obj[1] >> 14 & 0x3) as usize;
             let (_, obj_height) = PPU::OBJ_SIZES[obj_size][obj_shape];
@@ -470,6 +470,7 @@ impl PPU {
             let y = self.vcount as u16 + if y_end > 256 { 256 } else { 0 };
             (obj_y..y_end).contains(&y)
         }).collect::<Vec<_>>();
+        objs.sort_by_key(|a| (*a)[2] >> 10 & 0x3);
 
         for dot_x in 0..gba::WIDTH {
             self.objs_line[dot_x] = OBJPixel::none();
