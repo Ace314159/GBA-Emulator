@@ -10,11 +10,11 @@ mod tests;
 impl CPU {
     pub(super) fn fill_thumb_instr_buffer<I>(&mut self, io: &mut I) where I: IIO {
         self.regs.pc &= !0x1;
-        self.instr_buffer[0] = io.read16(self.regs.pc & !0x1) as u32;
+        self.instr_buffer[0] = io.read::<u16>(self.regs.pc & !0x1) as u32;
         io.inc_clock(Cycle::S, self.regs.pc & !0x1, 1);
         self.regs.pc = self.regs.pc.wrapping_add(2);
 
-        self.instr_buffer[1] = io.read16(self.regs.pc & !0x1) as u32;
+        self.instr_buffer[1] = io.read::<u16>(self.regs.pc & !0x1) as u32;
         io.inc_clock(Cycle::S, self.regs.pc & !0x1, 1);
     }
 
@@ -34,7 +34,7 @@ impl CPU {
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(2);
-        self.instr_buffer[1] = io.read16(self.regs.pc & !0x1) as u32;
+        self.instr_buffer[1] = io.read::<u16>(self.regs.pc & !0x1) as u32;
 
         if instr & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { self.add_sub(io, instr) }
         else if instr & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { self.move_shifted_reg(io, instr) }
@@ -188,7 +188,7 @@ impl CPU {
         let dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) as u32;
         let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
-        self.regs.set_reg_i(dest_reg, io.read32(addr & !0x3).rotate_right((addr & 0x3) * 8) as u32);
+        self.regs.set_reg_i(dest_reg, io.read::<u32>(addr & !0x3).rotate_right((addr & 0x3) * 8) as u32);
         io.inc_clock(Cycle::N, self.regs.pc, 1);
         io.inc_clock(Cycle::I, 0, 0);
         io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
@@ -208,17 +208,17 @@ impl CPU {
             io.inc_clock(Cycle::I, 0, 0);
             io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
             self.regs.set_reg_i(src_dest_reg, if opcode & 0b01 != 0 {
-                io.read8(addr) as u32 // LDRB
+                io.read::<u8>(addr) as u32 // LDRB
             } else {
-                io.read32(addr & !0x3).rotate_right((addr & 0x3) * 8) // LDR
+                io.read::<u32>(addr & !0x3).rotate_right((addr & 0x3) * 8) // LDR
             });
 
         } else { // Store
             let access_width = if opcode & 0b01 != 0 { // STRB
-                io.write8(addr, self.regs.get_reg_i(src_dest_reg) as u8);
+                io.write::<u8>(addr, self.regs.get_reg_i(src_dest_reg) as u8);
                 1
             } else { // STR
-                io.write32(addr & !0x3, self.regs.get_reg_i(src_dest_reg));
+                io.write::<u32>(addr & !0x3, self.regs.get_reg_i(src_dest_reg));
                 0
             };
             io.inc_clock(Cycle::N, addr, access_width);
@@ -238,15 +238,15 @@ impl CPU {
         io.inc_clock(Cycle::N, self.regs.pc, 1);
         if opcode == 0 { // STRH
             io.inc_clock(Cycle::N, addr, 1);
-            io.write16(addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
+            io.write::<u16>(addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         } else { // Load
             io.inc_clock(Cycle::I, 0, 0);
             io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
             self.regs.set_reg_i(src_dest_reg, match opcode {
-                1 => io.read8(addr) as i8 as u32,
-                2 => (io.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
-                3 if addr & 0x1 == 1 => io.read8(addr) as i8 as u32,
-                3 => io.read16(addr) as i16 as u32,
+                1 => io.read::<u8>(addr) as i8 as u32,
+                2 => (io.read::<u16>(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
+                3 if addr & 0x1 == 1 => io.read::<u8>(addr) as i8 as u32,
+                3 => io.read::<u16>(addr) as i16 as u32,
                 _ => unreachable!()
             });
         }
@@ -267,20 +267,20 @@ impl CPU {
             io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
             self.regs.set_reg_i(src_dest_reg, if byte {
                 let addr = base.wrapping_add(offset);
-                io.read8(addr) as u32
+                io.read::<u8>(addr) as u32
             } else {
                 let addr = base.wrapping_add(offset << 2);
-                io.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
+                io.read::<u32>(addr & !0x3).rotate_right((addr & 0x3) * 8)
             });
         } else {
             let value = self.regs.get_reg_i(src_dest_reg);
             let addr = if byte {
                 let addr = base.wrapping_add(offset);
-                io.write8(addr, value as u8);
+                io.write::<u8>(addr, value as u8);
                 addr
             } else {
                 let addr = base.wrapping_add(offset << 2);
-                io.write32(addr & !0x3, value);
+                io.write::<u32>(addr & !0x3, value);
                 addr
             };
             io.inc_clock(Cycle::N, addr, 1);
@@ -300,10 +300,10 @@ impl CPU {
         if load {
             io.inc_clock(Cycle::I, 0, 0);
             io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
-            self.regs.set_reg_i(src_dest_reg, (io.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8));
+            self.regs.set_reg_i(src_dest_reg, (io.read::<u16>(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8));
         } else {
             io.inc_clock(Cycle::N, addr & 0x1, 1);
-            io.write16(addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
+            io.write::<u16>(addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         }
     }
 
@@ -317,11 +317,11 @@ impl CPU {
         io.inc_clock(Cycle::N, self.regs.pc, 1);
         if load {
             io.inc_clock(Cycle::I, 0, 0);
-            self.regs.set_reg_i(src_dest_reg, io.read32(addr & !0x3).rotate_right((addr & 0x3) * 8));
+            self.regs.set_reg_i(src_dest_reg, io.read::<u32>(addr & !0x3).rotate_right((addr & 0x3) * 8));
             io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(2), 1);
         } else {
             io.inc_clock(Cycle::N, addr, 2);
-            io.write32(addr & !0x3, self.regs.get_reg_i(src_dest_reg));
+            io.write::<u32>(addr & !0x3, self.regs.get_reg_i(src_dest_reg));
         }
     }
 
@@ -360,7 +360,7 @@ impl CPU {
         io.inc_clock(Cycle::N, self.regs.pc, 1);
         if pop {
             let mut stack_pop = |sp, last_access| {
-                let value = io.read32(sp);
+                let value = io.read::<u32>(sp);
                 if last_access { io.inc_clock(Cycle::I, 0, 0) }
                 else { io.inc_clock(Cycle::S, sp, 2) }
                 value
@@ -385,7 +385,7 @@ impl CPU {
             self.regs.set_reg(Reg::R13, sp);
         } else {
             let mut stack_push = |sp, value, last_access| {
-                io.write32(sp, value);
+                io.write::<u32>(sp, value);
                 if last_access { io.inc_clock(Cycle::N, sp, 2) }
                 else { io.inc_clock(Cycle::S, sp, 2) }
             };
@@ -425,11 +425,11 @@ impl CPU {
             let addr = base;
             base = base.wrapping_add(4);
             if load {
-                self.regs.set_reg_i(reg, io.read32(addr));
+                self.regs.set_reg_i(reg, io.read::<u32>(addr));
                 if last_access { io.inc_clock(Cycle::I, 0, 0) }
                 else { io.inc_clock(Cycle::S, addr, 2) }
             } else {
-                io.write32(addr, self.regs.get_reg_i(reg));
+                io.write::<u32>(addr, self.regs.get_reg_i(reg));
                 if last_access { io.inc_clock(Cycle::N, addr, 2) }
                 else { io.inc_clock(Cycle::S, addr, 2) }
                 if first { self.regs.set_reg_i(base_reg, final_base); first = false }

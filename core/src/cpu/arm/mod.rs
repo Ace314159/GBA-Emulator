@@ -10,11 +10,11 @@ mod tests;
 impl CPU {
     pub(super) fn fill_arm_instr_buffer<I>(&mut self, io: &mut I) where I: IIO {
         self.regs.pc &= !0x3;
-        self.instr_buffer[0] = io.read32(self.regs.pc & !0x3);
+        self.instr_buffer[0] = io.read::<u32>(self.regs.pc & !0x3);
         io.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
         self.regs.pc = self.regs.pc.wrapping_add(4);
 
-        self.instr_buffer[1] = io.read32(self.regs.pc & !0x3);
+        self.instr_buffer[1] = io.read::<u32>(self.regs.pc & !0x3);
         io.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
     }
 
@@ -32,7 +32,7 @@ impl CPU {
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(4);
-        self.instr_buffer[1] = io.read32(self.regs.pc & !0x3);
+        self.instr_buffer[1] = io.read::<u32>(self.regs.pc & !0x3);
 
         if self.should_exec((instr >> 28) & 0xF) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
@@ -278,9 +278,9 @@ impl CPU {
         let mut exec = |addr| if load {
             io.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, if transfer_byte {
-                io.read8(addr) as u32
+                io.read::<u8>(addr) as u32
             } else {
-                io.read32(addr & !0x3).rotate_right((addr & 0x3) * 8)
+                io.read::<u32>(addr & !0x3).rotate_right((addr & 0x3) * 8)
             });
             if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 {
@@ -291,9 +291,9 @@ impl CPU {
             let value = self.regs.get_reg_i(src_dest_reg);
             let value = if src_dest_reg == 15 { value.wrapping_add(4) } else { value };
             let addr = if transfer_byte {
-                io.write8(addr, value as u8); addr
+                io.write::<u8>(addr, value as u8); addr
             } else {
-                io.write32(addr & !0x3, value); addr & !0x3
+                io.write::<u32>(addr & !0x3, value); addr & !0x3
             };
             io.inc_clock(Cycle::N, addr, 2);
         };
@@ -337,10 +337,10 @@ impl CPU {
         let mut exec = |addr| if load {
             io.inc_clock(Cycle::I, 0, 0);
             self.regs.set_reg_i(src_dest_reg, match opcode {
-                1 => (io.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
-                2 => io.read8(addr) as i8 as u32,
-                3 if addr & 0x1 == 1 => io.read8(addr) as i8 as u32,
-                3 => io.read16(addr) as i16 as u32,
+                1 => (io.read::<u16>(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
+                2 => io.read::<u8>(addr) as i8 as u32,
+                3 if addr & 0x1 == 1 => io.read::<u8>(addr) as i8 as u32,
+                3 => io.read::<u16>(addr) as i16 as u32,
                 _ => unreachable!(),
             });
             if src_dest_reg == base_reg { write_back = false }
@@ -353,7 +353,7 @@ impl CPU {
             let addr = addr & !0x1;
             let value = self.regs.get_reg_i(src_dest_reg);
             io.inc_clock(Cycle::N, addr, 1);
-            io.write16(addr, value as u16);
+            io.write::<u16>(addr, value as u16);
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
@@ -397,7 +397,7 @@ impl CPU {
         let mut calc_addr = || if pre_offset { addr += inc_amount; addr }
         else { let old_addr = addr; addr += inc_amount; old_addr };
         let mut exec = |addr, reg, last_access| if load {
-            self.regs.set_reg_i(reg, io.read32(addr));
+            self.regs.set_reg_i(reg, io.read::<u32>(addr));
             if write_back { self.regs.set_reg_i(base_reg, final_addr) }
             if reg == 15 {
                 if psr_force_usr { self.regs.restore_cpsr() }
@@ -408,7 +408,7 @@ impl CPU {
             else { io.inc_clock(Cycle::S, addr, 2) }
         } else {
             let value = self.regs.get_reg_i(reg);
-            io.write32(addr, if reg == 15 { value.wrapping_add(4) } else { value });
+            io.write::<u32>(addr, if reg == 15 { value.wrapping_add(4) } else { value });
             if last_access { io.inc_clock(Cycle::N, addr, 2) }
             else { io.inc_clock(Cycle::S, addr, 2) }
             if write_back { self.regs.set_reg_i(base_reg, final_addr) }
@@ -445,12 +445,12 @@ impl CPU {
 
         io.inc_clock(Cycle::N, self.regs.pc, 2);
         let (value, access_width) = if byte {
-            let value = io.read8(base) as u32;
-            io.write8(base, src as u8);
+            let value = io.read::<u8>(base) as u32;
+            io.write::<u8>(base, src as u8);
             (value, 0)
         } else {
-            let value = io.read32(base & !0x3).rotate_right((base & 0x3) * 8);
-            io.write32(base & !0x3, src);
+            let value = io.read::<u32>(base & !0x3).rotate_right((base & 0x3) * 8);
+            io.write::<u32>(base & !0x3, src);
             (value, 2)
         };
         self.regs.set_reg_i(dest_reg, value);

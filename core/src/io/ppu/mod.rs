@@ -2,7 +2,6 @@ mod registers;
 pub mod debug;
 
 use crate::gba;
-use super::MemoryHandler;
 use super::IORegister;
 use super::interrupt_controller::InterruptRequest;
 
@@ -43,8 +42,8 @@ pub struct PPU {
     bg_palettes: [u16; 0x100],
     obj_palettes: [u16; 0x100],
     // VRAM
-    vram: [u8; 0x18000],
-    oam: [u8; 0x400],
+    pub vram: Vec<u8>,
+    pub oam: Vec<u8>,
 
     // Important Rendering Variables
     dot: u16,
@@ -97,8 +96,8 @@ impl PPU {
             bg_palettes: [0; 0x100],
             obj_palettes: [0; 0x100],
             // VRAM
-            vram: [0; 0x18000],
-            oam: [0; 0x400],
+            vram: vec![0; 0x18000],
+            oam: vec![0; 0x400],
 
             // Important Rendering Variables
             dot: 0,
@@ -112,46 +111,6 @@ impl PPU {
             hblank_called: false,
             vblank_called: false,
         }
-    }
-
-    pub fn read_palette_ram(&self, addr: u32) -> u8 {
-        let addr = (addr & 0x3FF) as usize;
-        let palettes = if addr < 0x200 { &self.bg_palettes } else { &self.obj_palettes };
-        let index = (addr & 0x1FF) / 2;
-        if addr % 2 == 0 {
-            (palettes[index] >> 0) as u8
-        } else {
-            (palettes[index] >> 8) as u8
-        }
-    }
-
-    pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
-        let addr = (addr & 0x3FF) as usize;
-        let palettes = if addr < 0x200 { &mut self.bg_palettes } else { &mut self.obj_palettes };
-        let index = (addr & 0x1FF) / 2;
-        if addr % 2 == 0 {
-            palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
-        } else {
-            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000; // Clear high bit 
-        }
-    }
-
-    pub fn read_vram(&self, addr: u32) -> u8 {
-        if addr < 0x1_0000 { self.vram[addr as usize] }
-        else { self.vram[(addr & 0x17FFF) as usize] }
-    }
-
-    pub fn write_vram(&mut self, addr: u32, value: u8) {
-        if addr < 0x1_0000 { self.vram[(addr) as usize] = value }
-        else { self.vram[(addr & 0x17FFF) as usize] = value}
-    }
-
-    pub fn read_oam(&self, addr: u32) -> u8 {
-        self.oam[addr as usize]
-    }
-
-    pub fn write_oam(&mut self, addr: u32, value: u8) {
-        self.oam[addr as usize] = value;
     }
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
@@ -696,8 +655,8 @@ impl OBJPixel {
     }
 }
 
-impl MemoryHandler for PPU {
-    fn read8(&self, addr: u32) -> u8 {
+impl PPU {
+    pub fn read_register(&self, addr: u32) -> u8 {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x000 => self.dispcnt.read(0),
@@ -788,7 +747,7 @@ impl MemoryHandler for PPU {
         }
     }
 
-    fn write8(&mut self, addr: u32, value: u8) {
+    pub fn write_register(&mut self, addr: u32, value: u8) {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x000 => self.dispcnt.write(0, value),
@@ -877,5 +836,36 @@ impl MemoryHandler for PPU {
             0x055 => self.bldy.write(1, value),
             _ => warn!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value),
         }
+    }
+
+    pub fn read_palette_ram(&self, addr: u32) -> u8 {
+        let addr = (addr & 0x3FF) as usize;
+        let palettes = if addr < 0x200 { &self.bg_palettes } else { &self.obj_palettes };
+        let index = (addr & 0x1FF) / 2;
+        if addr % 2 == 0 {
+            (palettes[index] >> 0) as u8
+        } else {
+            (palettes[index] >> 8) as u8
+        }
+    }
+
+    pub fn write_palette_ram(&mut self, addr: u32, value: u8) {
+        let addr = (addr & 0x3FF) as usize;
+        let palettes = if addr < 0x200 { &mut self.bg_palettes } else { &mut self.obj_palettes };
+        let index = (addr & 0x1FF) / 2;
+        if addr % 2 == 0 {
+            palettes[index] = palettes[index] & !0x00FF | (value as u16) << 0;
+        } else {
+            palettes[index] = palettes[index] & !0xFF00 | (value as u16) << 8 & !0x8000; // Clear high bit 
+        }
+    }
+
+    pub fn parse_vram_addr(addr: u32) -> u32 {
+        let addr = addr & 0x1_FFFF;
+        if addr < 0x1_0000 { addr } else { addr & 0x1_7FFF }
+    }
+
+    pub fn parse_oam_addr(addr: u32) -> u32 {
+        addr & 0x3FF
     }
 }

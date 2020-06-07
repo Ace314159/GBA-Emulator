@@ -1,6 +1,5 @@
 mod registers;
 
-use super::MemoryHandler;
 use super::IORegister;
 
 use registers::*;
@@ -26,28 +25,6 @@ impl DMA {
             if (*channel).needs_to_transfer(hblank_called, vblank_called) { return i }
         }
         return 4;
-    }
-}
-
-impl MemoryHandler for DMA {
-    fn read8(&self, addr: u32) -> u8 {
-        match addr {
-            0x040000B0 ..= 0x040000BB => self.channels[0].read(addr as u8 - 0xB0),
-            0x040000BC ..= 0x040000C7 => self.channels[1].read(addr as u8 - 0xBC),
-            0x040000C8 ..= 0x040000D3 => self.channels[2].read(addr as u8 - 0xC8),
-            0x040000D4 ..= 0x040000DF => self.channels[3].read(addr as u8 - 0xD4),
-            _ => unreachable!(),
-        }
-    }
-
-    fn write8(&mut self, addr: u32, value: u8) {
-        match addr {
-            0x040000B0 ..= 0x040000BB => self.channels[0].write(addr as u8 - 0xB0, value),
-            0x040000BC ..= 0x040000C7 => self.channels[1].write(addr as u8 - 0xBC, value),
-            0x040000C8 ..= 0x040000D3 => self.channels[2].write(addr as u8 - 0xC8, value),
-            0x040000D4 ..= 0x040000DF => self.channels[3].write(addr as u8 - 0xD4, value),
-            _ => unreachable!(),
-        }
     }
 }
 

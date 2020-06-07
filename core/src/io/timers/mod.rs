@@ -1,35 +1,12 @@
 mod registers;
 
-use super::MemoryHandler;
 use super::IORegister;
 use super::InterruptRequest;
 
 use registers::*;
 
 pub struct Timers {
-    timers: [Timer; 4],
-}
-
-impl MemoryHandler for Timers {
-    fn read8(&self, addr: u32) -> u8 {
-        match addr {
-            0x4000100 ..= 0x4000103 => self.timers[0].read(addr as u8 % 4),
-            0x4000104 ..= 0x4000107 => self.timers[1].read(addr as u8 % 4),
-            0x4000108 ..= 0x400010B => self.timers[2].read(addr as u8 % 4),
-            0x400010C ..= 0x400010F => self.timers[3].read(addr as u8 % 4),
-            _ => unreachable!(),
-        }
-    }
-
-    fn write8(&mut self, addr: u32, value: u8) {
-        match addr {
-            0x4000100 ..= 0x4000103 => self.timers[0].write(addr as u8 % 4, value),
-            0x4000104 ..= 0x4000107 => self.timers[1].write(addr as u8 % 4, value),
-            0x4000108 ..= 0x400010B => self.timers[2].write(addr as u8 % 4, value),
-            0x400010C ..= 0x400010F => self.timers[3].write(addr as u8 % 4, value),
-            _ => unreachable!(),
-        }
-    } 
+    pub timers: [Timer; 4],
 }
 
 impl Timers {

@@ -5,6 +5,7 @@ mod timers;
 pub mod keypad;
 mod interrupt_controller;
 
+use memory::MemoryHandler;
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
@@ -85,7 +86,7 @@ impl IO {
     }
 
     pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: u32) -> u8 {
-        self.read8(region.get_start_addr() + addr)
+        self.read::<u8>(region.get_start_addr() + addr)
     }
 
     pub fn press_key(&mut self, key: keypad::KEYINPUT) {
@@ -119,8 +120,8 @@ impl IO {
                 let cycle_type = if first { Cycle::N } else { Cycle::S };
                 self.inc_clock(cycle_type, src_addr, access_width);
                 self.inc_clock(cycle_type, dest_addr, access_width);
-                if transfer_32 { self.write32(dest_addr, self.read32(src_addr)) }
-                else { self.write16(dest_addr, self.read16(src_addr)) }
+                if transfer_32 { self.write::<u32>(dest_addr, self.read::<u32>(src_addr)) }
+                else { self.write::<u16>(dest_addr, self.read::<u16>(src_addr)) }
 
                 src_addr = match src_addr_ctrl {
                     0 => src_addr.wrapping_add(addr_change),
@@ -195,142 +196,6 @@ impl IIO for IO {
     }
 }
 
-impl MemoryHandler for IO {
-    fn read8(&self, addr: u32) -> u8 {
-        if addr == 0x0E000000 {
-            return 0x62; // Stubbing flash
-        } else if addr == 0x0E000001 {
-            return 0x13; // Stubbing flash
-        }
-        match MemoryRegion::get_region(addr) {
-            MemoryRegion::BIOS => self.bios[addr as usize],
-            MemoryRegion::EWRAM => self.ewram[(addr & IO::EWRAM_MASK) as usize],
-            MemoryRegion::IWRAM => self.iwram[(addr & IO::IWRAM_MASK) as usize],
-            MemoryRegion::IO => match addr {
-                0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
-                0x040000B0 ..= 0x040000DF => self.dma.read8(addr),
-                0x04000100 ..= 0x0400010F => self.timers.read8(addr),
-                0x04000130 => self.keypad.keyinput.read(0),
-                0x04000131 => self.keypad.keyinput.read(1),
-                0x04000132 => self.keypad.keycnt.read(0),
-                0x04000133 => self.keypad.keycnt.read(1),
-                0x04000200 => self.interrupt_controller.enable.read(0),
-                0x04000201 => self.interrupt_controller.enable.read(1),
-                0x04000202 => self.interrupt_controller.request.read(0),
-                0x04000203 => self.interrupt_controller.request.read(1),
-                0x04000204 => self.waitcnt.read(0),
-                0x04000205 => self.waitcnt.read(1),
-                0x04000206 ..= 0x04000207 => 0, // Unused IO Register
-                0x04000208 => self.interrupt_controller.master_enable.read(0),
-                0x04000209 => self.interrupt_controller.master_enable.read(1),
-                0x0400020A ..= 0x040002FF => 0, // Unused IO Register
-                0x04000089 => 0x2,
-                0x04000300 => self.haltcnt as u8,
-                0x04000301 => (self.haltcnt >> 8) as u8,
-                0x4FFF780 ..= 0x4FFF781 => self.mgba_test_suite.read8(addr),
-                _ => { warn!("Reading Unimplemented IO Register at {:08X}", addr); 0 }
-            },
-            MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
-            MemoryRegion::VRAM => self.ppu.read_vram(addr & addr & 0x1FFFF),
-            MemoryRegion::OAM => self.ppu.read_oam(addr & 0x3FF),
-            MemoryRegion::ROM => self.read_rom(addr),
-            MemoryRegion::SRAM => self.cart_ram[addr as usize - 0x0E000000],
-            MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); 0 }
-        }
-    }
-
-    fn write8(&mut self, addr: u32, value: u8) {
-        match MemoryRegion::get_region(addr) {
-            MemoryRegion::BIOS => (),
-            MemoryRegion::EWRAM => self.ewram[(addr & IO::EWRAM_MASK) as usize] = value,
-            MemoryRegion::IWRAM => self.iwram[(addr & IO::IWRAM_MASK) as usize] = value,
-            MemoryRegion::IO => match addr {
-                0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
-                0x040000B0 ..= 0x040000DF => self.dma.write8(addr, value),
-                0x04000100 ..= 0x0400010F => self.timers.write8(addr, value),
-                0x04000130 => self.keypad.keyinput.write(0, value),
-                0x04000131 => self.keypad.keyinput.write(1, value),
-                0x04000132 => self.keypad.keycnt.write(0, value),
-                0x04000133 => self.keypad.keycnt.write(1, value),
-                0x04000200 => self.interrupt_controller.enable.write(0, value),
-                0x04000201 => self.interrupt_controller.enable.write(1, value),
-                0x04000202 => self.interrupt_controller.request.write(0, value),
-                0x04000203 => self.interrupt_controller.request.write(1, value),
-                0x04000204 => self.waitcnt.write(0, value),
-                0x04000205 => self.waitcnt.write(1, value),
-                0x04000206 ..= 0x04000207 => {}, // Unused IO Register
-                0x04000208 => self.interrupt_controller.master_enable.write(0, value),
-                0x04000209 => self.interrupt_controller.master_enable.write(1, value),
-                0x0400020A ..= 0x040002FF => {}, // Unused IO Register
-                0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
-                0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
-                0x4FFF600 ..= 0x4FFF701 => self.mgba_test_suite.write8(addr, value),
-                0x4FFF780 ..= 0x4FFF781 => self.mgba_test_suite.write_enable(addr, value),
-                _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, value)
-            },
-            MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
-            MemoryRegion::VRAM => self.ppu.write_vram(addr & 0x1FFFF, value),
-            MemoryRegion::OAM => self.ppu.write_oam(addr & 0x3FF, value),
-            MemoryRegion::ROM => (),
-            MemoryRegion::SRAM => self.cart_ram[addr as usize - 0x0E000000] = value,
-            MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, value)
-        }
-    }
-}
-
-pub trait MemoryHandler {
-    fn read8(&self, addr: u32) -> u8;
-    fn write8(&mut self, addr: u32, value: u8);
-
-    fn read16(&self, addr: u32) -> u16 {
-        (self.read8(addr + 0) as u16) << 0 |
-        (self.read8(addr + 1) as u16) << 8
-    }
-    fn write16(&mut self, addr: u32, value: u16) {
-        self.write8(addr + 0, (value >> 0) as u8);
-        self.write8(addr + 1, (value >> 8) as u8);
-    }
-
-    fn read32(&self, addr: u32) -> u32 {
-        (self.read16(addr + 0) as u32) << 0 |
-        (self.read16(addr + 2) as u32) << 16
-    }
-    fn write32(&mut self, addr: u32, value: u32) {
-        self.write16(addr + 0, (value >> 0) as u16);
-        self.write16(addr + 2, (value >> 16) as u16);
-    }
-}
-
-pub enum MemoryRegion {
-    BIOS,
-    EWRAM,
-    IWRAM,
-    IO,
-    PALETTE,
-    VRAM,
-    OAM,
-    ROM,
-    SRAM,
-    UNUSED,
-}
-
-impl MemoryRegion {
-    pub fn get_region(addr: u32) -> MemoryRegion {
-        match addr >> 24 {
-            0x00 if addr < 0x00004000 => MemoryRegion::BIOS, // Not Mirrored
-            0x02 => MemoryRegion::EWRAM,
-            0x03 => MemoryRegion::IWRAM,
-            0x04 => MemoryRegion::IO,
-            0x05 => MemoryRegion::PALETTE,
-            0x06 => MemoryRegion::VRAM,
-            0x07 => MemoryRegion::OAM,
-            0x08 ..= 0x0D => MemoryRegion::ROM,
-            0x0E => MemoryRegion::SRAM,
-            _ => MemoryRegion::UNUSED,
-        }
-    }
-}
-
 pub trait IIO: MemoryHandler {
     fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
     fn interrupts_requested(&mut self) -> bool;
@@ -339,6 +204,11 @@ pub trait IIO: MemoryHandler {
 pub trait IORegister {
     fn read(&self, byte: u8) -> u8;
     fn write(&mut self, byte: u8, value: u8);
+}
+
+pub trait IORegisterController {
+    fn read_register(&self, addr: u32) -> u8;
+    fn write_register(&mut self, addr: u32, value: u8);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -470,10 +340,8 @@ impl MGBATestSuite {
             _ => (),
         }
     }
-}
 
-impl MemoryHandler for MGBATestSuite {
-    fn read8(&self, addr: u32) -> u8 {
+    pub fn read_register(&self, addr: u32) -> u8 {
         match addr {
             0x4FFF780 => if self.enabled() { 0xEA } else { 0 },
             0x4FFF781 => if self.enabled() { 0x1D } else { 0 },
@@ -481,7 +349,7 @@ impl MemoryHandler for MGBATestSuite {
         }
     }
 
-    fn write8(&mut self, addr: u32, value: u8) {
+    pub fn write_register(&mut self, addr: u32, value: u8) {
         if !self.enabled() { return }
         match addr {
             0x4FFF600 ..= 0x4FFF6FF => self.buffer[(addr - 0x4FFF600) as usize] = value as char,
