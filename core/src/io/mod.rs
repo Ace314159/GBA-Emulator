@@ -5,7 +5,7 @@ mod timers;
 pub mod keypad;
 mod interrupt_controller;
 
-use memory::{BIOS, RAM, ROM};
+use memory::{RAM, ROM};
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
@@ -14,7 +14,7 @@ use interrupt_controller::{InterruptController, InterruptRequest};
 use crate::gba::VisibleMemoryRegion;
 
 pub struct IO {
-    bios: BIOS,
+    bios: Vec<u8>,
     wram256: RAM,
     wram32: RAM,
     rom: ROM,
@@ -38,7 +38,7 @@ pub struct IO {
 impl IO {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> IO {
         IO {
-            bios: BIOS::new(bios),
+            bios,
             wram256: RAM::new(0x02000000, 0x40000, 0),
             wram32: RAM::new(0x03000000, 0x8000, 0),
             rom: ROM::new(0x08000000, rom),
@@ -201,7 +201,7 @@ impl MemoryHandler for IO {
             return 0x13; // Stubbing flash
         }
         match MemoryRegion::get_region(addr) {
-            MemoryRegion::BIOS => self.bios.read8(addr),
+            MemoryRegion::BIOS => self.bios[addr as usize],
             MemoryRegion::WRAM256 => self.wram256.read8(addr & 0xFF03FFFF),
             MemoryRegion::WRAM32 => self.wram32.read8(addr & 0xFF007FFF),
             MemoryRegion::IO => match addr {
@@ -239,7 +239,7 @@ impl MemoryHandler for IO {
 
     fn write8(&mut self, addr: u32, value: u8) {
         match MemoryRegion::get_region(addr) {
-            MemoryRegion::BIOS => self.bios.write8(addr, value),
+            MemoryRegion::BIOS => (),
             MemoryRegion::WRAM256 => self.wram256.write8(addr & 0xFF03FFFF, value),
             MemoryRegion::WRAM32 => self.wram32.write8(addr & 0xFF007FFF, value),
             MemoryRegion::IO => match addr {

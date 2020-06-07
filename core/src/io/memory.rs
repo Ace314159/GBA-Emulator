@@ -1,25 +1,5 @@
 use super::MemoryHandler;
 
-pub struct BIOS {
-    mem: Vec<u8>,
-}
-
-impl BIOS {
-    pub fn new(mem: Vec<u8>) -> BIOS {
-        BIOS {
-            mem,
-        }
-    }
-}
-
-impl MemoryHandler for BIOS {
-    fn read8(&self, addr: u32) -> u8 {
-        self.mem[addr as usize]
-    }
-
-    fn write8(&mut self, _addr: u32, _value: u8) {}
-}
-
 pub struct ROM {
     mem: Vec<u8>,
     offset: usize,
