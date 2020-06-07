@@ -200,7 +200,7 @@ impl RegValues {
             13 => R13,
             14 => R14,
             15 => R15,
-            _ => panic!("Invalid register!"),
+            _ => unreachable!(),
         }
     }
 

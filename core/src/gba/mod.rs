@@ -86,7 +86,7 @@ impl VisibleMemoryRegion {
             6 => OAM,
             7 => PakROM,
             8 => CartRAM,
-            _ => panic!("Invalid Memory Region!"),
+            _ => unreachable!(),
         }
     }
 

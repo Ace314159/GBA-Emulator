@@ -24,7 +24,7 @@ pub(super) fn gen_condition_table() -> [bool; 256] {
                 0xD => z || n != v,
                 0xE => true,
                 0xF => false, // TODO: Change
-                _ => panic!("Invalid Condition"),
+                _ => unreachable!(),
             };
         }
     }

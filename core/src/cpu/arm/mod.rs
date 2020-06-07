@@ -136,7 +136,7 @@ impl CPU {
             0xD => op2, // MOV
             0xE => op1 & !op2, // BIC
             0xF => !op2, // MVN
-            _ => panic!("Invalid opcode!"),
+            _ => unreachable!(),
         };
         if change_status {
             self.regs.set_z(result == 0);
@@ -341,7 +341,7 @@ impl CPU {
                 2 => io.read8(addr) as i8 as u32,
                 3 if addr & 0x1 == 1 => io.read8(addr) as i8 as u32,
                 3 => io.read16(addr) as i16 as u32,
-                _ => panic!("Invalid opcode!"),
+                _ => unreachable!(),
             });
             if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 {

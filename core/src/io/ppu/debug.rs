@@ -10,7 +10,7 @@ impl PPU {
             1 => [(512, 256), (256, 256)][affine as usize],
             2 => [(256, 512), (512, 512)][affine as usize],
             3 => [(512, 512), (1024, 1024)][affine as usize],
-            _ => panic!("Invalid BG Size!"),
+            _ => unreachable!(),
         };
         let mut pixels = vec![0u16; width * height];
         let tile_start_addr = bgcnt.tile_block as usize * 0x4000;
@@ -47,7 +47,7 @@ impl PPU {
                             else if x_overflowed { 0x800 * 1 }
                             else { 0 }
                         },
-                        _ => panic!("Invalid BG Size!"),
+                        _ => unreachable!(),
                     };
                     let addr = map_start_addr + map_y * 32 * 2 + map_x * 2;
                     let screen_entry = u16::from_le_bytes([self.vram[addr], self.vram[addr + 1]]) as usize;

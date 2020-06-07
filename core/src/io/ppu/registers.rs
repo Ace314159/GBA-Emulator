@@ -82,7 +82,7 @@ impl IORegister for DISPCNT {
         match byte {
             0 => (self.flags.bits as u8) | (self.mode as u8),
             1 => (self.flags.bits >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -93,7 +93,7 @@ impl IORegister for DISPCNT {
                 self.flags.bits = self.flags.bits & !0x00FF | (value as u16) & DISPCNTFlags::all().bits; 
             },
             1 => self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPCNTFlags::all().bits,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -142,7 +142,7 @@ impl IORegister for DISPSTAT {
         match byte {
             0 => self.flags.bits as u8,
             1 => self.vcount_setting as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -150,7 +150,7 @@ impl IORegister for DISPSTAT {
         match byte {
             0 => self.flags.bits = (value as u16) & DISPSTATFlags::all().bits,
             1 => self.vcount_setting = value as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -185,7 +185,7 @@ impl IORegister for BGCNT {
         match byte {
             0 => (self.bpp8 as u8) << 7 | (self.mosaic as u8) << 6 | self.tile_block << 2 | self.priority,
             1 => self.screen_size << 6 | (self.wrap as u8) << 5 | self.map_block,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -202,7 +202,7 @@ impl IORegister for BGCNT {
                 self.wrap = value >> 5 & 0x1 != 0;
                 self.screen_size = value >> 6 & 0x3;
             },
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -225,7 +225,7 @@ impl IORegister for OFS {
         match byte {
             0 => self.offset as u8,
             1 => (self.offset >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
     
@@ -233,7 +233,7 @@ impl IORegister for OFS {
         match byte {
             0 => self.offset = self.offset & !0xFF | value as u16,
             1 => self.offset = self.offset & !0x100 | (value as u16) << 8 & 0x100,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -262,7 +262,7 @@ impl IORegister for RotationScalingParameter {
         let offset = byte * 8;
         match byte {
             0 | 1 => self.value = ((self.value as u32) & !(0xFF << offset) | (value as u32) << offset) as i16,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -295,7 +295,7 @@ impl IORegister for ReferencePointCoord {
                 self.value = (self.value as u32 & !(0xFF << offset) | (value as u32 & 0xF) << offset) as i32;
                 if self.value & 0x0800_0000 != 0 { self.value = ((self.value as u32) | 0xF000_0000) as i32 }
             },
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -328,7 +328,7 @@ impl IORegister for WindowDimensions {
         match byte {
             0 => self.coord2,
             1 => self.coord1,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -336,7 +336,7 @@ impl IORegister for WindowDimensions {
         match byte {
             0 => self.coord2 = value,
             1 => self.coord1 = value,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -380,7 +380,7 @@ impl IORegister for WindowControl {
         match byte {
             0 => (self.color_special_enable as u8) << 5 | (self.obj_enable as u8) << 4 |
                 (self.bg3_enable as u8) << 3 | (self.bg2_enable as u8) << 2 | (self.bg1_enable as u8) << 1,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -394,7 +394,7 @@ impl IORegister for WindowControl {
                 self.bg1_enable = value >> 1 & 0x1 != 0;
                 self.bg0_enable = value >> 0 & 0x1 != 0;
             },
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -526,7 +526,7 @@ impl IORegister for BLDCNT {
         match byte {
             0 => (self.effect as u8) << 6 | self.target_pixel1.read(),
             1 => self.target_pixel2.read(),
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -537,7 +537,7 @@ impl IORegister for BLDCNT {
                 self.effect = ColorSFX::from(value >> 6);
             },
             1 => self.target_pixel2.write(value),
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -565,7 +565,7 @@ impl IORegister for BLDALPHA {
         match byte {
             0 => self.raw_eva,
             1 => self.raw_evb,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -579,7 +579,7 @@ impl IORegister for BLDALPHA {
                 self.raw_evb = value & 0x1F;
                 self.evb = std::cmp::min(0x10, self.raw_evb as u16);
             }
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -603,7 +603,7 @@ impl IORegister for BLDY {
         match byte {
             0 => self.evy = std::cmp::min(0x10, value & 0x1F),
             1 => (),
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }

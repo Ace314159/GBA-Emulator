@@ -49,7 +49,7 @@ impl IORegister for InterruptEnable {
         match byte {
             0 => self.bits as u8,
             1 => (self.bits >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -57,7 +57,7 @@ impl IORegister for InterruptEnable {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptEnable::all().bits,
             1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & InterruptEnable::all().bits,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -67,7 +67,7 @@ impl IORegister for InterruptMasterEnable {
         match byte {
             0 => self.bits as u8,
             1 => (self.bits >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -75,7 +75,7 @@ impl IORegister for InterruptMasterEnable {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptMasterEnable::all().bits,
             1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & InterruptMasterEnable::all().bits,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -85,7 +85,7 @@ impl IORegister for InterruptRequest {
         match byte {
             0 => self.bits as u8,
             1 => (self.bits >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -93,7 +93,7 @@ impl IORegister for InterruptRequest {
         match byte {
             0 => self.bits = self.bits & !((value as u16) << 0),
             1 => self.bits = self.bits & !((value as u16) << 8),
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }

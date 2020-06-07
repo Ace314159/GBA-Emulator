@@ -104,7 +104,7 @@ impl CPU {
             0b01 => self.sub(op1, immediate, true), // CMP
             0b10 => self.add(op1, immediate, true), // ADD
             0b11 => self.sub(op1, immediate, true), // SUB
-            _ => panic!("Invalid opcode!"),
+            _ => unreachable!(),
         };
         self.regs.set_z(result == 0);
         self.regs.set_n(result & 0x8000_0000 != 0);
@@ -137,7 +137,7 @@ impl CPU {
             0xD => { self.inc_mul_clocks(io, dest, true); dest.wrapping_mul(src) }, // MUL
             0xE => dest & !src, // BIC
             0xF => !src, // MVN
-            _ => panic!("Invalid opcode!"),
+            _ => unreachable!(),
         };
         self.regs.set_n(result & 0x8000_0000 != 0);
         self.regs.set_z(result == 0);
@@ -173,7 +173,7 @@ impl CPU {
                 }
                 return
             },
-            _ => panic!("Invalid Opcode!"),
+            _ => unreachable!(),
         };
         if opcode & 0x1 == 0 { self.regs.set_reg_i(dest_reg, result) }
         if dest_reg == 15 {
@@ -247,7 +247,7 @@ impl CPU {
                 2 => (io.read16(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
                 3 if addr & 0x1 == 1 => io.read8(addr) as i8 as u32,
                 3 => io.read16(addr) as i16 as u32,
-                _ => panic!("Invalid opcode!")
+                _ => unreachable!()
             });
         }
     }

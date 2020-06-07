@@ -75,7 +75,7 @@ impl CPU {
                     if change_status { self.regs.set_c(new_c) }
                     op2
                 },
-                _ => panic!("Invalid Shift type!"),
+                _ => unreachable!(),
             }
         } else if shift > 31 {
             assert_eq!(immediate, false);
@@ -109,7 +109,7 @@ impl CPU {
                     if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0) }
                     operand.rotate_right(shift)
                 },
-                _ => panic!("Invalid Shift type!"),
+                _ => unreachable!(),
             }
         } else {
             if !immediate { io.inc_clock(Cycle::I, 0, 0) }
@@ -124,7 +124,7 @@ impl CPU {
                         ((operand as i32) >> shift) as u32 },
                 // ROR
                 3 => { if change_status { self.regs.set_c(operand >> (shift - 1) & 0x1 != 0); } operand.rotate_right(shift) },
-                _ => panic!("Invalid Shift type!"),
+                _ => unreachable!(),
             }
         }
     }

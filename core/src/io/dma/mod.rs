@@ -36,7 +36,7 @@ impl MemoryHandler for DMA {
             0x040000BC ..= 0x040000C7 => self.channels[1].read(addr as u8 - 0xBC),
             0x040000C8 ..= 0x040000D3 => self.channels[2].read(addr as u8 - 0xC8),
             0x040000D4 ..= 0x040000DF => self.channels[3].read(addr as u8 - 0xD4),
-            _ => panic!("Reading from Invalid DMA Address {}", addr),
+            _ => unreachable!(),
         }
     }
 
@@ -46,7 +46,7 @@ impl MemoryHandler for DMA {
             0x040000BC ..= 0x040000C7 => self.channels[1].write(addr as u8 - 0xBC, value),
             0x040000C8 ..= 0x040000D3 => self.channels[2].write(addr as u8 - 0xC8, value),
             0x040000D4 ..= 0x040000DF => self.channels[3].write(addr as u8 - 0xD4, value),
-            _ => panic!("Writing to Invalid DMA Address {}", addr),
+            _ => unreachable!(),
         }
     }
 }

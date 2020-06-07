@@ -22,7 +22,7 @@ impl IORegister for Address {
         match byte {
             0 ..= 2 => self.addr = self.addr & !mask | (value as u32) << (8 * byte) & mask,
             3 => self.addr = self.addr & !mask | (value as u32) << (8 * byte) & self.byte3_mask,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -50,7 +50,7 @@ impl IORegister for WordCount {
         match byte {
             0 => self.count = self.count & !0x00FF | value as u16,
             1 => self.count = self.count & !0xFF00 | (value as u16) << 8 & self.max,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }
@@ -91,7 +91,7 @@ impl IORegister for DMACNT {
             0 => (self.src_addr_ctrl & 0x1) << 7 | self.dest_addr_ctrl << 5,
             1 => (self.enable as u8) << 7 | (self.irq as u8) << 6 | self.start_timing << 4 | (self.game_pak_drq as u8) |
                 (self.transfer_32 as u8) << 2 | (self.repeat as u8) << 1 | self.src_addr_ctrl >> 1,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -110,7 +110,7 @@ impl IORegister for DMACNT {
                 self.repeat = value >> 1 & 0x1 != 0;
                 self.src_addr_ctrl = self.src_addr_ctrl & !0x2 | value << 1 & 0x2;
             },
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }

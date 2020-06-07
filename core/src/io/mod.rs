@@ -147,7 +147,7 @@ impl IO {
                 1 => InterruptRequest::DMA1,
                 2 => InterruptRequest::DMA2,
                 3 => InterruptRequest::DMA3,
-                _ => panic!("Invalid DMA Channel!"),
+                _ => unreachable!(),
             } }
         }
     }
@@ -198,7 +198,7 @@ impl MemoryHandler for IO {
         if addr == 0x0E000000 {
             return 0x62; // Stubbing flash
         } else if addr == 0x0E000001 {
-        return 0x13; // Stubbing flash
+            return 0x13; // Stubbing flash
         }
         match MemoryRegion::get_region(addr) {
             MemoryRegion::BIOS => self.bios.read8(addr),
@@ -391,7 +391,7 @@ impl IORegister for WaitStateControl {
                     self.wait_states[0][1] << 4 |self.wait_states[0][0] << 2 | self.sram) as u8,
             1 => ((self.type_flag as usize) << 7 | (self.prefetch_buffer as usize) << 6 | self.phi_terminal_out << 3 |
                 self.wait_states[2][1] << 2 | self.wait_states[2][0]) as u8,
-            _ => panic!("Invalid Byte!!"),
+            _ => unreachable!(),
         }
     }
 
@@ -413,7 +413,7 @@ impl IORegister for WaitStateControl {
                 self.prefetch_buffer = (value >> 6) & 0x1 != 0;
                 // Type Flag is read only
             }
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }

@@ -37,7 +37,7 @@ impl IORegister for KEYINPUT {
         match byte {
             0 => self.bits as u8,
             1 => (self.bits >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -49,7 +49,7 @@ impl IORegister for KEYCNT {
         match byte {
             0 => self.bits as u8,
             1 => (self.bits >> 8) as u8,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 
@@ -57,7 +57,7 @@ impl IORegister for KEYCNT {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & KEYCNT::all().bits,
             1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & KEYCNT::all().bits,
-            _ => panic!("Invalid Byte!"),
+            _ => unreachable!(),
         }
     }
 }

@@ -620,7 +620,7 @@ impl PPU {
                     else if x_overflowed { 0x800 * 1 }
                     else { 0 }
                 },
-                _ => panic!("Invalid BG Size!"),
+                _ => unreachable!(),
             };
             map_x %= 32;
             map_y %= 32;
