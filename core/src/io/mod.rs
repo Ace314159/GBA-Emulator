@@ -195,6 +195,11 @@ impl IIO for IO {
 
 impl MemoryHandler for IO {
     fn read8(&self, addr: u32) -> u8 {
+        if addr == 0x0E000000 {
+            return 0x62; // Stubbing flash
+        } else if addr == 0x0E000001 {
+        return 0x13; // Stubbing flash
+        }
         match MemoryRegion::get_region(addr) {
             MemoryRegion::BIOS => self.bios.read8(addr),
             MemoryRegion::WRAM256 => self.wram256.read8(addr & 0xFF03FFFF),
