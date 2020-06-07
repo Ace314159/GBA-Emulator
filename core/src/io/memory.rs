@@ -2,7 +2,7 @@ extern crate num;
 
 use std::mem::size_of;
 use num::{cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::{PPU, IO, IORegister};
+use super::{APU, PPU, IO, IORegister};
 
 impl MemoryHandler for IO {
     fn read<T>(&self, addr: u32) -> T where T: MemoryValue {
@@ -104,6 +104,7 @@ impl IO {
         }
         match addr {
             0x04000000 ..= 0x0400005F => self.ppu.read_register(addr),
+            0x04000060 ..= 0x040000AF => self.apu.read_register(addr),
             0x040000B0 ..= 0x040000BB => self.dma.channels[0].read(addr as u8 - 0xB0),
             0x040000BC ..= 0x040000C7 => self.dma.channels[1].read(addr as u8 - 0xBC),
             0x040000C8 ..= 0x040000D3 => self.dma.channels[2].read(addr as u8 - 0xC8),
@@ -126,7 +127,6 @@ impl IO {
             0x04000208 => self.interrupt_controller.master_enable.read(0),
             0x04000209 => self.interrupt_controller.master_enable.read(1),
             0x0400020A ..= 0x040002FF => 0, // Unused IO Register
-            0x04000089 => 0x2,
             0x04000300 => self.haltcnt as u8,
             0x04000301 => (self.haltcnt >> 8) as u8,
             0x04FFF780 ..= 0x04FFF781 => self.mgba_test_suite.read_register(addr),
@@ -137,6 +137,7 @@ impl IO {
     fn write_register(&mut self, addr: u32, value: u8) {
         match addr {
             0x04000000 ..= 0x0400005F => self.ppu.write_register(addr, value),
+            0x04000060 ..= 0x040000AF => self.apu.write_register(addr, value),
             0x040000B0 ..= 0x040000BB => self.dma.channels[0].write(addr as u8 - 0xB0, value),
             0x040000BC ..= 0x040000C7 => self.dma.channels[1].write(addr as u8 - 0xBC, value),
             0x040000C8 ..= 0x040000D3 => self.dma.channels[2].write(addr as u8 - 0xC8, value),

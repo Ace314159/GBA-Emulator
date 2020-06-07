@@ -1,5 +1,6 @@
 mod memory;
 mod ppu;
+mod apu;
 mod dma;
 mod timers;
 pub mod keypad;
@@ -9,6 +10,7 @@ use memory::MemoryHandler;
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
+use apu::APU;
 use keypad::Keypad;
 use interrupt_controller::{InterruptController, InterruptRequest};
 use crate::gba::VisibleMemoryRegion;
@@ -23,6 +25,7 @@ pub struct IO {
 
     // IO
     ppu: PPU,
+    apu: APU,
     dma: DMA,
     timers: Timers,
     keypad: Keypad,
@@ -50,6 +53,7 @@ impl IO {
 
             // IO
             ppu: PPU::new(),
+            apu: APU::new(),
             dma: DMA::new(),
             timers: Timers::new(),
             keypad: Keypad::new(),
