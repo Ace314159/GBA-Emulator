@@ -1,11 +1,10 @@
-mod rom;
+mod memory;
 mod ppu;
 mod dma;
 mod timers;
 pub mod keypad;
 mod interrupt_controller;
 
-use rom::ROM;
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
@@ -17,7 +16,7 @@ pub struct IO {
     bios: Vec<u8>,
     ewram: Vec<u8>,
     iwram: Vec<u8>,
-    rom: ROM,
+    rom: Vec<u8>,
     cart_ram: Vec<u8>,
     clocks_ahead: u32,
 
@@ -44,7 +43,7 @@ impl IO {
             bios,
             ewram: vec![0; 0x40000],
             iwram: vec![0; 0x8000],
-            rom: ROM::new(0x08000000, rom),
+            rom,
             cart_ram: vec![0xFF; 0x10000],
             clocks_ahead: 0,
 
@@ -234,7 +233,7 @@ impl MemoryHandler for IO {
             MemoryRegion::PALETTE => self.ppu.read_palette_ram(addr),
             MemoryRegion::VRAM => self.ppu.read_vram(addr & addr & 0x1FFFF),
             MemoryRegion::OAM => self.ppu.read_oam(addr & 0x3FF),
-            MemoryRegion::ROM => self.rom.read8(addr),
+            MemoryRegion::ROM => self.read_rom(addr),
             MemoryRegion::SRAM => self.cart_ram[addr as usize - 0x0E000000],
             MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); 0 }
         }
@@ -272,7 +271,7 @@ impl MemoryHandler for IO {
             MemoryRegion::PALETTE => self.ppu.write_palette_ram(addr, value),
             MemoryRegion::VRAM => self.ppu.write_vram(addr & 0x1FFFF, value),
             MemoryRegion::OAM => self.ppu.write_oam(addr & 0x3FF, value),
-            MemoryRegion::ROM => self.rom.write8(addr, value),
+            MemoryRegion::ROM => (),
             MemoryRegion::SRAM => self.cart_ram[addr as usize - 0x0E000000] = value,
             MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, value)
         }
