@@ -1,11 +1,11 @@
-mod memory;
+mod rom;
 mod ppu;
 mod dma;
 mod timers;
 pub mod keypad;
 mod interrupt_controller;
 
-use memory::{RAM, ROM};
+use rom::ROM;
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
@@ -15,10 +15,10 @@ use crate::gba::VisibleMemoryRegion;
 
 pub struct IO {
     bios: Vec<u8>,
-    wram256: RAM,
-    wram32: RAM,
+    ewram: Vec<u8>,
+    iwram: Vec<u8>,
     rom: ROM,
-    sram: RAM,
+    cart_ram: Vec<u8>,
     clocks_ahead: u32,
 
     // IO
@@ -36,13 +36,16 @@ pub struct IO {
 }
 
 impl IO {
+    const EWRAM_MASK: u32 = 0x3FFFF;
+    const IWRAM_MASK: u32 = 0x7FFF;
+
     pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> IO {
         IO {
             bios,
-            wram256: RAM::new(0x02000000, 0x40000, 0),
-            wram32: RAM::new(0x03000000, 0x8000, 0),
+            ewram: vec![0; 0x40000],
+            iwram: vec![0; 0x8000],
             rom: ROM::new(0x08000000, rom),
-            sram: RAM::new(0x0E000000, 0x10000, 0xFF),
+            cart_ram: vec![0xFF; 0x10000],
             clocks_ahead: 0,
 
             // IO
@@ -202,8 +205,8 @@ impl MemoryHandler for IO {
         }
         match MemoryRegion::get_region(addr) {
             MemoryRegion::BIOS => self.bios[addr as usize],
-            MemoryRegion::WRAM256 => self.wram256.read8(addr & 0xFF03FFFF),
-            MemoryRegion::WRAM32 => self.wram32.read8(addr & 0xFF007FFF),
+            MemoryRegion::EWRAM => self.ewram[(addr & IO::EWRAM_MASK) as usize],
+            MemoryRegion::IWRAM => self.iwram[(addr & IO::IWRAM_MASK) as usize],
             MemoryRegion::IO => match addr {
                 0x04000000 ..= 0x0400005F => self.ppu.read8(addr),
                 0x040000B0 ..= 0x040000DF => self.dma.read8(addr),
@@ -232,7 +235,7 @@ impl MemoryHandler for IO {
             MemoryRegion::VRAM => self.ppu.read_vram(addr & addr & 0x1FFFF),
             MemoryRegion::OAM => self.ppu.read_oam(addr & 0x3FF),
             MemoryRegion::ROM => self.rom.read8(addr),
-            MemoryRegion::SRAM => self.sram.read8(addr),
+            MemoryRegion::SRAM => self.cart_ram[addr as usize - 0x0E000000],
             MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); 0 }
         }
     }
@@ -240,8 +243,8 @@ impl MemoryHandler for IO {
     fn write8(&mut self, addr: u32, value: u8) {
         match MemoryRegion::get_region(addr) {
             MemoryRegion::BIOS => (),
-            MemoryRegion::WRAM256 => self.wram256.write8(addr & 0xFF03FFFF, value),
-            MemoryRegion::WRAM32 => self.wram32.write8(addr & 0xFF007FFF, value),
+            MemoryRegion::EWRAM => self.ewram[(addr & IO::EWRAM_MASK) as usize] = value,
+            MemoryRegion::IWRAM => self.iwram[(addr & IO::IWRAM_MASK) as usize] = value,
             MemoryRegion::IO => match addr {
                 0x04000000 ..= 0x0400005F => self.ppu.write8(addr, value),
                 0x040000B0 ..= 0x040000DF => self.dma.write8(addr, value),
@@ -270,7 +273,7 @@ impl MemoryHandler for IO {
             MemoryRegion::VRAM => self.ppu.write_vram(addr & 0x1FFFF, value),
             MemoryRegion::OAM => self.ppu.write_oam(addr & 0x3FF, value),
             MemoryRegion::ROM => self.rom.write8(addr, value),
-            MemoryRegion::SRAM => self.sram.write8(addr, value),
+            MemoryRegion::SRAM => self.cart_ram[addr as usize - 0x0E000000] = value,
             MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, value)
         }
     }
@@ -301,8 +304,8 @@ pub trait MemoryHandler {
 
 pub enum MemoryRegion {
     BIOS,
-    WRAM256,
-    WRAM32,
+    EWRAM,
+    IWRAM,
     IO,
     PALETTE,
     VRAM,
@@ -316,8 +319,8 @@ impl MemoryRegion {
     pub fn get_region(addr: u32) -> MemoryRegion {
         match addr >> 24 {
             0x00 if addr < 0x00004000 => MemoryRegion::BIOS, // Not Mirrored
-            0x02 => MemoryRegion::WRAM256,
-            0x03 => MemoryRegion::WRAM32,
+            0x02 => MemoryRegion::EWRAM,
+            0x03 => MemoryRegion::IWRAM,
             0x04 => MemoryRegion::IO,
             0x05 => MemoryRegion::PALETTE,
             0x06 => MemoryRegion::VRAM,
@@ -348,7 +351,7 @@ pub enum Cycle {
 }
 
 struct WaitStateControl {
-    sram: usize,
+    cart_ram: usize,
     wait_states: [[usize; 2]; 3],
     phi_terminal_out: usize,
     prefetch_buffer: bool,
@@ -364,7 +367,7 @@ impl WaitStateControl {
 
     pub fn new() -> WaitStateControl {
         WaitStateControl {
-            sram: 0,
+            cart_ram: 0,
             wait_states: [[0; 2]; 3],
             phi_terminal_out: 0,
             prefetch_buffer: false,
@@ -388,7 +391,7 @@ impl IORegister for WaitStateControl {
     fn read(&self, byte: u8) -> u8 {
         match byte {
             0 => (self.wait_states[1][1] << 7 | self.wait_states[1][0] << 5 |
-                    self.wait_states[0][1] << 4 |self.wait_states[0][0] << 2 | self.sram) as u8,
+                    self.wait_states[0][1] << 4 |self.wait_states[0][0] << 2 | self.cart_ram) as u8,
             1 => ((self.type_flag as usize) << 7 | (self.prefetch_buffer as usize) << 6 | self.phi_terminal_out << 3 |
                 self.wait_states[2][1] << 2 | self.wait_states[2][0]) as u8,
             _ => unreachable!(),
@@ -399,7 +402,7 @@ impl IORegister for WaitStateControl {
         match byte {
             0 => {
                 let value = value as usize;
-                self.sram = value & 0x3;
+                self.cart_ram = value & 0x3;
                 self.wait_states[0][0] = (value >> 2) & 0x3;
                 self.wait_states[0][1] = (value >> 4) & 0x1;
                 self.wait_states[1][0] = (value >> 5) & 0x3;
