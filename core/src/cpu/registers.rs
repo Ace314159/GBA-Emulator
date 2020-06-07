@@ -164,7 +164,7 @@ impl RegValues {
                 Mode::ABT => self.spsr[2] = StatusReg::from_bits(value).unwrap(),
                 Mode::IRQ => self.spsr[3] = StatusReg::from_bits(value).unwrap(),
                 Mode::UND => self.spsr[4] = StatusReg::from_bits(value).unwrap(),
-                _ => {},
+                _ => (),
             },
         }
     }

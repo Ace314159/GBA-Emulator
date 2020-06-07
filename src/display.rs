@@ -201,7 +201,7 @@ impl Display {
                         _ => continue,
                     };
                 },
-                _ => {},
+                _ => (),
             }
         }
 

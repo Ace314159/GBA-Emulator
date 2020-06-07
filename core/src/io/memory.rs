@@ -155,10 +155,10 @@ impl IO {
             0x04000203 => self.interrupt_controller.request.write(1, value),
             0x04000204 => self.waitcnt.write(0, value),
             0x04000205 => self.waitcnt.write(1, value),
-            0x04000206 ..= 0x04000207 => {}, // Unused IO Register
+            0x04000206 ..= 0x04000207 => (), // Unused IO Register
             0x04000208 => self.interrupt_controller.master_enable.write(0, value),
             0x04000209 => self.interrupt_controller.master_enable.write(1, value),
-            0x0400020A ..= 0x040002FF => {}, // Unused IO Register
+            0x0400020A ..= 0x040002FF => (), // Unused IO Register
             0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
             0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
             0x04FFF600 ..= 0x04FFF701 => self.mgba_test_suite.write_register(addr, value),
