@@ -2,7 +2,7 @@ extern crate num;
 
 use std::mem::size_of;
 use num::{cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::{APU, PPU, IO, IORegister};
+use super::{PPU, IO, IORegister};
 
 impl MemoryHandler for IO {
     fn read<T>(&self, addr: u32) -> T where T: MemoryValue {
