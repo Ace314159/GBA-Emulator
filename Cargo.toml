@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 core = { path = "core" }
-imgui = "0.3.0"
-imgui-opengl-renderer = "0.7.0"
-imgui-memory-editor = "0.1.2"
+imgui = "0.4.0"
+imgui-opengl-renderer = "0.8.0"
+imgui-memory-editor = "0.1.3"
 gl = "0.14.0"
 glfw = "0.37.0"
 
