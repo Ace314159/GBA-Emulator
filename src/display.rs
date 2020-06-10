@@ -5,6 +5,7 @@ use glfw::{Action, Context, Glfw, Key, Window};
 
 use std::time::Instant;
 use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 
 use core::gba::{self, GBA, KEYINPUT};
 
@@ -149,9 +150,9 @@ impl Display {
         }
     }
 
-    pub fn render<F>(&mut self, gba: &mut GBA, imgui: &mut imgui::Context, imgui_draw: F)
+    pub fn render<F>(&mut self, pixels: &Vec<u16>, imgui: &mut imgui::Context, imgui_draw: F)
         where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>) {
-        let pixels = gba.get_pixels();
+        //let pixels = gba.get_pixels();
         let (width, height) = self.window.get_size();
 
         let (tex_x, tex_y) = if width * gba::HEIGHT as i32 > height * gba::WIDTH as i32 {
@@ -196,8 +197,8 @@ impl Display {
                         _ => continue,
                     };
                     match action {
-                        Action::Press => gba.press_key(keypad_key),
-                        Action::Release => gba.release_key(keypad_key),
+                        //Action::Press => gba.press_key(keypad_key),
+                        //Action::Release => gba.release_key(keypad_key),
                         _ => continue,
                     };
                 },

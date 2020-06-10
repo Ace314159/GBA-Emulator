@@ -1,6 +1,9 @@
 mod registers;
 pub mod debug;
 
+use std::sync::{Arc, Mutex};
+use flume::Sender;
+
 use crate::gba;
 use super::IORegister;
 use super::interrupt_controller::InterruptRequest;
@@ -46,14 +49,14 @@ pub struct PPU {
     pub oam: Vec<u8>,
 
     // Important Rendering Variables
+    tx: Sender<bool>,
+    pixels: Arc<Mutex<Vec<u16>>>,
     dot: u16,
-    pub pixels: Vec<u16>,
     bg_lines: [[u16; gba::WIDTH]; 4],
     objs_line: [OBJPixel; gba::WIDTH],
     windows_lines: [[bool; gba::WIDTH]; 3],
-    pub needs_to_render: bool,
 
-    // Other
+    // DMA
     hblank_called: bool,
     vblank_called: bool,
 }
@@ -61,8 +64,10 @@ pub struct PPU {
 impl PPU {
     const TRANSPARENT_COLOR: u16 = 0x8000;
 
-    pub fn new() -> PPU {
-        PPU {
+    pub fn new(tx: Sender<bool>) -> (PPU, Arc<Mutex<Vec<u16>>>) {
+        let pixels = Arc::new(Mutex::new(vec![0; gba::WIDTH * gba::HEIGHT]));
+        let display_pixels = Arc::clone(&pixels);
+        (PPU {
             // Registers
             dispcnt: DISPCNT::new(),
             green_swap: false,
@@ -100,17 +105,17 @@ impl PPU {
             oam: vec![0; 0x400],
 
             // Important Rendering Variables
+            tx,
+            pixels,
             dot: 0,
-            pixels: vec![0; gba::WIDTH * gba::HEIGHT],
             bg_lines: [[0; gba::WIDTH]; 4],
             objs_line: [OBJPixel::none(); gba::WIDTH],
             windows_lines: [[false; gba::WIDTH]; 3],
-            needs_to_render: false,
 
-            // Other
+            // DMA
             hblank_called: false,
             vblank_called: false,
-        }
+        }, display_pixels)
     }
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
@@ -141,7 +146,7 @@ impl PPU {
             self.dispstat.insert(DISPSTATFlags::VBLANK);
         }
 
-        if self.vcount == 160 && self.dot == 0 { self.needs_to_render = true }
+        if self.vcount == 160 && self.dot == 0 { self.tx.send(true).unwrap() }
 
         self.dot += 1;
         if self.dot == 308 {
@@ -282,6 +287,7 @@ impl PPU {
             self.dispcnt.contains(DISPCNTFlags::DISPLAY_BG3),
             self.dispcnt.contains(DISPCNTFlags::DISPLAY_OBJ),
         ];
+        let mut pixels = self.pixels.lock().unwrap();
         for dot_x in 0..gba::WIDTH {
             let window_control = if self.windows_lines[0][dot_x] {
                 self.win_0_cnt
@@ -374,7 +380,7 @@ impl PPU {
                     },
                 }
             } else { colors[0] };
-            self.pixels[start_index + dot_x] = final_color;
+            pixels[start_index + dot_x] = final_color;
         }
     }
 

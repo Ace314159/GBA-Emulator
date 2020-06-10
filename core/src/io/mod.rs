@@ -6,6 +6,9 @@ mod timers;
 pub mod keypad;
 mod interrupt_controller;
 
+use std::sync::{Arc, Mutex};
+use flume::Sender;
+
 use memory::MemoryHandler;
 use dma::DMA;
 use timers::*;
@@ -42,8 +45,9 @@ impl IO {
     const EWRAM_MASK: u32 = 0x3FFFF;
     const IWRAM_MASK: u32 = 0x7FFF;
 
-    pub fn new(bios: Vec<u8>, rom: Vec<u8>) -> IO {
-        IO {
+    pub fn new(bios: Vec<u8>, rom: Vec<u8>, tx: Sender<bool>) -> (IO, Arc<Mutex<Vec<u16>>>) {
+        let (ppu, pixels) = PPU::new(tx);
+        (IO {
             bios,
             ewram: vec![0; 0x40000],
             iwram: vec![0; 0x8000],
@@ -52,7 +56,7 @@ impl IO {
             clocks_ahead: 0,
 
             // IO
-            ppu: PPU::new(),
+            ppu,
             apu: APU::new(),
             dma: DMA::new(),
             timers: Timers::new(),
@@ -64,17 +68,7 @@ impl IO {
             waitcnt: WaitStateControl::new(),
 
             mgba_test_suite: MGBATestSuite::new(),
-        }
-    }
-
-    pub fn needs_to_render(&mut self) -> bool {
-        let needs_to_render = self.ppu.needs_to_render;
-        self.ppu.needs_to_render = false;
-        needs_to_render
-    }
-
-    pub fn get_pixels(&self) -> &Vec<u16> {
-        &self.ppu.pixels
+        }, pixels)
     }
 
     pub fn render_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {

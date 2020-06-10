@@ -1,3 +1,6 @@
+use std::sync::{Arc, Mutex};
+use flume::Sender;
+
 use crate::cpu::CPU;
 use crate::io::IO;
 pub use crate::io::keypad::KEYINPUT;
@@ -8,27 +11,20 @@ pub struct GBA {
 }
 
 impl GBA {
-    pub fn new(rom_file: String) -> GBA {
+    pub fn new(rom_file: String, tx: Sender<bool>) -> (GBA, Arc<Mutex<Vec<u16>>>) {
         let bios = std::fs::read("gba_bios.bin").unwrap();
-        let mut io = IO::new(bios, std::fs::read(rom_file).unwrap());
-        GBA {
+        let (mut io, pixels) =
+            IO::new(bios, std::fs::read(rom_file).unwrap(), tx);
+        (GBA {
             cpu: CPU::new(false, &mut io),
             io,
-        }
+        }, pixels)
     }
 
     pub fn emulate(&mut self) {
         self.io.run_dmas();
         self.cpu.handle_irq(&mut self.io);
         self.cpu.emulate_instr(&mut self.io);
-    }
-
-    pub fn needs_to_render(&mut self) -> bool {
-        self.io.needs_to_render()
-    }
-
-    pub fn get_pixels(&self) -> &Vec<u16> {
-        self.io.get_pixels()
     }
 
     pub fn render_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
