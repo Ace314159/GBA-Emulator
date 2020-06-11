@@ -1,5 +1,5 @@
 extern crate imgui;
-extern crate imgui_memory_editor;
+// extern crate imgui_memory_editor;
 
 mod display;
 mod debug;
@@ -9,13 +9,14 @@ use std::collections::VecDeque;
 
 use core::flume;
 use core::simplelog::*;
-use core::gba::{GBA, VisibleMemoryRegion};
+//use core::gba::{GBA, VisibleMemoryRegion};
+use core::gba::GBA;
 use display::Display;
 
 use debug::TextureWindow;
 use glfw::Key;
 use imgui::*;
-use imgui_memory_editor::MemoryEditor;
+//use imgui_memory_editor::MemoryEditor;
 
 fn main() {
     std::env::set_current_dir("ROMs").unwrap();

@@ -30,7 +30,7 @@ impl PPU {
         let spec_lock = self.debug_spec.lock().unwrap();
         let spec = spec_lock.clone();
         drop(spec_lock);
-        
+
         let mut debug_windows = VecDeque::with_capacity(3);
         // TODO: Order shouldn't be arbritrary
         if spec.map_enable { debug_windows.push_back(self.render_map(&spec.map_spec)) }
