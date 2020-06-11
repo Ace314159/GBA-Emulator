@@ -97,8 +97,9 @@ impl IO {
             info!("Running DMA{}: Writing to {:08X} from {:08X}, size: {}", dma_channel, dest_addr,
             src_addr, if transfer_32 { 32 } else { 16 });
 
-            let access_width = if transfer_32 { 2 } else { 1 };
-            let addr_change = if transfer_32 { 4 } else { 2 };
+            let (access_width, addr_change, addr_mask) = if transfer_32 { (2, 4, 0x3) } else { (1, 2, 0x1) };
+            src_addr &= !addr_mask;
+            dest_addr &= !addr_mask;
             let mut first = true;
             let original_dest_addr = dest_addr;
             for _ in 0..count {
