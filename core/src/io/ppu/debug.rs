@@ -1,7 +1,48 @@
 use super::{BGMode, PPU};
+use std::collections::VecDeque;
+
+#[derive(Clone, Copy)]
+pub struct DebugSpecification {
+    pub map_enable: bool,
+    pub tiles_enable: bool,
+    pub palettes_enable: bool,
+
+    pub map_spec: MapSpecification,
+    pub tiles_spec: TilesSpecification,
+}
+
+pub type DebugWindows = VecDeque<(Vec<u16>, usize, usize)>;
+
+#[derive(Clone, Copy)]
+pub struct MapSpecification {
+    pub bg_i: usize,
+}
+
+#[derive(Clone, Copy)]
+pub struct TilesSpecification {
+    pub palette: i32,
+    pub block: usize,
+    pub bpp8: bool
+}
 
 impl PPU {
-    pub fn render_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
+    pub fn create_debug_windows(&self) -> DebugWindows {
+        let spec_lock = self.debug_spec.lock().unwrap();
+        let spec = spec_lock.clone();
+        drop(spec_lock);
+        
+        let mut debug_windows = VecDeque::with_capacity(3);
+        // TODO: Order shouldn't be arbritrary
+        if spec.map_enable { debug_windows.push_back(self.render_map(&spec.map_spec)) }
+        if spec.tiles_enable { debug_windows.push_back(self.render_tiles(&spec.tiles_spec)) }
+        if spec.palettes_enable { debug_windows.push_back(self.render_palettes()) }
+
+        debug_windows
+    }
+
+    fn render_map(&self, spec: &MapSpecification) -> (Vec<u16>, usize, usize) {
+        let bg_i = spec.bg_i;
+
         let bgcnt = self.bgcnts[bg_i];
         let affine = self.dispcnt.mode == BGMode::Mode2 ||
                             self.dispcnt.mode == BGMode::Mode1 && bg_i == 2;
@@ -67,7 +108,9 @@ impl PPU {
         (pixels, width, height)
     }
 
-    pub fn render_tiles(&self, palette: usize, block: usize, bpp8: bool) -> (Vec<u16>, usize, usize) {
+    fn render_tiles(&self, spec: &TilesSpecification) -> (Vec<u16>, usize, usize) {
+        let (palette, block, bpp8) = (spec.palette as usize, spec.block, spec.bpp8);
+
         let tile_start_addr = if block > 3 { 0x10000 } else { block * 0x4000 };
         let tiles_size = if bpp8 { 16 } else { 32 };
         let size = tiles_size * 8;
@@ -89,7 +132,7 @@ impl PPU {
         (pixels, size, size)
     }
 
-    pub fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
+    fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
         let palettes_size = 16;
         let size = palettes_size * 8;
         let mut pixels = vec![0; size * size];
@@ -105,5 +148,36 @@ impl PPU {
             }
         }
         (pixels, size, size)
+    }
+}
+
+impl DebugSpecification {
+    pub fn new() -> DebugSpecification {
+        DebugSpecification {
+            map_enable: false,
+            tiles_enable: false,
+            palettes_enable: false,
+
+            map_spec: MapSpecification::new(),
+            tiles_spec: TilesSpecification::new(),
+        }
+    }
+}
+
+impl MapSpecification {
+    pub fn new() -> MapSpecification {
+        MapSpecification {
+            bg_i: 0,
+        }
+    }
+}
+
+impl TilesSpecification {
+    pub fn new() -> TilesSpecification {
+        TilesSpecification {
+            palette: 0,
+            block: 0,
+            bpp8: false,
+        }
     }
 }

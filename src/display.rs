@@ -7,7 +7,7 @@ use std::time::Instant;
 use std::collections::HashSet;
 use core::flume::Sender;
 
-use core::gba::{self, GBA, KEYINPUT};
+use core::gba::{self, KEYINPUT};
 
 pub struct Display {
     window: Window,
@@ -151,7 +151,7 @@ impl Display {
     }
 
     pub fn render<F>(&mut self, pixels: &Vec<u16>, keypad_tx: &Sender<(KEYINPUT, bool)>, imgui: &mut imgui::Context, imgui_draw: F)
-        where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>) {
+        where F: FnOnce(&imgui::Ui, HashSet<glfw::Key>, HashSet<glfw::Modifiers>) {
         //let pixels = gba.get_pixels();
         let (width, height) = self.window.get_size();
 
@@ -178,11 +178,12 @@ impl Display {
         self.glfw.poll_events();
 
         let mut keys_pressed = HashSet::new();
+        let mut modifiers = HashSet::new();
         for (_, event) in glfw::flush_messages(&self.events) {
             Display::handle_event(io, &event);
             match event {
-                glfw::WindowEvent::Key(key, _, action, _) => {
-                    if action != Action::Release { keys_pressed.insert(key); }
+                glfw::WindowEvent::Key(key, _, action, new_modifiers) => {
+                    if action != Action::Release { keys_pressed.insert(key); modifiers.insert(new_modifiers); }
                     let keypad_key = match key {
                         Key::A => KEYINPUT::A,
                         Key::B => KEYINPUT::B,
@@ -209,7 +210,7 @@ impl Display {
         self.prepare_frame(io);
         io.update_delta_time(self.prev_frame_time);
         let ui = imgui.frame();
-        imgui_draw(&ui, keys_pressed);
+        imgui_draw(&ui, keys_pressed, modifiers);
         self.prepare_render(&ui);
         self.imgui_renderer.render(ui);
 

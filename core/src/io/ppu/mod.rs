@@ -10,6 +10,8 @@ use super::interrupt_controller::InterruptRequest;
 
 use registers::*;
 
+pub use debug::{DebugSpecification, DebugWindows};
+
 pub struct PPU {
     // Registers
     dispcnt: DISPCNT,
@@ -49,7 +51,7 @@ pub struct PPU {
     pub oam: Vec<u8>,
 
     // Important Rendering Variables
-    tx: Sender<bool>,
+    tx: Sender<DebugWindows>,
     pixels: Arc<Mutex<Vec<u16>>>,
     rendered_frame: bool,
     dot: u16,
@@ -60,14 +62,19 @@ pub struct PPU {
     // DMA
     hblank_called: bool,
     vblank_called: bool,
+
+    // Debug Windows
+    debug_spec: Arc<Mutex<DebugSpecification>>,
 }
 
 impl PPU {
     const TRANSPARENT_COLOR: u16 = 0x8000;
 
-    pub fn new(tx: Sender<bool>) -> (PPU, Arc<Mutex<Vec<u16>>>) {
+    pub fn new(tx: Sender<DebugWindows>) -> (PPU, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let pixels = Arc::new(Mutex::new(vec![0; gba::WIDTH * gba::HEIGHT]));
         let display_pixels = Arc::clone(&pixels);
+        let debug_spec = Arc::new(Mutex::new(DebugSpecification::new()));
+        let debug_windows_spec = Arc::clone(&debug_spec);
         (PPU {
             // Registers
             dispcnt: DISPCNT::new(),
@@ -117,7 +124,10 @@ impl PPU {
             // DMA
             hblank_called: false,
             vblank_called: false,
-        }, display_pixels)
+
+            // Debug Windows
+            debug_spec,
+        }, display_pixels, debug_windows_spec)
     }
 
     pub fn emulate_dot(&mut self) -> InterruptRequest {
@@ -148,7 +158,10 @@ impl PPU {
             self.dispstat.insert(DISPSTATFlags::VBLANK);
         }
 
-        if self.vcount == 160 && self.dot == 0 { self.tx.send(true).unwrap(); self.rendered_frame = true; }
+        if self.vcount == 160 && self.dot == 0 {
+            self.tx.send(self.create_debug_windows()).unwrap();
+            self.rendered_frame = true;
+        }
 
         self.dot += 1;
         if self.dot == 308 {

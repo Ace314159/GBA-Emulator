@@ -3,7 +3,10 @@ use flume::{Receiver, Sender};
 
 use crate::cpu::CPU;
 use crate::io::IO;
-pub use crate::io::keypad::KEYINPUT;
+pub use crate::io::{
+    DebugSpecification, DebugWindows,
+    keypad::KEYINPUT,
+};
 
 pub struct GBA {
     cpu: CPU,
@@ -11,14 +14,15 @@ pub struct GBA {
 }
 
 impl GBA {
-    pub fn new(rom_file: String, pixels_tx: Sender<bool>,keypad_rx: Receiver<(KEYINPUT, bool)>) -> (GBA, Arc<Mutex<Vec<u16>>>) {
+    pub fn new(rom_file: String, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
+        (GBA, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let bios = std::fs::read("gba_bios.bin").unwrap();
-        let (mut io, pixels) =
-            IO::new(bios, std::fs::read(rom_file).unwrap(), pixels_tx, keypad_rx);
+        let (mut io, pixels, debug_windows_spec) =
+            IO::new(bios, std::fs::read(rom_file).unwrap(), render_tx, keypad_rx);
         (GBA {
             cpu: CPU::new(false, &mut io),
             io,
-        }, pixels)
+        }, pixels, debug_windows_spec)
     }
 
     pub fn emulate(&mut self) {
@@ -26,18 +30,6 @@ impl GBA {
         self.io.run_dmas();
         self.cpu.handle_irq(&mut self.io);
         self.cpu.emulate_instr(&mut self.io);
-    }
-
-    pub fn render_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
-        self.io.render_map(bg_i)
-    }
-
-    pub fn render_tiles(&self, palette: usize, block: usize, bpp8: bool) -> (Vec<u16>, usize, usize) {
-        self.io.render_tiles(palette, block, bpp8)
-    }
-
-    pub fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
-        self.io.render_palettes()
     }
 
     pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: usize) -> u8 {

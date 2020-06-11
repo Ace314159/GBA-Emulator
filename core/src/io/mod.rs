@@ -16,7 +16,9 @@ use ppu::PPU;
 use apu::APU;
 use keypad::{Keypad, KEYINPUT};
 use interrupt_controller::{InterruptController, InterruptRequest};
+
 use crate::gba::VisibleMemoryRegion;
+pub use ppu::{DebugSpecification, DebugWindows};
 
 pub struct IO {
     bios: Vec<u8>,
@@ -45,9 +47,9 @@ impl IO {
     const EWRAM_MASK: u32 = 0x3FFFF;
     const IWRAM_MASK: u32 = 0x7FFF;
 
-    pub fn new(bios: Vec<u8>, rom: Vec<u8>, pixels_tx: Sender<bool>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
-        (IO, Arc<Mutex<Vec<u16>>>) {
-        let (ppu, pixels) = PPU::new(pixels_tx);
+    pub fn new(bios: Vec<u8>, rom: Vec<u8>, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
+        (IO, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
+        let (ppu, pixels, debug_windows_spec) = PPU::new(render_tx);
         (IO {
             bios,
             ewram: vec![0; 0x40000],
@@ -69,19 +71,7 @@ impl IO {
             waitcnt: WaitStateControl::new(),
 
             mgba_test_suite: MGBATestSuite::new(),
-        }, pixels)
-    }
-
-    pub fn render_map(&self, bg_i: usize) -> (Vec<u16>, usize, usize) {
-        self.ppu.render_map(bg_i)
-    }
-
-    pub fn render_tiles(&self, palette: usize, block: usize, bpp8: bool) -> (Vec<u16>, usize, usize) {
-        self.ppu.render_tiles(palette, block, bpp8)
-    }
-
-    pub fn render_palettes(&self) -> (Vec<u16>, usize, usize) {
-        self.ppu.render_palettes()
+        }, pixels, debug_windows_spec)
     }
 
     pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: u32) -> u8 {
