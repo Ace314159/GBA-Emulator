@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use flume::Sender;
+use flume::{Receiver, Sender};
 
 use crate::cpu::CPU;
 use crate::io::IO;
@@ -11,10 +11,10 @@ pub struct GBA {
 }
 
 impl GBA {
-    pub fn new(rom_file: String, tx: Sender<bool>) -> (GBA, Arc<Mutex<Vec<u16>>>) {
+    pub fn new(rom_file: String, pixels_tx: Sender<bool>,keypad_rx: Receiver<(KEYINPUT, bool)>) -> (GBA, Arc<Mutex<Vec<u16>>>) {
         let bios = std::fs::read("gba_bios.bin").unwrap();
         let (mut io, pixels) =
-            IO::new(bios, std::fs::read(rom_file).unwrap(), tx);
+            IO::new(bios, std::fs::read(rom_file).unwrap(), pixels_tx, keypad_rx);
         (GBA {
             cpu: CPU::new(false, &mut io),
             io,
@@ -22,6 +22,7 @@ impl GBA {
     }
 
     pub fn emulate(&mut self) {
+        self.io.poll_keypad_updates();
         self.io.run_dmas();
         self.cpu.handle_irq(&mut self.io);
         self.cpu.emulate_instr(&mut self.io);
@@ -41,14 +42,6 @@ impl GBA {
 
     pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: usize) -> u8 {
         self.io.peek_mem(region, addr as u32)
-    }
-
-    pub fn press_key(&mut self, key: KEYINPUT) {
-        self.io.press_key(key);
-    }
-
-    pub fn release_key(&mut self, key: KEYINPUT) {
-        self.io.release_key(key);
     }
 }
 

@@ -33,9 +33,10 @@ fn main() {
             TerminalMode::Mixed),//std::fs::File::create("stdout.log").unwrap()),
     ]).unwrap();
 
-    let (tx, rx) = flume::unbounded();
+    let (pixels_tx, pixels_rx) = flume::unbounded();
+    let (keypad_tx, keypad_rx) = flume::unbounded();
     let (mut gba, pixels_mutex) =
-        GBA::new("Kirby - Nightmare in Dream Land (USA).gba".to_string(), tx);
+        GBA::new("Kirby - Nightmare in Dream Land (USA).gba".to_string(), pixels_tx, keypad_rx);
     let gba_thread = thread::spawn(move || {
         loop { gba.emulate() }
     });
@@ -69,12 +70,12 @@ fn main() {
             .base_addr(mem_region.get_start_addr() as usize)
             .mem_size(mem_region.get_size());*/
         if !paused {
-            rx.recv().unwrap();
+            pixels_rx.recv().unwrap();
             pixels_lock = Some(pixels_mutex.lock().unwrap());
         }
         
         let pixels = pixels_lock.take().unwrap();
-        display.render(&pixels, &mut imgui, |ui, keys_pressed| {
+        display.render(&pixels, &keypad_tx, &mut imgui, |ui, keys_pressed| {
             if keys_pressed.contains(&Key::P) { paused = !paused }
             if paused {
                 Window::new(im_str!("Paused"))

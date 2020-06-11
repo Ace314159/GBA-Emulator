@@ -51,6 +51,7 @@ pub struct PPU {
     // Important Rendering Variables
     tx: Sender<bool>,
     pixels: Arc<Mutex<Vec<u16>>>,
+    rendered_frame: bool,
     dot: u16,
     bg_lines: [[u16; gba::WIDTH]; 4],
     objs_line: [OBJPixel; gba::WIDTH],
@@ -107,6 +108,7 @@ impl PPU {
             // Important Rendering Variables
             tx,
             pixels,
+            rendered_frame: false,
             dot: 0,
             bg_lines: [[0; gba::WIDTH]; 4],
             objs_line: [OBJPixel::none(); gba::WIDTH],
@@ -146,7 +148,7 @@ impl PPU {
             self.dispstat.insert(DISPSTATFlags::VBLANK);
         }
 
-        if self.vcount == 160 && self.dot == 0 { self.tx.send(true).unwrap() }
+        if self.vcount == 160 && self.dot == 0 { self.tx.send(true).unwrap(); self.rendered_frame = true; }
 
         self.dot += 1;
         if self.dot == 308 {
@@ -166,6 +168,12 @@ impl PPU {
             }
         }
         interrupts
+    }
+
+    pub fn rendered_frame(&mut self) -> bool {
+        let rendered_frame = self.rendered_frame;
+        self.rendered_frame = false;
+        rendered_frame
     }
 
     pub fn hblank_called(&mut self) -> bool {

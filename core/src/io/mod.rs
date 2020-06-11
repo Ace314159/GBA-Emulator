@@ -7,14 +7,14 @@ pub mod keypad;
 mod interrupt_controller;
 
 use std::sync::{Arc, Mutex};
-use flume::Sender;
+use flume::{Receiver, Sender};
 
 use memory::MemoryHandler;
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
 use apu::APU;
-use keypad::Keypad;
+use keypad::{Keypad, KEYINPUT};
 use interrupt_controller::{InterruptController, InterruptRequest};
 use crate::gba::VisibleMemoryRegion;
 
@@ -45,8 +45,9 @@ impl IO {
     const EWRAM_MASK: u32 = 0x3FFFF;
     const IWRAM_MASK: u32 = 0x7FFF;
 
-    pub fn new(bios: Vec<u8>, rom: Vec<u8>, tx: Sender<bool>) -> (IO, Arc<Mutex<Vec<u16>>>) {
-        let (ppu, pixels) = PPU::new(tx);
+    pub fn new(bios: Vec<u8>, rom: Vec<u8>, pixels_tx: Sender<bool>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
+        (IO, Arc<Mutex<Vec<u16>>>) {
+        let (ppu, pixels) = PPU::new(pixels_tx);
         (IO {
             bios,
             ewram: vec![0; 0x40000],
@@ -60,7 +61,7 @@ impl IO {
             apu: APU::new(),
             dma: DMA::new(),
             timers: Timers::new(),
-            keypad: Keypad::new(),
+            keypad: Keypad::new(keypad_rx),
             interrupt_controller: InterruptController::new(),
 
             // Registers
@@ -87,12 +88,8 @@ impl IO {
         self.read::<u8>(region.get_start_addr() + addr)
     }
 
-    pub fn press_key(&mut self, key: keypad::KEYINPUT) {
-        self.keypad.press_key(key);
-    }
-
-    pub fn release_key(&mut self, key: keypad::KEYINPUT) {
-        self.keypad.release_key(key);
+    pub fn poll_keypad_updates(&mut self) {
+        if self.ppu.rendered_frame() { self.keypad.poll() }
     }
 
     pub fn run_dmas(&mut self) {

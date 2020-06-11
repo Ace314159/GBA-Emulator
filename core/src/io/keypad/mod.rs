@@ -1,23 +1,34 @@
 mod registers;
 
+use flume::Receiver;
+
 pub use registers::KEYINPUT;
 use registers::*;
 
 pub struct Keypad {
     pub keyinput: KEYINPUT,
     pub keycnt: KEYCNT,
+    rx: Receiver<(KEYINPUT, bool)>
 }
 
 impl Keypad {
-    pub fn new() -> Keypad {
+    pub fn new(rx: Receiver<(KEYINPUT, bool)>) -> Keypad {
         Keypad {
             keyinput: KEYINPUT::all(),
             keycnt: KEYCNT::empty(),
+            rx,
         }
     }
 
-    pub fn press_key(&mut self, key: KEYINPUT) { self.keyinput.remove(key) }
-    pub fn release_key(&mut self, key: KEYINPUT) { self.keyinput.insert(key) }
+    pub fn poll(&mut self) {
+        for (key, pressed) in self.rx.try_iter() {
+            if pressed {
+                self.keyinput.remove(key)
+            } else {
+                self.keyinput.insert(key);
+            }
+        }
+    }
 
     pub fn interrupt_requested(&self) -> bool {
         if self.keycnt.contains(KEYCNT::IRQ_ENABLE) {
