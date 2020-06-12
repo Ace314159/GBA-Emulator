@@ -59,11 +59,7 @@ fn main() {
         .read_fn(|addr| gba.peek_mem(mem_region, addr));*/
 
     while !display.should_close() {
-        /*let (map_pixels, map_width, map_height) = gba.render_map(map_bg_i);
-        let (tiles_pixels, tiles_width, tiles_height) =
-            gba.render_tiles(tiles_palette as usize, tiles_block, tiles_bpp8);
-        let (palettes_pixels, palettes_width, palettes_height) = gba.render_palettes();
-        mem_editor = mem_editor
+        /*mem_editor = mem_editor
             .base_addr(mem_region.get_start_addr() as usize)
             .mem_size(mem_region.get_size());*/
         if !paused {
