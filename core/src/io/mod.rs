@@ -50,12 +50,15 @@ impl IO {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
         (IO, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let (ppu, pixels, debug_windows_spec) = PPU::new(render_tx);
+        let mut cart_ram = vec![0xFF; 0x10000];
+        cart_ram[0] = 0x62;
+        cart_ram[1] = 0x13;
         (IO {
             bios,
             ewram: vec![0; 0x40000],
             iwram: vec![0; 0x8000],
             rom,
-            cart_ram: vec![0xFF; 0x10000],
+            cart_ram,
             clocks_ahead: 0,
 
             // IO

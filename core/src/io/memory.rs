@@ -97,11 +97,6 @@ impl IO {
     }
 
     fn read_io_register(&self, addr: u32) -> u8 {
-        if addr == 0x0E000000 {
-            return 0x62; // Stubbing flash
-        } else if addr == 0x0E000001 {
-            return 0x13; // Stubbing flash
-        }
         match addr {
             0x04000000 ..= 0x0400005F => self.ppu.read_register(addr),
             0x04000060 ..= 0x040000AF => self.apu.read_register(addr),
