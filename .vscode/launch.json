@@ -16,7 +16,7 @@
             "environment": [{"name": "RUST_BACKTRACE", "value": "0"}],
             "externalConsole": true,
             "sourceFileMap": {
-                "/rustc/5e1a799842ba6ed4a57e91f7ab9435947482f7d8": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
+                "/rustc/49cae55760da0a43428eba73abcb659bb70cf2e4": "${env:HOME}${env:USERPROFILE}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/src/rust"
             }
         }
     ]
