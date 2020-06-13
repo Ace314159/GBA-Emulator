@@ -138,6 +138,8 @@ impl IORegister for SOUNDCNTX {
         match byte {
             0 => (self.master_enable as u8) << 7, // TODO: Use channel information
             1 => 0,
+            2 => 0,
+            3 => 0,
             _ => unreachable!(),
         }
     }
@@ -146,6 +148,8 @@ impl IORegister for SOUNDCNTX {
         match byte {
             0 => self.master_enable = value >> 7 & 0x1 != 0,
             1 => (),
+            2 => (),
+            3 => (),
             _ => unreachable!(),
         }
     }
