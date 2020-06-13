@@ -1,10 +1,10 @@
 use super::IORegister;
 
 pub struct SoundEnableFlags {
-    channel4: bool,
-    channel3: bool,
-    channel2: bool,
     channel1: bool,
+    channel2: bool,
+    channel3: bool,
+    channel4: bool,
 }
 
 impl SoundEnableFlags {
@@ -115,6 +115,41 @@ impl IORegister for SOUNDCNT {
             3 => {
                 self.dma_sound_b_cnt.write(value & 0xF);
                 self.dma_sound_a_cnt.write(value >> 4);
+            },
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub struct SOUNDBIAS {
+    bias_level: u16,
+    amplitude_res: u8,
+}
+
+impl SOUNDBIAS {
+    pub fn new() -> SOUNDBIAS {
+        SOUNDBIAS {
+            bias_level: 0x100,
+            amplitude_res: 0,
+        }
+    }
+}
+
+impl IORegister for SOUNDBIAS {
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => (self.bias_level << 1) as u8,
+            1 => self.amplitude_res << 6 | (self.bias_level >> 8) as u8,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => self.bias_level = self.bias_level & !0xFF | (value as u16) >> 1,
+            1 => {
+                self.bias_level = self.bias_level & !0x100 | (value as u16) << 8;
+                self.amplitude_res = (value >> 6) & 0x3;
             },
             _ => unreachable!(),
         }
