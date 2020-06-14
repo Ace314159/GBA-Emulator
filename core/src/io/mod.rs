@@ -169,7 +169,10 @@ impl IIO for IO {
             _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
         }};
 
-        for _ in 0..clocks_inc { self.interrupt_controller.request |= self.timers.clock() }
+        for _ in 0..clocks_inc {
+            self.interrupt_controller.request |= self.timers.clock();
+            self.apu.clock();
+        }
         self.clocks_ahead += clocks_inc;
         while self.clocks_ahead >= 4 {
             self.clocks_ahead -= 4;

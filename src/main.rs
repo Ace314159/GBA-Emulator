@@ -37,9 +37,14 @@ fn main() {
 
     let (render_tx, render_rx) = flume::unbounded();
     let (keypad_tx, keypad_rx) = flume::unbounded();
-    let (mut gba, pixels_mutex, debug_windows_spec_mutex) =
-        GBA::new("Kirby - Nightmare in Dream Land (USA).gba".to_string(), render_tx, keypad_rx);
-    let _gba_thread = thread::spawn(move || { loop { gba.emulate() } });
+    let (mutexes_tx, mutexes_rx) = flume::unbounded();
+    let _gba_thread = thread::spawn(move || {
+        let (mut gba, pixels_mutex, debug_windows_spec_mutex) =
+        GBA::new("Pokemon - Emerald Version (USA, Europe).gba".to_string(), render_tx, keypad_rx);
+        mutexes_tx.send((pixels_mutex, debug_windows_spec_mutex)).unwrap();
+        loop { gba.emulate() }
+    });
+    let (pixels_mutex, debug_windows_spec_mutex) = mutexes_rx.recv().unwrap();
     let mut pixels_lock = None; 
 
     let mut imgui = Context::create();

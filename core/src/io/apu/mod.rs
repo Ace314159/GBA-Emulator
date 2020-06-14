@@ -1,22 +1,50 @@
+mod audio;
 mod registers;
+mod channel;
 
 use super::IORegister;
+use crate::gba;
 
+use audio::Audio;
 use registers::*;
+use channel::*;
 
 pub struct APU {
     cnt: SOUNDCNT,
     bias: SOUNDBIAS,
     cnt_x: SOUNDCNTX,
+    
+    // Sound Generation
+    audio: Audio,
+    clock: u8,
+    sample_clock: usize,
 }
 
 impl APU {
+    const CLOCKS_PER_SAMPLE: usize = gba::CLOCK_FREQ / gba::AUDIO_SAMPLE_RATE;
+
     pub fn new() -> APU {
         APU {
             // Registers
             cnt: SOUNDCNT::new(),
             bias: SOUNDBIAS::new(),
             cnt_x: SOUNDCNTX::new(),
+
+            // Sound Generation
+            audio: Audio::new(),
+            clock: 0,
+            sample_clock: APU::CLOCKS_PER_SAMPLE,
+        }
+    }
+
+    pub fn clock(&mut self) {
+        self.generate_sample();
+}
+
+    fn generate_sample(&mut self) {
+        self.sample_clock -= 1;
+        if self.sample_clock == 0 {
+            self.sample_clock = APU::CLOCKS_PER_SAMPLE;
         }
     }
 }

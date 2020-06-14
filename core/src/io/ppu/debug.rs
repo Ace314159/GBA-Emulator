@@ -1,7 +1,7 @@
 use super::{BGMode, PPU};
 use std::collections::VecDeque;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct DebugSpecification {
     pub map_enable: bool,
     pub tiles_enable: bool,
@@ -13,12 +13,12 @@ pub struct DebugSpecification {
 
 pub type DebugWindows = VecDeque<(Vec<u16>, usize, usize)>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct MapSpecification {
     pub bg_i: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TilesSpecification {
     pub palette: i32,
     pub block: usize,
