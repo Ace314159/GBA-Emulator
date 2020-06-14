@@ -15,7 +15,7 @@ pub struct APU {
     // Sound Control Registers
     cnt: SOUNDCNT,
     bias: SOUNDBIAS,
-    cnt_x: SOUNDCNTX,
+    master_enable: bool,
     
     // Sound Generation
     audio: Audio,
@@ -34,7 +34,7 @@ impl APU {
             // Sound Control Registers
             cnt: SOUNDCNT::new(),
             bias: SOUNDBIAS::new(),
-            cnt_x: SOUNDCNTX::new(),
+            master_enable: false,
 
             // Sound Generation
             audio: Audio::new(),
@@ -45,6 +45,7 @@ impl APU {
     }
 
     pub fn clock(&mut self) {
+        if !self.master_enable { return }
         self.tone.clock();
 
         self.clock_sequencer();
@@ -93,10 +94,8 @@ impl APU {
             0x081 => self.cnt.read(1),
             0x082 => self.cnt.read(2),
             0x083 => self.cnt.read(3),
-            0x084 => self.cnt_x.read(0),
-            0x085 => self.cnt_x.read(1),
-            0x086 => self.cnt_x.read(2),
-            0x087 => self.cnt_x.read(3),
+            0x084 => (self.master_enable as u8) << 7 | (self.tone.is_on() as u8) << 2,
+            0x085 ..= 0x087 => 0,
             0x088 => self.bias.read(0),
             0x089 => self.bias.read(1),
             0x08A ..= 0x08F => 0,
@@ -119,10 +118,16 @@ impl APU {
             0x081 => self.cnt.write(1, value),
             0x082 => self.cnt.write(2, value),
             0x083 => self.cnt.write(3, value),
-            0x084 => self.cnt_x.write(0, value),
-            0x085 => self.cnt_x.write(1, value),
-            0x086 => self.cnt_x.write(1, value),
-            0x087 => self.cnt_x.write(1, value),
+            0x084 => {
+                let prev = self.master_enable;
+                self.master_enable = value >> 7 & 0x1 != 0;
+                if !prev && self.master_enable {
+                    self.tone = Tone::new();
+                    self.cnt.write(0, value);
+                    self.cnt.write(1, value);
+                }
+            },
+            0x085 ..= 0x087 => (),
             0x088 => self.bias.write(0, value),
             0x089 => self.bias.write(1, value),
             0x08A ..= 0x08F => (),

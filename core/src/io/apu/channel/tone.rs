@@ -60,6 +60,10 @@ impl Channel for Tone {
             self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.cur_duty]
         } else { 0.0 }
     }
+
+    fn is_on(&self) -> bool {
+        !self.use_length || self.length_counter.should_play()
+    }
 }
 
 impl IORegister for Tone {

@@ -7,4 +7,5 @@ pub use tone::Tone;
 
 pub trait Channel {
     fn generate_sample(&self) -> f32;
+    fn is_on(&self) -> bool;
 }

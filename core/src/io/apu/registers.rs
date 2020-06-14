@@ -121,40 +121,6 @@ impl IORegister for SOUNDCNT {
     }
 }
 
-pub struct SOUNDCNTX {
-    master_enable: bool
-}
-
-impl SOUNDCNTX {
-    pub fn new() -> SOUNDCNTX {
-        SOUNDCNTX {
-            master_enable: false,
-        }
-    }
-}
-
-impl IORegister for SOUNDCNTX {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => (self.master_enable as u8) << 7, // TODO: Use channel information
-            1 => 0,
-            2 => 0,
-            3 => 0,
-            _ => unreachable!(),
-        }
-    }
-
-    fn write(&mut self, byte: u8, value: u8) {
-        match byte {
-            0 => self.master_enable = value >> 7 & 0x1 != 0,
-            1 => (),
-            2 => (),
-            3 => (),
-            _ => unreachable!(),
-        }
-    }
-}
-
 pub struct SOUNDBIAS {
     bias_level: u16,
     amplitude_res: u8,
