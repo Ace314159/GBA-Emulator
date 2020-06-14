@@ -1,31 +1,31 @@
 use super::IORegister;
 
 pub struct SoundEnableFlags {
-    channel1: bool,
-    channel2: bool,
-    channel3: bool,
-    channel4: bool,
+    pub channel1: u8,
+    pub channel2: u8,
+    pub channel3: u8,
+    pub channel4: u8,
 }
 
 impl SoundEnableFlags {
     pub fn new() -> SoundEnableFlags {
         SoundEnableFlags {
-            channel4: false,
-            channel3: false,
-            channel2: false,
-            channel1: false,
+            channel4: 0,
+            channel3: 0,
+            channel2: 0,
+            channel1: 0,
         }
     }
 
     pub fn read(&self) -> u8 {
-        (self.channel4 as u8) << 3 | (self.channel3 as u8) << 2 | (self.channel2 as u8) << 1 | (self.channel1 as u8) << 0
+        self.channel4 << 3 | self.channel3 << 2 | self.channel2 << 1 | self.channel1 << 0
     }
 
     pub fn write(&mut self, value: u8) {
-        self.channel1 = value >> 0 & 0x1 != 0;
-        self.channel2 = value >> 1 & 0x1 != 0;
-        self.channel3 = value >> 2 & 0x1 != 0;
-        self.channel4 = value >> 3 & 0x1 != 0;
+        self.channel1 = value >> 0 & 0x1;
+        self.channel2 = value >> 1 & 0x1;
+        self.channel3 = value >> 2 & 0x1;
+        self.channel4 = value >> 3 & 0x1;
     }
 }
 
@@ -59,15 +59,15 @@ impl DMASoundControl {
 }
 
 pub struct SOUNDCNT {
-    psg_master_volume_r: u8,
-    psg_master_volume_l: u8,
-    psg_enable_r: SoundEnableFlags,
-    psg_enable_l: SoundEnableFlags,
-    psg_volume: u8,
-    dma_sound_a_vol: bool,
-    dma_sound_b_vol: bool,
-    dma_sound_a_cnt: DMASoundControl,
-    dma_sound_b_cnt: DMASoundControl,
+    pub psg_master_volume_r: u8,
+    pub psg_master_volume_l: u8,
+    pub psg_enable_r: SoundEnableFlags,
+    pub psg_enable_l: SoundEnableFlags,
+    pub psg_volume: u8,
+    pub dma_sound_a_vol: bool,
+    pub dma_sound_b_vol: bool,
+    pub dma_sound_a_cnt: DMASoundControl,
+    pub dma_sound_b_cnt: DMASoundControl,
 }
 
 impl SOUNDCNT {
