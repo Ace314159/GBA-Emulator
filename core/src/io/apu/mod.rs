@@ -54,7 +54,7 @@ impl APU {
     fn generate_sample(&mut self) {
         self.sample_clock -= 1;
         if self.sample_clock == 0 {
-            let sample = self.tone.generate_sample() * 0.1;
+            let sample = self.tone.generate_sample();
             self.audio.queue(sample, sample);
             self.sample_clock = APU::CLOCKS_PER_SAMPLE;
         }

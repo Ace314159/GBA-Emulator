@@ -15,6 +15,8 @@ impl Audio {
         samples: None,
     };
 
+    const VOLUME_FACTOR: f32 = 0.03;
+
     pub fn new() -> Audio {
         let sdl_ctx = sdl2::init().unwrap();
         let audio_subsystem = sdl_ctx.audio().unwrap();
@@ -27,6 +29,6 @@ impl Audio {
     }
 
     pub fn queue(&self, left_sample: f32, right_sample: f32) {
-        self.queue.queue(&[left_sample, right_sample]);
+        self.queue.queue(&[Audio::VOLUME_FACTOR * left_sample, Audio::VOLUME_FACTOR * right_sample]);
     }
 }
