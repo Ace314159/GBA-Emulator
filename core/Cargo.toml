@@ -8,7 +8,7 @@ edition = "2018"
 bitflags = "1.2.1"
 flume = "0.7.1"
 log = "0.4.8"
-num = "0.2.1"
+num = "0.3.0"
 simplelog = "0.8.0"
 
 [profile.release]
