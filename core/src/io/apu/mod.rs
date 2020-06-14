@@ -19,7 +19,8 @@ pub struct APU {
     
     // Sound Generation
     audio: Audio,
-    clock: u8,
+    sequencer_step: u8,
+    sequencer_clock: u16,
     sample_clock: usize,
 }
 
@@ -37,18 +38,30 @@ impl APU {
 
             // Sound Generation
             audio: Audio::new(),
-            clock: 0,
+            sequencer_step: 0,
+            sequencer_clock: 0,
             sample_clock: APU::CLOCKS_PER_SAMPLE,
         }
     }
 
     pub fn clock(&mut self) {
-        self.clock += 1;
-        if self.clock == 16 {
-            self.tone.clock_duty();
-            self.clock = 0;
-        }
+        self.tone.clock();
+
+        self.clock_sequencer();
+
         self.generate_sample();
+    }
+
+    pub fn clock_sequencer(&mut self) {
+        if self.sequencer_clock == 0 {
+            match self.sequencer_step {
+                0 ..= 6 => (),
+                7 => self.tone.envelope.clock(),
+                _ => unreachable!(),
+            }
+            self.sequencer_step = (self.sequencer_step + 1) % 8;
+            self.sequencer_clock = 0x8000;
+        } else { self.sequencer_clock -= 1 }
     }
 
     fn generate_sample(&mut self) {

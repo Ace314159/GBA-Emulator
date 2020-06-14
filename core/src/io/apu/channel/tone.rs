@@ -7,11 +7,12 @@ pub struct Tone {
     // Registers
     length: u8,
     duty: u8,
-    envelope: Envelope,
+    pub envelope: Envelope,
     freq_raw: u16,
     use_length: bool,
 
     // Sound Generation
+    duty_clock: u8,
     period: u16,
     cur_duty: usize,
 }
@@ -34,22 +35,26 @@ impl Tone {
             use_length: false,
 
             // Sound Generation
+            duty_clock: 0,
             period: 0,
             cur_duty: 0,
         }
     }
 
-    pub fn clock_duty(&mut self) {
-        if self.period == 0 {
-            self.period = 2048 - self.freq_raw;
-            self.cur_duty = (self.cur_duty + 1) % 8;
-        } else { self.period -= 1 }
+    pub fn clock(&mut self) {
+        if self.duty_clock == 0 {
+            self.duty_clock = 16;
+            if self.period == 0 {
+                self.period = 2048 - self.freq_raw;
+                self.cur_duty = (self.cur_duty + 1) % 8;
+            } else { self.period -= 1 }
+        } else { self.duty_clock -= 1}
     }
 }
 
 impl Channel for Tone {
     fn generate_sample(&self) -> f32 {
-        Tone::DUTY[self.duty as usize][self.cur_duty]
+        self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.cur_duty]
     }
 }
 
@@ -81,6 +86,7 @@ impl IORegister for Tone {
                 if value & 0x80 != 0 {
                     self.cur_duty = 0;
                     self.period = 2048 - self.freq_raw;
+                    self.envelope.reset();
                 }
             },
             6 | 7 => (),
