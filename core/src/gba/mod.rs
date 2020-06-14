@@ -41,6 +41,8 @@ pub const WIDTH: usize = 240;
 pub const HEIGHT: usize = 160;
 pub const SCALE: usize = 2;
 
+pub const FRAME_PERIOD: std::time::Duration = std::time::Duration::from_nanos(1e9 as u64 * 280896 / CLOCK_FREQ as u64);
+
 #[derive(Clone, Copy)]
 pub enum VisibleMemoryRegion {
     BIOS = 0,
