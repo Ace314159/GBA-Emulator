@@ -31,6 +31,7 @@ pub struct Envelope {
     // Sound Generation
     cur_volume: u8,
     clock: u8,
+    active: bool,
 }
 
 impl Envelope {
@@ -43,17 +44,20 @@ impl Envelope {
             // Sound Generation
             cur_volume: 0,
             clock: 0,
+            active: false,
         }
     }
 
     pub fn clock(&mut self) {
-        if self.step_period == 0 { return }
+        if self.step_period == 0 || !self.active { return }
         if self.clock == 0 {
             if self.inc {
                 assert!(self.cur_volume <= 15);
-                if self.cur_volume != 15 { self.cur_volume += 1; self.clock = self.step_period }
+                if self.cur_volume == 15 { self.active = false }
+                else { self.cur_volume += 1 }
             } else {
-                if self.cur_volume != 0 { self.cur_volume -= 1; self.clock = self.step_period }
+                if self.cur_volume == 0 { self.active = false }
+                else { self.cur_volume -= 1 }
             }
         } else { self.clock -= 1 }
     }
@@ -65,6 +69,7 @@ impl Envelope {
     pub fn reset(&mut self) {
         self.cur_volume = self.initial_volume;
         self.clock = self.step_period;
+        self.active = true;
     }
 
     pub fn read(&self) -> u8 {
