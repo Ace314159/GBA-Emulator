@@ -55,9 +55,12 @@ impl APU {
     pub fn clock_sequencer(&mut self) {
         if self.sequencer_clock == 0 {
             match self.sequencer_step {
-                0 ..= 6 => (),
+                0 => self.tone.length_counter.clock(),
+                2 => self.tone.length_counter.clock(),
+                4 => self.tone.length_counter.clock(),
+                6 => self.tone.length_counter.clock(),
                 7 => self.tone.envelope.clock(),
-                _ => unreachable!(),
+                _ => assert!(self.sequencer_step < 8),
             }
             self.sequencer_step = (self.sequencer_step + 1) % 8;
             self.sequencer_clock = 0x8000;

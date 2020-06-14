@@ -1,3 +1,28 @@
+pub struct LengthCounter {
+    // Registers
+    length: u16,
+}
+
+impl LengthCounter {
+    pub fn new() -> LengthCounter {
+        LengthCounter {
+            length: 0,
+        }
+    }
+
+    pub fn clock(&mut self) {
+        if self.length != 0 { self.length -= 1 }
+    }
+
+    pub fn reload_length(&mut self, length: u16) {
+        self.length = length;
+    }
+
+    pub fn should_play(&self) -> bool {
+        self.length != 0
+    }
+}
+
 pub struct Envelope {
     // Registers
     step_period: u8,

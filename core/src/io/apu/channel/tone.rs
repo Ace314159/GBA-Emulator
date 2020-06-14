@@ -5,13 +5,14 @@ use super::Channel;
 
 pub struct Tone {
     // Registers
-    length: u8,
+    length_data: u8,
     duty: u8,
     pub envelope: Envelope,
     freq_raw: u16,
     use_length: bool,
 
     // Sound Generation
+    pub length_counter: LengthCounter,
     duty_clock: u8,
     period: u16,
     cur_duty: usize,
@@ -28,13 +29,14 @@ impl Tone {
     pub fn new() -> Tone {
         Tone {
             // Registers
-            length: 0,
+            length_data: 0,
             duty: 0,
             envelope: Envelope::new(),
             freq_raw: 0,
             use_length: false,
 
             // Sound Generation
+            length_counter: LengthCounter::new(),
             duty_clock: 0,
             period: 0,
             cur_duty: 0,
@@ -54,14 +56,16 @@ impl Tone {
 
 impl Channel for Tone {
     fn generate_sample(&self) -> f32 {
-        self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.cur_duty]
+        if !self.use_length || self.length_counter.should_play() {
+            self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.cur_duty]
+        } else { 0.0 }
     }
 }
 
 impl IORegister for Tone {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => self.duty << 6 | self.length,
+            0 => self.duty << 6,
             1 => self.envelope.read(),
             2 | 3 => 0,
             4 => 0,
@@ -75,7 +79,7 @@ impl IORegister for Tone {
         match byte {
             0 => {
                 self.duty = value >> 6 & 0x3;
-                self.length = value & 0x3F;
+                self.length_data = value & 0x3F;
             },
             1 => self.envelope.write(value),
             2 | 3 => (),
@@ -87,6 +91,7 @@ impl IORegister for Tone {
                     self.cur_duty = 0;
                     self.period = 2048 - self.freq_raw;
                     self.envelope.reset();
+                    self.length_counter.reload_length(64 - self.length_data as u16);
                 }
             },
             6 | 7 => (),
