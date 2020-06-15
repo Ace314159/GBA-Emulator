@@ -1,3 +1,81 @@
+pub struct Sweep {
+    // Registers
+    shift: u8,
+    negate: bool,
+    period: u8,
+    // Sound Generation
+    enabled: bool,
+    clock: u8,
+    pub freq: u16,
+    freq_shadow: u16,
+}
+
+impl Sweep {
+    pub fn new() -> Sweep {
+        Sweep {
+            // Registers
+            shift: 0,
+            negate: false,
+            period: 0,
+            // Sound Generation
+            enabled: false,
+            clock: 0,
+            freq: 0,
+            freq_shadow: 0,
+        }
+    }
+
+    pub fn clock(&mut self) {
+        if !self.enabled { return }
+        if self.clock == 0 {
+            if self.period != 0 {
+                let new_freq = self.calc_new_freq();
+                if !self.overflow_check(new_freq) {
+                    self.freq = new_freq;
+                    self.freq_shadow = new_freq;
+                    self.overflow_check(self.calc_new_freq());
+                }
+            }
+            self.clock = self.period;
+        } else { self.clock -= 1 }
+    }
+
+    pub fn reload(&mut self) {
+        self.freq_shadow = self.freq;
+        self.clock = self.period;
+        self.enabled = self.period != 0 || self.shift != 0;
+        if self.shift != 0 {
+            self.overflow_check(self.calc_new_freq());
+        }
+    }
+
+    pub fn read(&self) -> u8 {
+        self.period << 4 | (self.negate as u8) << 3 | self.shift
+    }
+    
+    pub fn write(&mut self, value: u8) {
+        self.shift = value & 0x7;
+        self.negate = value >> 3 & 0x1 != 0;
+        self.period = value >> 4 & 0x7;
+    }
+
+    fn calc_new_freq(&self) -> u16 {
+        let operand = self.freq_shadow >> self.shift;
+        if self.negate {
+            self.freq_shadow.wrapping_add(!operand).wrapping_add(1)
+        } else {
+            self.freq_shadow.wrapping_add(operand)
+        }
+    }
+
+    fn overflow_check(&mut self, new_freq: u16) -> bool {
+        if new_freq >= 0x800 {
+            self.enabled = false;
+            true
+        } else { false }
+    }
+}
+
 pub struct LengthCounter {
     // Registers
     length: u16,

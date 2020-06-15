@@ -5,10 +5,10 @@ use super::Channel;
 
 pub struct Tone {
     // Registers
+    pub sweep: Sweep,
     length_data: u8,
     duty: u8,
     pub envelope: Envelope,
-    freq_raw: u16,
     use_length: bool,
 
     // Sound Generation
@@ -29,10 +29,10 @@ impl Tone {
     pub fn new() -> Tone {
         Tone {
             // Registers
+            sweep: Sweep::new(),
             length_data: 0,
             duty: 0,
             envelope: Envelope::new(),
-            freq_raw: 0,
             use_length: false,
 
             // Sound Generation
@@ -47,7 +47,7 @@ impl Tone {
         if self.duty_clock == 0 {
             self.duty_clock = 16;
             if self.period == 0 {
-                self.period = 2048 - self.freq_raw;
+                self.period = 2048 - self.sweep.freq;
                 self.cur_duty = (self.cur_duty + 1) % 8;
             } else { self.period -= 1 }
         } else { self.duty_clock -= 1}
@@ -69,9 +69,10 @@ impl Channel for Tone {
 impl IORegister for Tone {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => self.duty << 6,
-            1 => self.envelope.read(),
-            2 | 3 => 0,
+            0 => self.sweep.read(),
+            1 => 0,
+            2 => self.duty << 6,
+            3 => self.envelope.read(),
             4 => 0,
             5 => (self.use_length as u8) << 6,
             6 | 7 => 0,
@@ -81,19 +82,21 @@ impl IORegister for Tone {
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
-            0 => {
+            0 => self.sweep.write(value),
+            1 => (),
+            2 => {
                 self.duty = value >> 6 & 0x3;
                 self.length_data = value & 0x3F;
             },
-            1 => self.envelope.write(value),
-            2 | 3 => (),
-            4 => self.freq_raw = self.freq_raw & !0xFF | value as u16,
+            3 => self.envelope.write(value),
+            4 => self.sweep.freq = self.sweep.freq & !0xFF | value as u16,
             5 => {
-                self.freq_raw = self.freq_raw & !0x700 | ((value & 0x7) as u16) << 8;
+                self.sweep.freq = self.sweep.freq & !0x700 | ((value & 0x7) as u16) << 8;
                 self.use_length = value >> 6 & 0x1 != 0;
                 if value & 0x80 != 0 {
+                    self.sweep.reload();
                     self.cur_duty = 0;
-                    self.period = 2048 - self.freq_raw;
+                    self.period = 2048 - self.sweep.freq;
                     self.envelope.reset();
                     self.length_counter.reload_length(64 - self.length_data as u16);
                 }
