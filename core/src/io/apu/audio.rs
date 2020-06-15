@@ -15,7 +15,7 @@ impl Audio {
         samples: None,
     };
 
-    const VOLUME_FACTOR: i16 = 16;
+    const VOLUME_FACTOR: i16 = 8;
 
     pub fn new() -> Audio {
         let sdl_ctx = sdl2::init().unwrap();

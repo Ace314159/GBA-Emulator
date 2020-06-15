@@ -8,7 +8,7 @@ pub struct Sweep {
     period: u8,
     // Sound Generation
     enabled: bool,
-    clock: u8,
+    timer: Timer<u8>,
     pub freq: u16,
     freq_shadow: u16,
 }
@@ -22,33 +22,31 @@ impl Sweep {
             period: 0,
             // Sound Generation
             enabled: false,
-            clock: 0,
+            timer: Timer::new(1),
             freq: 0,
             freq_shadow: 0,
         }
     }
 
     pub fn clock(&mut self) {
-        if !self.enabled { return }
-        if self.clock == 0 {
-            if self.period != 0 {
-                let new_freq = self.calc_new_freq();
-                if !self.overflow_check(new_freq) {
-                    self.freq = new_freq;
-                    self.freq_shadow = new_freq;
-                    self.overflow_check(self.calc_new_freq());
-                }
+        if !self.enabled || self.period == 0 { return }
+        if self.timer.clock_with_reload(self.period) {
+            let new_freq = self.calc_new_freq();
+                if !self.overflowed(new_freq) {
+                self.freq = new_freq;
+                self.freq_shadow = new_freq;
+                self.overflowed(self.calc_new_freq());
             }
-            self.clock = self.period;
-        } else { self.clock -= 1 }
+        }
+    }
     }
 
     pub fn reload(&mut self) {
         self.freq_shadow = self.freq;
-        self.clock = self.period;
+        if self.period != 0 { self.timer.reload(self.period) }
         self.enabled = self.period != 0 || self.shift != 0;
         if self.shift != 0 {
-            self.overflow_check(self.calc_new_freq());
+            self.overflowed(self.calc_new_freq());
         }
     }
 
@@ -65,13 +63,13 @@ impl Sweep {
     fn calc_new_freq(&self) -> u16 {
         let operand = self.freq_shadow >> self.shift;
         if self.negate {
-            self.freq_shadow.wrapping_add(!operand).wrapping_add(1)
+            self.freq_shadow.wrapping_sub(operand)
         } else {
             self.freq_shadow.wrapping_add(operand)
         }
     }
 
-    fn overflow_check(&mut self, new_freq: u16) -> bool {
+    fn overflowed(&mut self, new_freq: u16) -> bool {
         if new_freq >= 0x800 {
             self.enabled = false;
             true
@@ -187,12 +185,13 @@ impl<T: NumAssign + Unsigned + Copy> Timer<T> {
     }
 
     pub fn clock_with_reload(&mut self, reload: T) -> bool {
-        self.reload(reload);
+        self.reload = reload;
         self.clock()
     }
 
     pub fn reload(&mut self, reload: T) {
         assert!(reload != num::zero());
-        self.reload = reload
+        self.reload = reload;
+        self.counter = self.reload;
     }
 }

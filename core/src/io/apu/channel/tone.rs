@@ -12,8 +12,7 @@ pub struct Tone {
 
     // Sound Generation
     pub length_counter: LengthCounter,
-    duty_timer: Timer<u8>,
-    main_timer: Timer<u16>,
+    timer: Timer<u16>,
     duty_pos: usize,
 }
 
@@ -37,17 +36,14 @@ impl Tone {
 
             // Sound Generation
             length_counter: LengthCounter::new(),
-            duty_timer: Timer::new(16),
-            main_timer: Timer::new(2048),
+            timer: Timer::new(16 * 2048),
             duty_pos: 0,
         }
     }
 
     pub fn clock(&mut self) {
-        if self.duty_timer.clock() {
-            if self.main_timer.clock_with_reload(2048 - self.sweep.freq) {
-                self.duty_pos = (self.duty_pos + 1) % 8;
-            }
+        if self.timer.clock_with_reload(16 * (2048 - self.sweep.freq)) {
+            self.duty_pos = (self.duty_pos + 1) % 8;
         }
     }
 }
@@ -94,7 +90,7 @@ impl IORegister for Tone {
                 if value & 0x80 != 0 {
                     self.sweep.reload();
                     self.duty_pos = 0;
-                    self.main_timer.reload(2048 - self.sweep.freq);
+                    self.timer.reload(16 * (2048 - self.sweep.freq));
                     self.envelope.reset();
                     self.length_counter.reload_length(64 - self.length_data as u16);
                 }
