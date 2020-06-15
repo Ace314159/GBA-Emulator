@@ -7,6 +7,6 @@ mod tone;
 pub use tone::Tone;
 
 pub trait Channel {
-    fn generate_sample(&self) -> f32;
+    fn generate_sample(&self) -> i16;
     fn is_on(&self) -> bool;
 }

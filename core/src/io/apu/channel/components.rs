@@ -143,8 +143,8 @@ impl Envelope {
         }
     }
 
-    pub fn get_volume(&self) -> f32 {
-        self.cur_volume as f32
+    pub fn get_volume(&self) -> i16 {
+        self.cur_volume as i16
     }
 
     pub fn reset(&mut self) {

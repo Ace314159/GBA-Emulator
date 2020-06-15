@@ -86,16 +86,16 @@ impl APU {
         if self.sample_clock == 0 {
             let channel1_sample = self.tone1.generate_sample();
             let channel2_sample = self.tone2.generate_sample();
-            let mut left_sample = 0.0;
-            let mut right_sample = 0.0;
+            let mut left_sample = 0;
+            let mut right_sample = 0;
 
-            left_sample += self.cnt.psg_enable_l.channel1 as f32 * channel1_sample;
-            left_sample += self.cnt.psg_enable_l.channel2 as f32 * channel2_sample;
-            right_sample += self.cnt.psg_enable_r.channel1 as f32 * channel1_sample;
-            right_sample += self.cnt.psg_enable_r.channel2 as f32 * channel2_sample;
+            left_sample += self.cnt.psg_enable_l.channel1 as i16 * channel1_sample;
+            left_sample += self.cnt.psg_enable_l.channel2 as i16 * channel2_sample;
+            right_sample += self.cnt.psg_enable_r.channel1 as i16 * channel1_sample;
+            right_sample += self.cnt.psg_enable_r.channel2 as i16 * channel2_sample;
 
-            left_sample *= self.cnt.psg_master_volume_l as f32;
-            right_sample *= self.cnt.psg_master_volume_r as f32;
+            left_sample *= self.cnt.psg_master_volume_l as i16;
+            right_sample *= self.cnt.psg_master_volume_r as i16;
 
             self.audio.queue(left_sample, right_sample);
             self.sample_clock = APU::CLOCKS_PER_SAMPLE;

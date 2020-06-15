@@ -18,11 +18,11 @@ pub struct Tone {
 }
 
 impl Tone {
-    const DUTY: [[f32; 8]; 4] = [
-        [1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0],
-        [1.0,  1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0],
-        [1.0,  1.0,  1.0,  1.0, -1.0, -1.0, -1.0, -1.0],
-        [1.0,  1.0,  1.0,  1.0,  1.0,  1.0, -1.0, -1.0],
+    const DUTY: [[i16; 8]; 4] = [
+        [1, -1, -1, -1, -1, -1, -1, -1],
+        [1,  1, -1, -1, -1, -1, -1, -1],
+        [1,  1,  1,  1, -1, -1, -1, -1],
+        [1,  1,  1,  1,  1,  1, -1, -1],
     ];
 
     pub fn new() -> Tone {
@@ -52,10 +52,10 @@ impl Tone {
 }
 
 impl Channel for Tone {
-    fn generate_sample(&self) -> f32 {
+    fn generate_sample(&self) -> i16 {
         if !self.use_length || self.length_counter.should_play() {
             self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.duty_pos]
-        } else { 0.0 }
+        } else { 0 }
     }
 
     fn is_on(&self) -> bool {

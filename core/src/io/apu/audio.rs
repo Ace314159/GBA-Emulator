@@ -5,7 +5,7 @@ use sdl2::audio::{AudioSpecDesired, AudioQueue};
 use crate::gba;
 
 pub struct Audio {
-    queue: AudioQueue<f32>,
+    queue: AudioQueue<i16>,
 }
 
 impl Audio {
@@ -15,7 +15,7 @@ impl Audio {
         samples: None,
     };
 
-    const VOLUME_FACTOR: f32 = 0.001;
+    const VOLUME_FACTOR: i16 = 64;
 
     pub fn new() -> Audio {
         let sdl_ctx = sdl2::init().unwrap();
@@ -28,7 +28,7 @@ impl Audio {
         }
     }
 
-    pub fn queue(&self, left_sample: f32, right_sample: f32) {
+    pub fn queue(&self, left_sample: i16, right_sample: i16) {
         self.queue.queue(&[Audio::VOLUME_FACTOR * left_sample, Audio::VOLUME_FACTOR * right_sample]);
     }
 }
