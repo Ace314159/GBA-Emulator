@@ -11,6 +11,7 @@ pub struct Sweep {
     timer: Timer<u8>,
     pub freq: u16,
     freq_shadow: u16,
+    freq_overflowed: bool,
 }
 
 impl Sweep {
@@ -25,6 +26,7 @@ impl Sweep {
             timer: Timer::new(1),
             freq: 0,
             freq_shadow: 0,
+            freq_overflowed: false,
         }
     }
 
@@ -39,9 +41,13 @@ impl Sweep {
             }
         }
     }
+
+    pub fn should_play(&self) -> bool {
+        !self.freq_overflowed
     }
 
     pub fn reload(&mut self) {
+        self.freq_overflowed = false;
         self.freq_shadow = self.freq;
         if self.period != 0 { self.timer.reload(self.period) }
         self.enabled = self.period != 0 || self.shift != 0;
@@ -71,6 +77,7 @@ impl Sweep {
 
     fn overflowed(&mut self, new_freq: u16) -> bool {
         if new_freq >= 0x800 {
+            self.freq_overflowed = true;
             self.enabled = false;
             true
         } else { false }

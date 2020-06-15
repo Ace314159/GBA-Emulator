@@ -50,13 +50,13 @@ impl Tone {
 
 impl Channel for Tone {
     fn generate_sample(&self) -> i16 {
-        if !self.use_length || self.length_counter.should_play() {
+        if self.is_on() {
             self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.duty_pos]
         } else { 0 }
     }
 
     fn is_on(&self) -> bool {
-        !self.use_length || self.length_counter.should_play()
+        (!self.use_length || self.length_counter.should_play()) && self.sweep.should_play()
     }
 }
 
