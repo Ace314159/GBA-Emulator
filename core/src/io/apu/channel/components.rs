@@ -55,9 +55,11 @@ impl Envelope {
                 assert!(self.cur_volume <= 15);
                 if self.cur_volume == 15 { self.active = false }
                 else { self.cur_volume += 1 }
+                self.clock = self.step_period;
             } else {
                 if self.cur_volume == 0 { self.active = false }
                 else { self.cur_volume -= 1 }
+                self.clock = self.step_period;
             }
         } else { self.clock -= 1 }
     }
