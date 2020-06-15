@@ -1,7 +1,6 @@
 use super::components::*;
 
-use super::IORegister;
-use super::Channel;
+use super::{Channel, IORegister};
 
 pub struct Tone {
     // Registers
@@ -13,9 +12,9 @@ pub struct Tone {
 
     // Sound Generation
     pub length_counter: LengthCounter,
-    duty_clock: u8,
-    period: u16,
-    cur_duty: usize,
+    duty_timer: Timer<u8>,
+    main_timer: Timer<u16>,
+    duty_pos: usize,
 }
 
 impl Tone {
@@ -37,27 +36,25 @@ impl Tone {
 
             // Sound Generation
             length_counter: LengthCounter::new(),
-            duty_clock: 0,
-            period: 0,
-            cur_duty: 0,
+            duty_timer: Timer::new(16),
+            main_timer: Timer::new(2048),
+            duty_pos: 0,
         }
     }
 
     pub fn clock(&mut self) {
-        if self.duty_clock == 0 {
-            self.duty_clock = 16;
-            if self.period == 0 {
-                self.period = 2048 - self.sweep.freq;
-                self.cur_duty = (self.cur_duty + 1) % 8;
-            } else { self.period -= 1 }
-        } else { self.duty_clock -= 1}
+        if self.duty_timer.clock() {
+            if self.main_timer.clock_with_reload(2048 - self.sweep.freq) {
+                self.duty_pos = (self.duty_pos + 1) % 8;
+            }
+        }
     }
 }
 
 impl Channel for Tone {
     fn generate_sample(&self) -> f32 {
         if !self.use_length || self.length_counter.should_play() {
-            self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.cur_duty]
+            self.envelope.get_volume() * Tone::DUTY[self.duty as usize][self.duty_pos]
         } else { 0.0 }
     }
 
@@ -95,8 +92,8 @@ impl IORegister for Tone {
                 self.use_length = value >> 6 & 0x1 != 0;
                 if value & 0x80 != 0 {
                     self.sweep.reload();
-                    self.cur_duty = 0;
-                    self.period = 2048 - self.sweep.freq;
+                    self.duty_pos = 0;
+                    self.main_timer.reload(2048 - self.sweep.freq);
                     self.envelope.reset();
                     self.length_counter.reload_length(64 - self.length_data as u16);
                 }

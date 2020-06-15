@@ -7,6 +7,7 @@ use crate::gba;
 
 use audio::Audio;
 use registers::*;
+use channel::Timer;
 use channel::*;
 
 pub struct APU {
@@ -21,7 +22,7 @@ pub struct APU {
     // Sound Generation
     audio: Audio,
     sequencer_step: u8,
-    sequencer_clock: u16,
+    sequencer_clock: Timer<u16>,
     sample_clock: usize,
 }
 
@@ -41,7 +42,7 @@ impl APU {
             // Sound Generation
             audio: Audio::new(),
             sequencer_step: 0,
-            sequencer_clock: 0,
+            sequencer_clock: Timer::new((gba::CLOCK_FREQ / 512) as u16),
             sample_clock: APU::CLOCKS_PER_SAMPLE,
         }
     }
@@ -57,18 +58,17 @@ impl APU {
     }
 
     pub fn clock_sequencer(&mut self) {
-        if self.sequencer_clock == 0 {
+        if self.sequencer_clock.clock() {
             match self.sequencer_step {
                 0 => self.clock_length_counters(),
-                2 => {self.clock_length_counters(); self.tone1.sweep.clock() },
+                2 => { self.clock_length_counters(); self.tone1.sweep.clock() },
                 4 => self.clock_length_counters(),
-                6 => {self.clock_length_counters(); self.tone1.sweep.clock() },
+                6 => { self.clock_length_counters(); self.tone1.sweep.clock() },
                 7 => self.clock_envelopes(),
                 _ => assert!(self.sequencer_step < 8),
             }
             self.sequencer_step = (self.sequencer_step + 1) % 8;
-            self.sequencer_clock = (gba::CLOCK_FREQ / 512) as u16;
-        } else { self.sequencer_clock -= 1 }
+        }
     }
 
     fn clock_length_counters(&mut self) {

@@ -1,3 +1,6 @@
+use num_traits as num;
+use num::{NumAssign, Unsigned};
+
 pub struct Sweep {
     // Registers
     shift: u8,
@@ -108,7 +111,7 @@ pub struct Envelope {
     initial_volume: u8,
     // Sound Generation
     cur_volume: u8,
-    clock: u8,
+    timer: Timer<u8>,
     active: bool,
 }
 
@@ -121,25 +124,23 @@ impl Envelope {
             initial_volume: 0,
             // Sound Generation
             cur_volume: 0,
-            clock: 0,
+            timer: Timer::new(1),
             active: false,
         }
     }
 
     pub fn clock(&mut self) {
         if self.step_period == 0 || !self.active { return }
-        if self.clock == 0 {
+        if self.timer.clock_with_reload(self.step_period) {
             if self.inc {
                 assert!(self.cur_volume <= 15);
                 if self.cur_volume == 15 { self.active = false }
                 else { self.cur_volume += 1 }
-                self.clock = self.step_period;
             } else {
                 if self.cur_volume == 0 { self.active = false }
                 else { self.cur_volume -= 1 }
-                self.clock = self.step_period;
             }
-        } else { self.clock -= 1 }
+        }
     }
 
     pub fn get_volume(&self) -> f32 {
@@ -148,7 +149,7 @@ impl Envelope {
 
     pub fn reset(&mut self) {
         self.cur_volume = self.initial_volume;
-        self.clock = self.step_period;
+        if self.step_period != 0 { self.timer.reload(self.step_period) }
         self.active = true;
     }
 
@@ -160,5 +161,38 @@ impl Envelope {
         self.initial_volume = value >> 4;
         self.inc = value >> 3 & 0x1 != 0;
         self.step_period = value & 0x7;
+    }
+}
+
+pub struct Timer<T: NumAssign + Unsigned + Copy> {
+    counter: T,
+    reload: T,
+}
+
+impl<T: NumAssign + Unsigned + Copy> Timer<T> {
+    pub fn new(reload: T) -> Timer<T> {
+        assert!(reload != num::zero());
+        Timer {
+            counter: reload,
+            reload,
+        }
+    }
+
+    pub fn clock(&mut self) -> bool {
+        self.counter -= num::one();
+        if self.counter == num::one() {
+            self.counter = self.reload;
+            true
+        } else { false }
+    }
+
+    pub fn clock_with_reload(&mut self, reload: T) -> bool {
+        self.reload(reload);
+        self.clock()
+    }
+
+    pub fn reload(&mut self, reload: T) {
+        assert!(reload != num::zero());
+        self.reload = reload
     }
 }

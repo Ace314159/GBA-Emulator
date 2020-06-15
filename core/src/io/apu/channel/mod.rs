@@ -1,4 +1,5 @@
 mod components;
+pub use components::Timer;
 
 use super::IORegister;
 
