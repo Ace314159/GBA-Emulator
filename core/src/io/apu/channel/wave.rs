@@ -7,7 +7,7 @@ pub struct Wave {
     use_two_banks: bool,
     wave_ram_bank: u8,
     enabled: bool,
-    length_data: u8,
+    length_reload: u8,
     volume: u8,
     force_volume: bool,
     sample_rate: u16,
@@ -28,7 +28,7 @@ impl Wave {
             use_two_banks: false,
             wave_ram_bank: 0,
             enabled: false,
-            length_data: 0,
+            length_reload: 0,
             volume: 0,
             force_volume: false,
             sample_rate: 0,
@@ -95,7 +95,7 @@ impl IORegister for Wave {
                 self.use_two_banks = value >> 5 & 0x1 != 0;
             },
             1 => (),
-            2 => self.length_data = value,
+            2 => self.length_reload = value,
             3 => {
                 self.volume = value >> 5 & 0x3;
                 self.force_volume = value >> 7 & 0x1 != 0;
@@ -107,7 +107,7 @@ impl IORegister for Wave {
                 if value & 0x80 != 0 {
                     self.wave_ram_i = 0;
                     self.timer.reload(8 * (2048 - self.sample_rate));
-                    self.length_counter.reload_length(256 - self.length_data as u16);
+                    self.length_counter.reload_length(256 - self.length_reload as u16);
                 }
             },
             6 | 7 => (),

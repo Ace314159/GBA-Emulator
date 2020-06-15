@@ -5,7 +5,7 @@ use super::{Channel, IORegister};
 pub struct Tone {
     // Registers
     pub sweep: Sweep,
-    length_data: u8,
+    length_reload: u8,
     duty: u8,
     pub envelope: Envelope,
     use_length: bool,
@@ -29,7 +29,7 @@ impl Tone {
         Tone {
             // Registers
             sweep: Sweep::new(),
-            length_data: 0,
+            length_reload: 0,
             duty: 0,
             envelope: Envelope::new(),
             use_length: false,
@@ -80,7 +80,7 @@ impl IORegister for Tone {
             1 => (),
             2 => {
                 self.duty = value >> 6 & 0x3;
-                self.length_data = value & 0x3F;
+                self.length_reload = value & 0x3F;
             },
             3 => self.envelope.write(value),
             4 => self.sweep.freq = self.sweep.freq & !0xFF | value as u16,
@@ -92,7 +92,7 @@ impl IORegister for Tone {
                     self.duty_pos = 0;
                     self.timer.reload(16 * (2048 - self.sweep.freq));
                     self.envelope.reset();
-                    self.length_counter.reload_length(64 - self.length_data as u16);
+                    self.length_counter.reload_length(64 - self.length_reload as u16);
                 }
             },
             6 | 7 => (),
