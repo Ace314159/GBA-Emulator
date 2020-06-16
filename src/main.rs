@@ -74,6 +74,7 @@ fn main() {
         
         let pixels = pixels_lock.take().unwrap();
         let mut debug_windows_spec = debug_windows_spec_mutex.lock().unwrap();
+        let mut debug_windows_copy = debug_windows.clone();
         display.render(&pixels, &keypad_tx, &mut imgui,
             |ui, keys_pressed, modifers| {
             if paused {
@@ -85,7 +86,7 @@ fn main() {
                 });
             }
             if debug_windows_spec.map_enable {
-                let (pixels, width, height) = debug_windows.pop_front().unwrap();
+                let (pixels, width, height) = debug_windows_copy.pop_front().unwrap();
                 let bg_i = &mut debug_windows_spec.map_spec.bg_i;
                 map_window.render(ui, &keys_pressed, pixels, width, height, || {
                     debug::control_combo_with_arrows(ui, &keys_pressed, bg_i, map_labels.len() - 1);
@@ -94,7 +95,7 @@ fn main() {
                 });
             }
             if debug_windows_spec.tiles_enable {
-                let (pixels, width, height) = debug_windows.pop_front().unwrap();
+                let (pixels, width, height) = debug_windows_copy.pop_front().unwrap();
                 let spec = &mut debug_windows_spec.tiles_spec;
                 let (palette, block, bpp8) = (&mut spec.palette, &mut spec.block, &mut spec.bpp8);
                 tiles_window.render(ui, &keys_pressed, pixels, width, height, || {
@@ -111,7 +112,7 @@ fn main() {
                 });
             }
             if debug_windows_spec.palettes_enable {
-                let (pixels, width, height) = debug_windows.pop_front().unwrap();
+                let (pixels, width, height) = debug_windows_copy.pop_front().unwrap();
                 palettes_window.render(ui, &keys_pressed, pixels, width, height, || {});
             }
             /*let mut mem_region_i = mem_region as usize;
@@ -128,6 +129,7 @@ fn main() {
             mem_region = VisibleMemoryRegion::from_index(mem_region_i);*/
 
             if modifers.contains(&glfw::Modifiers::Control) {
+                if paused { return }
                 if keys_pressed.contains(&Key::M) { debug_windows_spec.map_enable = !debug_windows_spec.map_enable }
                 if keys_pressed.contains(&Key::T) { debug_windows_spec.tiles_enable = !debug_windows_spec.tiles_enable }
                 if keys_pressed.contains(&Key::P) { debug_windows_spec.palettes_enable = !debug_windows_spec.palettes_enable }
