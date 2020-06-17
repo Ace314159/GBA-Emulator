@@ -81,8 +81,8 @@ impl IO {
 
     fn read_from_bytes<T, F, D>(device: &D, read_fn: &F, addr: u32) -> T
         where T: MemoryValue, F: Fn(&D, u32) -> u8 {
-        let mut value: T = num::cast(read_fn(device, addr)).unwrap();
-        for i in 1..(size_of::<T>() as u32) {
+        let mut value: T = num::zero();
+        for i in 0..(size_of::<T>() as u32) {
             value = num::cast::<u8, T>(read_fn(device, addr + i)).unwrap() << (8 * i as usize) | value;
         }
         value
