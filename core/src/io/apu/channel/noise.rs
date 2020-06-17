@@ -35,9 +35,13 @@ impl Noise {
         }
     }
 
+    fn calc_reload(&self) -> u16 {
+        4 * (Noise::DIVISORS[self.divisor_code as usize] << self.clock_shift)
+    }
+
     pub fn clock(&mut self) {
         if !self.is_on() { return }
-        if self.timer.clock_with_reload(4 * (Noise::DIVISORS[self.divisor_code as usize] << self.clock_shift)) {
+        if self.timer.clock_with_reload(self.calc_reload()) {
             let new_high = (self.lfsr & 0x1) ^ (self.lfsr >> 1 & 0x1);
             self.lfsr = new_high << 14 | self.lfsr >> 1;
             if self.counter_7bit { self.lfsr = self.lfsr & !0x40 | new_high << 6 }
@@ -85,7 +89,7 @@ impl IORegister for Noise {
                 self.use_length = value >> 6 & 0x1 != 0;
                 if value & 0x80 != 0 {
                     self.lfsr = 0x7FFF;
-                    self.timer.reload(4 * (Noise::DIVISORS[self.divisor_code as usize] << self.clock_shift));
+                    self.timer.reload(self.calc_reload());
                     self.envelope.reset();
                     self.length_counter.reload_length(64 - self.length_reload as u16);
                 }

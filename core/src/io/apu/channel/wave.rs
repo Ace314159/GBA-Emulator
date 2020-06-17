@@ -41,8 +41,12 @@ impl Wave {
         }
     }
 
+    fn calc_reload(&self) -> u16 {
+        8 * (2048 - self.sample_rate)
+    }
+
     pub fn clock(&mut self) {
-        if self.timer.clock_with_reload(8 * (2048 - self.sample_rate)) {
+        if self.timer.clock_with_reload(self.calc_reload()) {
             self.wave_ram_i += 1;
             if self.wave_ram_i == 32 {
                 self.wave_ram_i = 0;
@@ -106,7 +110,7 @@ impl IORegister for Wave {
                 self.use_length = value >> 6 & 0x1 != 0;
                 if value & 0x80 != 0 {
                     self.wave_ram_i = 0;
-                    self.timer.reload(8 * (2048 - self.sample_rate));
+                    self.timer.reload(self.calc_reload());
                     self.length_counter.reload_length(256 - self.length_reload as u16);
                 }
             },

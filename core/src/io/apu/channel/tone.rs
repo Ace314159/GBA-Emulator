@@ -41,8 +41,12 @@ impl Tone {
         }
     }
 
+    fn calc_reload(&self) -> u16 {
+        16 * (2048 - self.sweep.freq)
+    }
+
     pub fn clock(&mut self) {
-        if self.timer.clock_with_reload(16 * (2048 - self.sweep.freq)) {
+        if self.timer.clock_with_reload(self.calc_reload()) {
             self.duty_pos = (self.duty_pos + 1) % 8;
         }
     }
@@ -90,7 +94,7 @@ impl IORegister for Tone {
                 if value & 0x80 != 0 {
                     self.sweep.reload();
                     self.duty_pos = 0;
-                    self.timer.reload(16 * (2048 - self.sweep.freq));
+                    self.timer.reload(self.calc_reload());
                     self.envelope.reset();
                     self.length_counter.reload_length(64 - self.length_reload as u16);
                 }

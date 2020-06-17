@@ -184,21 +184,19 @@ impl<T: NumAssign + Unsigned + Copy> Timer<T> {
     }
 
     pub fn clock(&mut self) -> bool {
+        self.clock_with_reload(self.reload)
+    }
+
+    pub fn clock_with_reload(&mut self, reload: T) -> bool {
         self.counter -= num::one();
-        if self.counter == num::one() {
-            self.counter = self.reload;
+        if self.counter == num::zero() {
+            self.counter = reload;
             true
         } else { false }
     }
 
-    pub fn clock_with_reload(&mut self, reload: T) -> bool {
-        self.reload = reload;
-        self.clock()
-    }
-
     pub fn reload(&mut self, reload: T) {
         assert!(reload != num::zero());
-        self.reload = reload;
-        self.counter = self.reload;
+        self.counter = reload;
     }
 }
