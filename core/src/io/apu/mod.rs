@@ -15,6 +15,7 @@ pub struct APU {
     tone1: Tone,
     tone2: Tone,
     wave: Wave,
+    noise: Noise,
     // Sound Control Registers
     cnt: SOUNDCNT,
     bias: SOUNDBIAS,
@@ -36,6 +37,7 @@ impl APU {
             tone1: Tone::new(),
             tone2: Tone::new(),
             wave: Wave::new(),
+            noise: Noise::new(),
             // Sound Control Registers
             cnt: SOUNDCNT::new(),
             bias: SOUNDBIAS::new(),
@@ -54,6 +56,7 @@ impl APU {
         self.tone1.clock();
         self.tone2.clock();
         self.wave.clock();
+        self.noise.clock();
 
         self.clock_sequencer();
 
@@ -78,11 +81,13 @@ impl APU {
         self.tone1.length_counter.clock();
         self.tone2.length_counter.clock();
         self.wave.length_counter.clock();
+        self.noise.length_counter.clock();
     }
 
     fn clock_envelopes(&mut self) {
         self.tone1.envelope.clock();
         self.tone2.envelope.clock();
+        self.noise.envelope.clock();
     }
 
     fn generate_sample(&mut self) {
@@ -91,15 +96,18 @@ impl APU {
             let channel1_sample = self.tone1.generate_sample();
             let channel2_sample = self.tone2.generate_sample();
             let channel3_sample = self.wave.generate_sample();
+            let channel4_sample = self.noise.generate_sample();
             let mut left_sample = 0;
             let mut right_sample = 0;
 
             left_sample += self.cnt.psg_enable_l.channel1 as i16 * channel1_sample;
             left_sample += self.cnt.psg_enable_l.channel2 as i16 * channel2_sample;
             left_sample += self.cnt.psg_enable_l.channel3 as i16 * channel3_sample;
+            left_sample += self.cnt.psg_enable_l.channel4 as i16 * channel4_sample;
             right_sample += self.cnt.psg_enable_r.channel1 as i16 * channel1_sample;
             right_sample += self.cnt.psg_enable_r.channel2 as i16 * channel2_sample;
             right_sample += self.cnt.psg_enable_r.channel3 as i16 * channel3_sample;
+            right_sample += self.cnt.psg_enable_r.channel4 as i16 * channel4_sample;
 
             left_sample *= self.cnt.psg_master_volume_l as i16;
             right_sample *= self.cnt.psg_master_volume_r as i16;
@@ -138,12 +146,20 @@ impl APU {
             0x075 => self.wave.read(5),
             0x076 => self.wave.read(6),
             0x077 => self.wave.read(7),
+            0x078 => self.noise.read(0),
+            0x079 => self.noise.read(1),
+            0x07A => self.noise.read(2),
+            0x07B => self.noise.read(3),
+            0x07C => self.noise.read(4),
+            0x07D => self.noise.read(5),
+            0x07E => self.noise.read(6),
+            0x07F => self.noise.read(7),
             0x080 => self.cnt.read(0),
             0x081 => self.cnt.read(1),
             0x082 => self.cnt.read(2),
             0x083 => self.cnt.read(3),
-            0x084 => (self.master_enable as u8) << 7 | (self.wave.is_on() as u8) << 3 | (self.tone2.is_on() as u8) << 1 |
-                        (self.tone1.is_on() as u8) << 0,
+            0x084 => (self.master_enable as u8) << 7 | (self.noise.is_on() as u8) << 3 | (self.wave.is_on() as u8) << 2 |
+                        (self.tone2.is_on() as u8) << 1 | (self.tone1.is_on() as u8) << 0,
             0x085 ..= 0x087 => 0,
             0x088 => self.bias.read(0),
             0x089 => self.bias.read(1),
@@ -180,6 +196,14 @@ impl APU {
             0x075 => self.wave.write(5, value),
             0x076 => self.wave.write(6, value),
             0x077 => self.wave.write(7, value),
+            0x078 => self.noise.write(0, value),
+            0x079 => self.noise.write(1, value),
+            0x07A => self.noise.write(2, value),
+            0x07B => self.noise.write(3, value),
+            0x07C => self.noise.write(4, value),
+            0x07D => self.noise.write(5, value),
+            0x07E => self.noise.write(6, value),
+            0x07F => self.noise.write(7, value),
             0x080 => self.cnt.write(0, value),
             0x081 => self.cnt.write(1, value),
             0x082 => self.cnt.write(2, value),
@@ -190,6 +214,8 @@ impl APU {
                 if !prev && self.master_enable {
                     self.tone1 = Tone::new();
                     self.tone2 = Tone::new();
+                    self.wave = Wave::new();
+                    self.noise = Noise::new();
                     self.cnt.write(0, value);
                     self.cnt.write(1, value);
                 }
