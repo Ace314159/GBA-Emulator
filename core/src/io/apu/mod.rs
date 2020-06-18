@@ -16,6 +16,8 @@ pub struct APU {
     tone2: Tone,
     wave: Wave,
     noise: Noise,
+    sound_a: DMASound,
+    sound_b: DMASound,
     // Sound Control Registers
     cnt: SOUNDCNT,
     bias: SOUNDBIAS,
@@ -26,6 +28,8 @@ pub struct APU {
     sequencer_step: u8,
     sequencer_clock: Timer<u16>,
     sample_clock: usize,
+    fifo_a_req: bool,
+    fifo_b_req: bool,
 }
 
 impl APU {
@@ -38,6 +42,8 @@ impl APU {
             tone2: Tone::new(),
             wave: Wave::new(),
             noise: Noise::new(),
+            sound_a: DMASound::new(),
+            sound_b: DMASound::new(),
             // Sound Control Registers
             cnt: SOUNDCNT::new(),
             bias: SOUNDBIAS::new(),
@@ -48,15 +54,20 @@ impl APU {
             sequencer_step: 0,
             sequencer_clock: Timer::new((gba::CLOCK_FREQ / 512) as u16),
             sample_clock: APU::CLOCKS_PER_SAMPLE,
+            fifo_a_req: false,
+            fifo_b_req: false,
         }
     }
 
-    pub fn clock(&mut self) {
+    pub fn clock(&mut self, timers_overflowed: [bool; 4]) {
         if !self.master_enable { return }
+
         self.tone1.clock();
         self.tone2.clock();
         self.wave.clock();
         self.noise.clock();
+        self.fifo_a_req = self.sound_a.clock(&timers_overflowed) || self.fifo_a_req;
+        self.fifo_b_req = self.sound_b.clock(&timers_overflowed) || self.fifo_b_req;
 
         self.clock_sequencer();
 
@@ -75,6 +86,18 @@ impl APU {
             }
             self.sequencer_step = (self.sequencer_step + 1) % 8;
         }
+    }
+
+    pub fn fifo_a_req(&mut self) -> bool {
+        let fifo_a_req = self.fifo_a_req;
+        self.fifo_a_req = false;
+        fifo_a_req
+    }
+
+    pub fn fifo_b_req(&mut self) -> bool {
+        let fifo_b_req = self.fifo_b_req;
+        self.fifo_b_req = false;
+        fifo_b_req
     }
 
     fn clock_length_counters(&mut self) {
@@ -97,22 +120,30 @@ impl APU {
             let channel2_sample = self.tone2.generate_sample();
             let channel3_sample = self.wave.generate_sample();
             let channel4_sample = self.noise.generate_sample();
-            let mut left_sample = 0;
-            let mut right_sample = 0;
+            let (mut psg_l, mut psg_r) = (0, 0);
+            
+            psg_l += self.cnt.psg_enable_l.channel1 as i16 * channel1_sample;
+            psg_l += self.cnt.psg_enable_l.channel2 as i16 * channel2_sample;
+            psg_l += self.cnt.psg_enable_l.channel3 as i16 * channel3_sample;
+            psg_l += self.cnt.psg_enable_l.channel4 as i16 * channel4_sample;
+            psg_r += self.cnt.psg_enable_r.channel1 as i16 * channel1_sample;
+            psg_r += self.cnt.psg_enable_r.channel2 as i16 * channel2_sample;
+            psg_r += self.cnt.psg_enable_r.channel3 as i16 * channel3_sample;
+            psg_r += self.cnt.psg_enable_r.channel4 as i16 * channel4_sample;
+            
+            psg_l *= self.cnt.psg_master_volume_l as i16;
+            psg_r *= self.cnt.psg_master_volume_r as i16;
+            
+            let sound_a_sample = DMASound::VOLUME_FACTORS[self.cnt.dma_sound_a_vol as usize] * self.sound_a.generate_sample();
+            let sound_b_sample = DMASound::VOLUME_FACTORS[self.cnt.dma_sound_b_vol as usize] * self.sound_b.generate_sample();
+            let (mut dma_l, mut dma_r) = (0, 0);
 
-            left_sample += self.cnt.psg_enable_l.channel1 as i16 * channel1_sample;
-            left_sample += self.cnt.psg_enable_l.channel2 as i16 * channel2_sample;
-            left_sample += self.cnt.psg_enable_l.channel3 as i16 * channel3_sample;
-            left_sample += self.cnt.psg_enable_l.channel4 as i16 * channel4_sample;
-            right_sample += self.cnt.psg_enable_r.channel1 as i16 * channel1_sample;
-            right_sample += self.cnt.psg_enable_r.channel2 as i16 * channel2_sample;
-            right_sample += self.cnt.psg_enable_r.channel3 as i16 * channel3_sample;
-            right_sample += self.cnt.psg_enable_r.channel4 as i16 * channel4_sample;
+            dma_l += self.sound_a.enable_left as i16 * sound_a_sample;
+            dma_l += self.sound_b.enable_left as i16 * sound_b_sample;
+            dma_r += self.sound_a.enable_right as i16 * sound_a_sample;
+            dma_r += self.sound_b.enable_right as i16 * sound_b_sample;
 
-            left_sample *= self.cnt.psg_master_volume_l as i16;
-            right_sample *= self.cnt.psg_master_volume_r as i16;
-
-            self.audio.queue(left_sample, right_sample);
+            self.audio.queue(psg_l + dma_l, psg_r + dma_r);
             self.sample_clock = APU::CLOCKS_PER_SAMPLE;
         }
     }
@@ -157,7 +188,7 @@ impl APU {
             0x080 => self.cnt.read(0),
             0x081 => self.cnt.read(1),
             0x082 => self.cnt.read(2),
-            0x083 => self.cnt.read(3),
+            0x083 => self.sound_b.read_cnt() << 4 | self.sound_a.read_cnt(),
             0x084 => (self.master_enable as u8) << 7 | (self.noise.is_on() as u8) << 3 | (self.wave.is_on() as u8) << 2 |
                         (self.tone2.is_on() as u8) << 1 | (self.tone1.is_on() as u8) << 0,
             0x085 ..= 0x087 => 0,
@@ -165,6 +196,8 @@ impl APU {
             0x089 => self.bias.read(1),
             0x08A ..= 0x08F => 0,
             0x090 ..= 0x09F => self.wave.read_wave_ram(addr - 0x04000090),
+            0x0A0 ..= 0x0A3 => 0,
+            0x0A4 ..= 0x0A7 => 0,
             _ => { warn!("Ignoring APU Read at 0x{:08X}", addr); 0 },
         }
     }
@@ -207,7 +240,7 @@ impl APU {
             0x080 => self.cnt.write(0, value),
             0x081 => self.cnt.write(1, value),
             0x082 => self.cnt.write(2, value),
-            0x083 => self.cnt.write(3, value),
+            0x083 => { self.sound_a.write_cnt(value & 0xF); self.sound_b.write_cnt(value >> 4) },
             0x084 => {
                 let prev = self.master_enable;
                 self.master_enable = value >> 7 & 0x1 != 0;
@@ -225,6 +258,8 @@ impl APU {
             0x089 => self.bias.write(1, value),
             0x08A ..= 0x08F => (),
             0x090 ..= 0x09F => self.wave.write_wave_ram(addr - 0x04000090, value),
+            0x0A0 ..= 0x0A3 => self.sound_a.write_fifo(value),
+            0x0A4 ..= 0x0A7 => self.sound_b.write_fifo(value),
             _ => warn!("Ignoring APU Write 0x{:08X} = {:02X}", addr, value),
         }
     }

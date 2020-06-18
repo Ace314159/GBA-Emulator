@@ -12,23 +12,24 @@ impl DMA {
     pub fn new() -> DMA {
         DMA {
             channels: [
-                DMAChannel::new(false, false, false),
-                DMAChannel::new(true, true, false),
-                DMAChannel::new(true, false, false),
-                DMAChannel::new(true, true, true),
-            ],
+                DMAChannel::new(0, false, false, false),
+                DMAChannel::new(1, true, true, false),
+                DMAChannel::new(2, true, false, false),
+                DMAChannel::new(3, true, true, true),
+            ]
         }
     }
 
-    pub fn get_channel_running(&mut self, hblank_called: bool, vblank_called: bool) -> usize {
+    pub fn get_channel_running(&mut self, hblank_called: bool, vblank_called: bool, fifo_req: [bool; 2]) -> usize {
         for (i, channel) in self.channels.iter().enumerate() {
-            if (*channel).needs_to_transfer(hblank_called, vblank_called) { return i }
+            if (*channel).needs_to_transfer(hblank_called, vblank_called, fifo_req) { return i }
         }
         return 4;
     }
 }
 
 pub struct DMAChannel {
+    pub num: usize,
     pub sad_latch: u32,
     pub dad_latch: u32,
     pub count_latch: u32,
@@ -40,8 +41,12 @@ pub struct DMAChannel {
 }
 
 impl DMAChannel {
-    pub fn new(src_any_memory: bool, dest_any_memory: bool, count_is16bit: bool) -> DMAChannel {
+    const FIFO_A_ADDR: u32 = 0x40000A0;
+    const FIFO_B_ADDR: u32 = 0x40000A4;
+
+    pub fn new(num: usize, src_any_memory: bool, dest_any_memory: bool, count_is16bit: bool) -> DMAChannel {
         DMAChannel {
+            num,
             sad_latch: 0,
             dad_latch: 0,
             count_latch: 0,
@@ -53,13 +58,19 @@ impl DMAChannel {
         }
     }
 
-    pub fn needs_to_transfer(&self, hblank_called: bool, vblank_called: bool) -> bool {
+    pub fn needs_to_transfer(&self, hblank_called: bool, vblank_called: bool, fifo_req: [bool; 2]) -> bool {
         if !self.cnt.enable { return false }
         match self.cnt.start_timing {
             0 => true,
             1 => vblank_called,
             2 => hblank_called,
-            3 => { warn!("Special DMA not implemented!"); false }, // TODO: Special
+            3 => match self.num {
+                0 => { warn!("Special DMA for DMA 0 Called!"); false }
+                1 | 2 => fifo_req[0] && self.dad.addr == DMAChannel::FIFO_A_ADDR ||
+                         fifo_req[1] && self.dad.addr == DMAChannel::FIFO_B_ADDR,
+                3 => { warn!("Video Capture DMA Called!"); false }, // TODO: Implement Video Capture DMA
+                _ => unreachable!(),
+            },
             _ => unreachable!(),
         }
     }

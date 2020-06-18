@@ -21,15 +21,17 @@ impl Timers {
         }
     }
 
-    pub fn clock(&mut self) -> InterruptRequest {
+    pub fn clock(&mut self) -> (InterruptRequest, [bool; 4]) {
         let mut prev_timer_overflowed = false;
         let mut interrupts = InterruptRequest::empty();
-        for timer  in self.timers.iter_mut() {
+        let mut timers_overflowed = [false; 4];
+        for (i, timer) in self.timers.iter_mut().enumerate() {
             let out = timer.clock(prev_timer_overflowed);
+            timers_overflowed[i] = out.0;
             prev_timer_overflowed = out.0;
             interrupts |= out.1;
         }
-        interrupts
+        (interrupts, timers_overflowed)
     }
 }
 

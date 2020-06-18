@@ -86,15 +86,18 @@ impl IO {
     }
 
     pub fn run_dma(&mut self) {
-        let dma_channel = self.dma.get_channel_running(self.ppu.hblank_called(), self.ppu.vblank_called());
+        let dma_channel = self.dma.get_channel_running(
+            self.ppu.hblank_called(), self.ppu.vblank_called(), [self.apu.fifo_a_req(), self.apu.fifo_b_req()]
+        );
         if dma_channel < 4 {
             let channel = &mut self.dma.channels[dma_channel];
-            let count = channel.count_latch;
+            let is_fifo = (channel.num == 1 || channel.num == 2) && channel.cnt.start_timing == 3;
+            let count = if is_fifo { 4 } else { channel.count_latch };
             let mut src_addr = channel.sad_latch;
             let mut dest_addr = channel.dad_latch;
             let src_addr_ctrl = channel.cnt.src_addr_ctrl;
-            let dest_addr_ctrl = channel.cnt.dest_addr_ctrl;
-            let transfer_32 = channel.cnt.transfer_32;
+            let dest_addr_ctrl = if is_fifo { 2 } else { channel.cnt.dest_addr_ctrl };
+            let transfer_32 = if is_fifo { true } else { channel.cnt.transfer_32 };
             let irq = channel.cnt.irq;
             channel.cnt.enable = channel.cnt.start_timing != 0 && channel.cnt.repeat;
             info!("Running DMA{}: Writing to {:08X} from {:08X}, size: {}", dma_channel, dest_addr,
@@ -170,8 +173,9 @@ impl IIO for IO {
         }};
 
         for _ in 0..clocks_inc {
-            self.interrupt_controller.request |= self.timers.clock();
-            self.apu.clock();
+            let (timer_interrupts, timers_overflowed) = self.timers.clock();
+            self.interrupt_controller.request |= timer_interrupts;
+            self.apu.clock(timers_overflowed);
         }
         self.clocks_ahead += clocks_inc;
         while self.clocks_ahead >= 4 {
