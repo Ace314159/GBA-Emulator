@@ -85,7 +85,7 @@ impl IO {
         if self.ppu.rendered_frame() { self.keypad.poll() }
     }
 
-    pub fn run_dmas(&mut self) {
+    pub fn run_dma(&mut self) {
         let dma_channel = self.dma.get_channel_running(self.ppu.hblank_called(), self.ppu.vblank_called());
         if dma_channel < 4 {
             let channel = &mut self.dma.channels[dma_channel];

@@ -27,7 +27,7 @@ impl GBA {
 
     pub fn emulate(&mut self) {
         self.io.poll_keypad_updates();
-        self.io.run_dmas();
+        self.io.run_dma();
         self.cpu.handle_irq(&mut self.io);
         self.cpu.emulate_instr(&mut self.io);
     }
