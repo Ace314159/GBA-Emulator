@@ -5,17 +5,19 @@ mod dma;
 mod timers;
 pub mod keypad;
 mod interrupt_controller;
+mod cart_backup;
 
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
 pub use memory::MemoryHandler;
 use dma::DMA;
-use timers::*;
+use timers::Timers;
 use ppu::PPU;
 use apu::APU;
 use keypad::{Keypad, KEYINPUT};
 use interrupt_controller::{InterruptController, InterruptRequest};
+use cart_backup::CartBackup;
 
 use crate::gba::VisibleMemoryRegion;
 pub use ppu::{DebugSpecification, DebugWindows};
@@ -25,7 +27,6 @@ pub struct IO {
     ewram: Vec<u8>,
     iwram: Vec<u8>,
     rom: Vec<u8>,
-    cart_ram: Vec<u8>,
     clocks_ahead: u32,
 
     // IO
@@ -35,6 +36,7 @@ pub struct IO {
     timers: Timers,
     keypad: Keypad,
     interrupt_controller: InterruptController,
+    cart_backup: Box<dyn CartBackup>,
 
     // Registers
     haltcnt: u16,
@@ -50,15 +52,12 @@ impl IO {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
         (IO, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let (ppu, pixels, debug_windows_spec) = PPU::new(render_tx);
-        let mut cart_ram = vec![0xFF; 0x10000];
-        cart_ram[0] = 0x62;
-        cart_ram[1] = 0x13;
+        let cart_backup = Box::new(CartBackup::get(&rom));
         (IO {
             bios,
             ewram: vec![0; 0x40000],
             iwram: vec![0; 0x8000],
             rom,
-            cart_ram,
             clocks_ahead: 0,
 
             // IO
@@ -68,6 +67,7 @@ impl IO {
             timers: Timers::new(),
             keypad: Keypad::new(keypad_rx),
             interrupt_controller: InterruptController::new(),
+            cart_backup,
 
             // Registers
             haltcnt: 0,

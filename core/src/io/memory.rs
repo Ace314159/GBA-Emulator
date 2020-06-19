@@ -15,7 +15,8 @@ impl MemoryHandler for IO {
             MemoryRegion::VRAM => IO::read_mem(&self.ppu.vram, PPU::parse_vram_addr(addr)),
             MemoryRegion::OAM => IO::read_mem(&self.ppu.oam, PPU::parse_oam_addr(addr)),
             MemoryRegion::ROM => self.read_rom(addr),
-            MemoryRegion::SRAM => IO::read_mem(&self.cart_ram, addr - 0x0E000000),
+            MemoryRegion::CartBackup => IO::read_from_bytes(self, &IO::read_cart_backup,
+                addr - 0x0E000000),
             MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
         }
     }
@@ -30,7 +31,8 @@ impl MemoryHandler for IO {
             MemoryRegion::VRAM => IO::write_mem(&mut self.ppu.vram, PPU::parse_vram_addr(addr), value),
             MemoryRegion::OAM => IO::write_mem(&mut self.ppu.oam, PPU::parse_oam_addr(addr), value),
             MemoryRegion::ROM => (),
-            MemoryRegion::SRAM => IO::write_mem(&mut self.cart_ram, addr - 0x0E000000, value),
+            MemoryRegion::CartBackup => IO::write_from_bytes(self, &IO::write_cart_backup,
+                addr - 0x0E000000, value),
             MemoryRegion::Unused => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
         }
     }
@@ -45,7 +47,7 @@ pub enum MemoryRegion {
     VRAM,
     OAM,
     ROM,
-    SRAM,
+    CartBackup,
     Unused,
 }
 
@@ -60,7 +62,7 @@ impl MemoryRegion {
             0x06 => MemoryRegion::VRAM,
             0x07 => MemoryRegion::OAM,
             0x08 ..= 0x0D => MemoryRegion::ROM,
-            0x0E => MemoryRegion::SRAM,
+            0x0E => MemoryRegion::CartBackup,
             _ => MemoryRegion::Unused,
         }
     }
@@ -168,6 +170,9 @@ impl IO {
         if (addr as usize) < self.rom.len() { IO::read_mem(&self.rom, addr) }
         else { warn!("Returning Invalid ROM Read at 0x{:08X}", addr + 0x08000000); num::zero() }
     }
+
+    fn read_cart_backup(&self, addr: u32) -> u8 { self.cart_backup.read(addr) }
+    fn write_cart_backup(&mut self, addr: u32, value: u8) { self.cart_backup.write(addr, value) }
 }
 
 pub trait MemoryValue: Unsigned + PrimInt + NumCast + FromPrimitive {}
