@@ -9,7 +9,7 @@ mod interrupt_controller;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
-use memory::MemoryHandler;
+pub use memory::MemoryHandler;
 use dma::DMA;
 use timers::*;
 use ppu::PPU;
@@ -75,6 +75,48 @@ impl IO {
 
             mgba_test_suite: MGBATestSuite::new(),
         }, pixels, debug_windows_spec)
+    }
+
+    pub fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32) {
+        let clocks_inc = if cycle_type == Cycle::I { 1 }
+        else { match addr {
+            0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
+            0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
+            0x02000000 ..= 0x0203FFFF => [3, 3, 6][access_width as usize], // WRAM - On-board 256K
+            0x02040000 ..= 0x02FFFFFF => 1, // Unused Memory
+            0x03000000 ..= 0x03007FFF => 1, // WRAM - In-chip 32K
+            0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
+            0x04000000 ..= 0x040003FE => 1, // IO
+            0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
+            0x05000000 ..= 0x05FFFFFF => if access_width < 2 { 1 } else { 2 }, // Palette RAM
+            0x06000000 ..= 0x06FFFFFF => if access_width < 2 { 1 } else { 2 }, // VRAM
+            0x07000000 ..= 0x07FFFFFF => 1, // OAM
+            0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
+            0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
+            0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
+            0x0E000000 ..= 0x0E00FFFF => 1,
+            0x0E010000 ..= 0x0FFFFFFF => 1,
+            _ if addr & 0xF0000000 != 0 => 1,
+            _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
+        }};
+
+        for _ in 0..clocks_inc {
+            let (timer_interrupts, timers_overflowed) = self.timers.clock();
+            self.interrupt_controller.request |= timer_interrupts;
+            self.apu.clock(timers_overflowed);
+        }
+        self.clocks_ahead += clocks_inc;
+        while self.clocks_ahead >= 4 {
+            self.clocks_ahead -= 4;
+            self.interrupt_controller.request |= self.ppu.emulate_dot();
+        }
+    }
+
+    pub fn interrupts_requested(&mut self) -> bool {
+        if self.keypad.interrupt_requested() { self.interrupt_controller.request |= InterruptRequest::KEYPAD }
+
+        self.interrupt_controller.master_enable.bits() != 0 &&
+        (self.interrupt_controller.request.bits() & self.interrupt_controller.enable.bits()) != 0
     }
 
     pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: u32) -> u8 {
@@ -146,55 +188,6 @@ impl IO {
             } }
         }
     }
-}
-
-impl IIO for IO {
-    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32) {
-        let clocks_inc = if cycle_type == Cycle::I { 1 }
-        else { match addr {
-            0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
-            0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
-            0x02000000 ..= 0x0203FFFF => [3, 3, 6][access_width as usize], // WRAM - On-board 256K
-            0x02040000 ..= 0x02FFFFFF => 1, // Unused Memory
-            0x03000000 ..= 0x03007FFF => 1, // WRAM - In-chip 32K
-            0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
-            0x04000000 ..= 0x040003FE => 1, // IO
-            0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
-            0x05000000 ..= 0x05FFFFFF => if access_width < 2 { 1 } else { 2 }, // Palette RAM
-            0x06000000 ..= 0x06FFFFFF => if access_width < 2 { 1 } else { 2 }, // VRAM
-            0x07000000 ..= 0x07FFFFFF => 1, // OAM
-            0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
-            0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
-            0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
-            0x0E000000 ..= 0x0E00FFFF => 1,
-            0x0E010000 ..= 0x0FFFFFFF => 1,
-            _ if addr & 0xF0000000 != 0 => 1,
-            _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
-        }};
-
-        for _ in 0..clocks_inc {
-            let (timer_interrupts, timers_overflowed) = self.timers.clock();
-            self.interrupt_controller.request |= timer_interrupts;
-            self.apu.clock(timers_overflowed);
-        }
-        self.clocks_ahead += clocks_inc;
-        while self.clocks_ahead >= 4 {
-            self.clocks_ahead -= 4;
-            self.interrupt_controller.request |= self.ppu.emulate_dot();
-        }
-    }
-
-    fn interrupts_requested(&mut self) -> bool {
-        if self.keypad.interrupt_requested() { self.interrupt_controller.request |= InterruptRequest::KEYPAD }
-
-        self.interrupt_controller.master_enable.bits() != 0 &&
-        (self.interrupt_controller.request.bits() & self.interrupt_controller.enable.bits()) != 0
-    }
-}
-
-pub trait IIO: MemoryHandler {
-    fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32);
-    fn interrupts_requested(&mut self) -> bool;
 }
 
 pub trait IORegister {

@@ -1,13 +1,9 @@
-#[cfg(test)]
-#[macro_use]
-mod tests;
-
 mod arm;
 mod thumb;
 mod registers;
 mod luts;
 
-use crate::io::{IIO, Cycle};
+use crate::io::{Cycle, IO};
 use registers::{Mode, Reg, RegValues};
 
 pub struct CPU {
@@ -17,7 +13,7 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn new<I>(bios: bool, io: &mut I) -> CPU where I: IIO {
+    pub fn new(bios: bool, io: &mut IO) -> CPU {
         let mut cpu = CPU {
             regs: if bios { RegValues::new() } else { RegValues::_no_bios() },
             instr_buffer: [0; 2],
@@ -27,12 +23,12 @@ impl CPU {
         cpu
     }
 
-    pub fn emulate_instr<I>(&mut self, io: &mut I) where I: IIO {
+    pub fn emulate_instr(&mut self, io: &mut IO) {
         if self.regs.get_t() { self.emulate_thumb_instr(io) }
         else { self.emulate_arm_instr(io) }
     }
 
-    pub fn handle_irq<I>(&mut self, io: &mut I) where I: IIO {
+    pub fn handle_irq(&mut self, io: &mut IO) {
         if self.regs.get_i() || !io.interrupts_requested() { return }
         self.regs.change_mode(Mode::IRQ);
         let (access_width, lr) = if self.regs.get_t() {
@@ -52,8 +48,8 @@ impl CPU {
         self.condition_lut[(self.regs.get_flags() | condition) as usize]
     }
 
-    pub(self) fn shift<I>(&mut self, io: &mut I, shift_type: u32, operand: u32, shift: u32,
-        immediate: bool, change_status: bool) -> u32 where I: IIO{
+    pub(self) fn shift(&mut self, io: &mut IO, shift_type: u32, operand: u32, shift: u32,
+        immediate: bool, change_status: bool) -> u32 {
         if immediate && shift == 0 {
             match shift_type {
                 // LSL #0
@@ -164,7 +160,7 @@ impl CPU {
         self.adc(op1, !op2, change_status)
     }
 
-    pub(self) fn inc_mul_clocks<I>(&mut self, io: &mut I, op1: u32, signed: bool) where I: IIO {
+    pub(self) fn inc_mul_clocks(&mut self, io: &mut IO, op1: u32, signed: bool) {
         let mut mask = 0xFF_FF_FF_00;
         loop {
             io.inc_clock(Cycle::I, 0, 0);

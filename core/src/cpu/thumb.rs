@@ -1,14 +1,12 @@
-use super::CPU;
-use super::IIO;
-use super::registers::{Mode, Reg};
+use super::{
+    CPU, IO,
+    registers::{Reg, Mode}
+};
 
-use crate::io::Cycle;
-
-#[cfg(test)]
-mod tests;
+use crate::io::{Cycle, MemoryHandler};
 
 impl CPU {
-    pub(super) fn fill_thumb_instr_buffer<I>(&mut self, io: &mut I) where I: IIO {
+    pub(super) fn fill_thumb_instr_buffer(&mut self, io: &mut IO) {
         self.regs.pc &= !0x1;
         self.instr_buffer[0] = io.read::<u16>(self.regs.pc & !0x1) as u32;
         io.inc_clock(Cycle::S, self.regs.pc & !0x1, 1);
@@ -18,7 +16,7 @@ impl CPU {
         io.inc_clock(Cycle::S, self.regs.pc & !0x1, 1);
     }
 
-    pub(super) fn emulate_thumb_instr<I>(&mut self, io: &mut I) where I: IIO {
+    pub(super) fn emulate_thumb_instr(&mut self, io: &mut IO) {
         let instr = self.instr_buffer[0] as u16;
         {
             use Reg::*;
@@ -59,7 +57,7 @@ impl CPU {
     }
     
     // THUMB.1: move shifted register
-    fn move_shifted_reg<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn move_shifted_reg(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 13, 0b000);
         let opcode = (instr >> 11 & 0x3) as u32;
         let offset = (instr >> 6 & 0x1F) as u32;
@@ -75,7 +73,7 @@ impl CPU {
     }
 
     // THUMB.2: add/subtract
-    fn add_sub<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn add_sub(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 11, 0b00011);
         let sub = instr >> 9 & 0x1 != 0;
         let operand = (instr >> 6 & 0x7) as u32;
@@ -93,7 +91,7 @@ impl CPU {
     }
 
     // THUMB.3: move/compare/add/subtract immediate
-    fn immediate<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn immediate(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 13, 0b001);
         let opcode = instr >> 11 & 0x3;
         let dest_reg = instr >> 8 & 0x7;
@@ -114,7 +112,7 @@ impl CPU {
     }
 
     // THUMB.4: ALU operations
-    fn alu<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn alu(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 10 & 0x3F, 0b010000);
         let opcode = instr >> 6 & 0xF;
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
@@ -147,7 +145,7 @@ impl CPU {
     }
 
     // THUMB.5: Hi register operations/branch exchange
-    fn hi_reg_bx<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn hi_reg_bx(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 10, 0b010001);
         let opcode = instr >> 8 & 0x3;
         let dest_reg_msb = instr >> 7 & 0x1;
@@ -183,7 +181,7 @@ impl CPU {
     }
 
     // THUMB.6: load PC-relative
-    fn load_pc_rel<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn load_pc_rel(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 11, 0b01001);
         let dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) as u32;
@@ -195,7 +193,7 @@ impl CPU {
     }
 
     // THUMB.7: load/store with register offset
-    fn load_store_reg_offset<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn load_store_reg_offset(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b0101);
         let opcode = instr >> 10 & 0x3; 
         assert_eq!(instr >> 9 & 0x1, 0);
@@ -226,7 +224,7 @@ impl CPU {
     }
 
     // THUMB.8: load/store sign-extended byte/halfword
-    fn load_store_sign_ext<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn load_store_sign_ext(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b0101);
         let opcode = instr >> 10 & 0x3;
         assert_eq!(instr >> 9 & 0x1, 1);
@@ -253,7 +251,7 @@ impl CPU {
     }
 
     // THUMB.9: load/store with immediate offset
-    fn load_store_imm_offset<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn load_store_imm_offset(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 13, 0b011);
         let load = instr >> 11 & 0x1 != 0;
         let byte = instr >> 12 & 0x1 != 0;
@@ -288,7 +286,7 @@ impl CPU {
     }
 
     // THUMB.10: load/store halfword
-    fn load_store_halfword<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn load_store_halfword(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b1000);
         let load = instr >> 11 & 0x1 != 0;
         let offset = (instr >> 6 & 0x1F) as u32;
@@ -308,7 +306,7 @@ impl CPU {
     }
 
     // THUMB.11: load/store SP-relative
-    fn load_store_sp_rel<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn load_store_sp_rel(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1001);
         let load = instr >> 11 & 0x1 != 0;
         let src_dest_reg = (instr >> 8 & 0x7) as u32;
@@ -326,7 +324,7 @@ impl CPU {
     }
 
     // THUMB.12: get relative address
-    fn get_rel_addr<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn get_rel_addr(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1010);
         let src = if instr >> 11 & 0x1 != 0 { // SP
             self.regs.get_reg(Reg::R13)
@@ -340,7 +338,7 @@ impl CPU {
     }
 
     // THUMB.13: add offset to stack pointer
-    fn add_offset_sp<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn add_offset_sp(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 8 & 0xFF, 0b10110000);
         let sub = instr >> 7 & 0x1 != 0;
         let offset = ((instr & 0x7F) * 4) as u32;
@@ -351,7 +349,7 @@ impl CPU {
     }
 
     // THUMB.14: push/pop registers
-    fn push_pop_regs<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn push_pop_regs(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1011);
         let pop = instr >> 11 & 0x1 != 0;
         assert_eq!(instr >> 9 & 0x3, 0b10);
@@ -407,7 +405,7 @@ impl CPU {
     }
 
     // THUMB.15: multiple load/store
-    fn multiple_load_store<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn multiple_load_store(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b1100);
         let load = instr >> 11 & 0x1 != 0;
         let base_reg = (instr >> 8 & 0x7) as u32;
@@ -457,7 +455,7 @@ impl CPU {
     }
 
     // THUMB.16: conditional branch
-    fn cond_branch<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn cond_branch(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b1101);
         let condition = instr >> 8 & 0xF;
         assert_eq!(condition < 0xE, true);
@@ -472,7 +470,7 @@ impl CPU {
     }
 
     // THUMB.17: software interrupt
-    fn thumb_software_interrupt<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn thumb_software_interrupt(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 8 & 0xFF, 0b11011111);
         io.inc_clock(Cycle::N, self.regs.pc, 1);
         self.regs.change_mode(Mode::SVC);
@@ -484,7 +482,7 @@ impl CPU {
     }
 
     // THUMB.18: unconditional branch
-    fn uncond_branch<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn uncond_branch(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 11, 0b11100);
         let offset = (instr & 0x7FF) as u32;
         let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
@@ -495,7 +493,7 @@ impl CPU {
     }
 
     // THUMB.19: long branch with link
-    fn branch_with_link<I>(&mut self, io: &mut I, instr: u16) where I: IIO {
+    fn branch_with_link(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0xF);
         let offset = (instr & 0x7FF) as u32;
         if instr >> 11 & 0x1 != 0 { // Second Instruction

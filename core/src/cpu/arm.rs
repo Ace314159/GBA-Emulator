@@ -1,14 +1,12 @@
-use super::CPU;
-use super::IIO;
-use super::registers::{Reg, Mode};
+use super::{
+    CPU, IO,
+    registers::{Reg, Mode}
+};
 
-use crate::io::Cycle;
-
-#[cfg(test)]
-mod tests;
+use crate::io::{Cycle, MemoryHandler};
 
 impl CPU {
-    pub(super) fn fill_arm_instr_buffer<I>(&mut self, io: &mut I) where I: IIO {
+    pub(super) fn fill_arm_instr_buffer(&mut self, io: &mut IO) {
         self.regs.pc &= !0x3;
         self.instr_buffer[0] = io.read::<u32>(self.regs.pc & !0x3);
         io.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
@@ -18,7 +16,7 @@ impl CPU {
         io.inc_clock(Cycle::S, self.regs.pc & !0x3, 2);
     }
 
-    pub(super) fn emulate_arm_instr<I>(&mut self, io: &mut I) where I: IIO {
+    pub(super) fn emulate_arm_instr(&mut self, io: &mut IO) {
         let instr = self.instr_buffer[0];
         {
             use Reg::*;
@@ -69,7 +67,7 @@ impl CPU {
     }
 
     // ARM.3: Branch and Exchange (BX)
-    fn branch_and_exchange<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn branch_and_exchange(&mut self, io: &mut IO, instr: u32) {
         io.inc_clock(Cycle::N, self.regs.pc, 2);
         self.regs.pc = self.regs.get_reg_i(instr & 0xF);
         if self.regs.pc & 0x1 != 0 {
@@ -80,7 +78,7 @@ impl CPU {
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
-    fn branch_branch_with_link<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn branch_branch_with_link(&mut self, io: &mut IO, instr: u32) {
         let opcode = (instr >> 24) & 0x1;
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
@@ -92,7 +90,7 @@ impl CPU {
     }
 
     // ARM.5: Data Processing
-    fn data_proc<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn data_proc(&mut self, io: &mut IO, instr: u32) {
         let change_status = (instr >> 20) & 0x1 != 0;
         let immediate_op2 = (instr >> 25) & 0x1 != 0;
         let mut temp_inc_pc = false;
@@ -159,7 +157,7 @@ impl CPU {
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn psr_transfer(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 26 & 0b11, 0b00);
         let immediate_operand = (instr >> 25) & 0x1 != 0;
         assert_eq!(instr >> 23 & 0b11, 0b10);
@@ -192,7 +190,7 @@ impl CPU {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul_mula<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn mul_mula(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 22 & 0x3F, 0b000000);
         let accumulate = instr >> 21 & 0x1 != 0;
         let change_status = instr >> 20 & 0x1 != 0;
@@ -221,7 +219,7 @@ impl CPU {
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn mul_long(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00001);
         let signed = instr >> 22 & 0x1 != 0;
         let accumulate = instr >> 21 & 0x1 != 0;
@@ -250,7 +248,7 @@ impl CPU {
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
-    fn single_data_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn single_data_transfer(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 26 & 0b11, 0b01);
         let shifted_reg_offset = instr >> 25 & 0x1 != 0;
         let pre_offset = instr >> 24 & 0x1 != 0;
@@ -312,7 +310,7 @@ impl CPU {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn halfword_and_signed_data_transfer(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 25 & 0x7, 0b000);
         let pre_offset = instr >> 24 & 0x1 != 0;
         let add_offset = instr >> 23 & 0x1 != 0;
@@ -368,7 +366,7 @@ impl CPU {
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn block_data_transfer(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 25 & 0x7, 0b100);
         let add_offset = instr >> 23 & 0x1 != 0;
         let pre_offset = (instr >> 24 & 0x1 != 0) ^ !add_offset;
@@ -433,7 +431,7 @@ impl CPU {
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn single_data_swap(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00010);
         let byte = instr >> 22 & 0x1 != 0;
         assert_eq!(instr >> 20 & 0x3, 0b00);
@@ -461,7 +459,7 @@ impl CPU {
     }
 
     // ARM.13: Software Interrupt (SWI)
-    fn arm_software_interrupt<I>(&mut self, io: &mut I, instr: u32) where I: IIO {
+    fn arm_software_interrupt(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 24 & 0xF, 0b1111);
         io.inc_clock(Cycle::N, self.regs.pc, 2);
         self.regs.change_mode(Mode::SVC);
@@ -474,12 +472,12 @@ impl CPU {
     // ARM.14: Coprocessor Data Operations (CDP)
     // ARM.15: Coprocessor Data Transfers (LDC,STC)
     // ARM.16: Coprocessor Register Transfers (MRC, MCR)
-    fn coprocessor<I>(&mut self, _io: &mut I, _instr: u32) where I: IIO {
+    fn coprocessor(&mut self, _io: &mut IO, _instr: u32) {
         unimplemented!("Coprocessor not implemented!");
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr<I>(&mut self, _io: &mut I, _instr: u32) where I: IIO {
+    fn undefined_instr(&mut self, _io: &mut IO, _instr: u32) {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
 }
