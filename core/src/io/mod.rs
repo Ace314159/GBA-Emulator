@@ -52,7 +52,7 @@ impl IO {
     pub fn new(bios: Vec<u8>, rom: Vec<u8>, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
         (IO, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let (ppu, pixels, debug_windows_spec) = PPU::new(render_tx);
-        let cart_backup = Box::new(CartBackup::get(&rom));
+        let cart_backup = CartBackup::get(&rom);
         (IO {
             bios,
             ewram: vec![0; 0x40000],

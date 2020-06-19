@@ -1,6 +1,8 @@
 mod sram;
+mod flash;
 
 use sram::SRAM;
+use flash::Flash;
 
 pub trait CartBackup {
     fn read(&self, addr: u32) -> u8;
@@ -30,14 +32,14 @@ impl dyn CartBackup {
         cart_backup_type
     }
 
-    pub fn get(rom: &Vec<u8>) -> impl CartBackup {
+    pub fn get(rom: &Vec<u8>) -> Box<dyn CartBackup> {
         if let Some(cart_backup_type) = CartBackup::get_type(rom) {
             match cart_backup_type {
                 CartBackupType::EEPROM => unimplemented!("EEPROM not implemented!"),
-                CartBackupType::SRAM => SRAM::new(),
-                CartBackupType::Flash => unimplemented!("Flash not implemented!"),
-                CartBackupType::Flash512 => unimplemented!("Flash512 not implemented!"),
-                CartBackupType::Flash1M => unimplemented!("Flash1M not implemented!"),
+                CartBackupType::SRAM => Box::new(SRAM::new()),
+                CartBackupType::Flash => Box::new(Flash::new(0x10000)),
+                CartBackupType::Flash512 => Box::new(Flash::new(0x10000)),
+                CartBackupType::Flash1M => Box::new(Flash::new(0x20000)),
             }
         } else {
             panic!("Unable to Detect Cart Backup Type!");
