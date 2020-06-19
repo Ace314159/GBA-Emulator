@@ -1,3 +1,6 @@
+use std::fs;
+use std::path::PathBuf;
+
 mod sram;
 mod flash;
 
@@ -7,6 +10,10 @@ use flash::Flash;
 pub trait CartBackup {
     fn read(&self, addr: u32) -> u8;
     fn write(&mut self, addr: u32, value: u8);
+
+    fn is_dirty(&mut self) -> bool;
+    fn get_save_file(&self) -> &PathBuf;
+    fn get_mem(&self) -> &Vec<u8>;
 }
 
 impl dyn CartBackup {
@@ -32,18 +39,28 @@ impl dyn CartBackup {
         cart_backup_type
     }
 
-    pub fn get(rom: &Vec<u8>) -> Box<dyn CartBackup> {
+    pub fn get(rom: &Vec<u8>, save_file: PathBuf) -> Box<dyn CartBackup> {
         if let Some(cart_backup_type) = CartBackup::get_type(rom) {
             match cart_backup_type {
                 CartBackupType::EEPROM => unimplemented!("EEPROM not implemented!"),
-                CartBackupType::SRAM => Box::new(SRAM::new()),
-                CartBackupType::Flash => Box::new(Flash::new(0x10000)),
-                CartBackupType::Flash512 => Box::new(Flash::new(0x10000)),
-                CartBackupType::Flash1M => Box::new(Flash::new(0x20000)),
+                CartBackupType::SRAM => Box::new(SRAM::new(save_file)),
+                CartBackupType::Flash => Box::new(Flash::new(save_file, 0x10000)),
+                CartBackupType::Flash512 => Box::new(Flash::new(save_file, 0x10000)),
+                CartBackupType::Flash1M => Box::new(Flash::new(save_file, 0x20000)),
             }
         } else {
             panic!("Unable to Detect Cart Backup Type!");
         }
+    }
+
+    fn get_initial_mem(save_file: &PathBuf, default_val: u8, size: usize) -> Vec<u8> {
+        if let Ok(mem) = fs::read(&save_file) {
+            if mem.len() == size { mem } else { vec![default_val; size] }
+        } else { vec![default_val; size] }
+    }
+
+    pub fn save_to_file(&mut self) {
+        if self.is_dirty() { fs::write(self.get_save_file(), self.get_mem()).unwrap() }
     }
 }
 

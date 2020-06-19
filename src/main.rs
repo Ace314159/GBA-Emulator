@@ -4,6 +4,7 @@ extern crate imgui;
 mod display;
 mod debug;
 
+use std::path::PathBuf;
 use std::thread;
 use std::collections::VecDeque;
 
@@ -40,7 +41,7 @@ fn main() {
     let (mutexes_tx, mutexes_rx) = flume::unbounded();
     let _gba_thread = thread::spawn(move || {
         let (mut gba, pixels_mutex, debug_windows_spec_mutex) =
-        GBA::new("Pokemon - Emerald Version (USA, Europe).gba".to_string(), render_tx, keypad_rx);
+        GBA::new(PathBuf::from("Pokemon - Emerald Version (USA, Europe).gba"), render_tx, keypad_rx);
         mutexes_tx.send((pixels_mutex, debug_windows_spec_mutex)).unwrap();
         loop { gba.emulate() }
     });

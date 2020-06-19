@@ -1,8 +1,12 @@
+use std::path::PathBuf;
+
 use super::CartBackup;
 
 pub struct Flash {
     mem: Vec<u8>,
     mem_size: usize,
+    save_file: PathBuf,
+    is_dirty: bool,
 
     command: Command,
     mode: Mode,
@@ -18,10 +22,12 @@ impl Flash {
     const COMMAND_ADDR: u32 = 0x5555;
     const COMMAND1_ADDR: u32 = 0x2AAA;
 
-    pub fn new(size: usize) -> Flash {
+    pub fn new(save_file: PathBuf, size: usize) -> Flash {
         Flash {
-            mem: vec![0xFF; size],
+            mem: CartBackup::get_initial_mem(&save_file, 0xFF, size),
             mem_size: size,
+            save_file,
+            is_dirty: false,
 
             command: Command::Command0,
             mode: Mode::Ready,
@@ -42,6 +48,7 @@ impl CartBackup for Flash {
 
     fn write(&mut self, addr: u32, value: u8) {
         if self.mode == Mode::Write {
+            self.is_dirty = true;
             self.mem[self.bank * 0x10000 + addr as usize] = value;
             self.mode = Mode::Ready;
             return
@@ -84,10 +91,11 @@ impl CartBackup for Flash {
             },
             Mode::Erase => {
                 match value {
-                    0x10 => { assert_eq!(addr, Flash::COMMAND_ADDR); self.mem = vec![0xFF; self.mem_size] },
+                    0x10 => { assert_eq!(addr, Flash::COMMAND_ADDR); self.is_dirty = true; self.mem = vec![0xFF; self.mem_size] },
                     0x30 => {
                         assert_eq!(addr & !0xF000, 0);
                         let sector = addr as usize;
+                        self.is_dirty = true;
                         for i in self.mem[sector..sector + 0x1000].iter_mut() { *i = 0xFF }
                     }
                     _ => panic!("Invalid Erase Command: {:X}", value),
@@ -97,6 +105,10 @@ impl CartBackup for Flash {
             _ => unreachable!(),
         };
     }
+
+    fn is_dirty(&mut self) -> bool { let is_dirty = self.is_dirty; self.is_dirty = false; is_dirty }
+    fn get_save_file(&self) -> &PathBuf { &self.save_file }
+    fn get_mem(&self) -> &Vec<u8> { &self.mem }
 }
 
 #[derive(Debug, PartialEq)]

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
@@ -14,11 +15,11 @@ pub struct GBA {
 }
 
 impl GBA {
-    pub fn new(rom_file: String, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
+    pub fn new(rom_file: PathBuf, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
         (GBA, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let bios = std::fs::read("gba_bios.bin").unwrap();
         let (mut io, pixels, debug_windows_spec) =
-            IO::new(bios, std::fs::read(rom_file).unwrap(), render_tx, keypad_rx);
+            IO::new(bios, rom_file, render_tx, keypad_rx);
         (GBA {
             cpu: CPU::new(false, &mut io),
             io,

@@ -7,6 +7,8 @@ pub mod keypad;
 mod interrupt_controller;
 mod cart_backup;
 
+use std::fs;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
@@ -49,10 +51,14 @@ impl IO {
     const EWRAM_MASK: u32 = 0x3FFFF;
     const IWRAM_MASK: u32 = 0x7FFF;
 
-    pub fn new(bios: Vec<u8>, rom: Vec<u8>, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
+    pub fn new(bios: Vec<u8>, rom_file: PathBuf, render_tx: Sender<DebugWindows>, keypad_rx: Receiver<(KEYINPUT, bool)>) ->
         (IO, Arc<Mutex<Vec<u16>>>, Arc<Mutex<DebugSpecification>>) {
         let (ppu, pixels, debug_windows_spec) = PPU::new(render_tx);
-        let cart_backup = CartBackup::get(&rom);
+        assert_eq!(rom_file.extension().unwrap(), "gba");
+        let mut save_file = rom_file.clone();
+        save_file.set_extension("sav");
+        let rom = fs::read(rom_file).unwrap();
+        let cart_backup = CartBackup::get(&rom, save_file);
         (IO {
             bios,
             ewram: vec![0; 0x40000],
@@ -124,7 +130,10 @@ impl IO {
     }
 
     pub fn poll_keypad_updates(&mut self) {
-        if self.ppu.rendered_frame() { self.keypad.poll() }
+        if self.ppu.rendered_frame() {
+            self.cart_backup.save_to_file();
+            self.keypad.poll();
+        }
     }
 
     pub fn run_dma(&mut self) {
