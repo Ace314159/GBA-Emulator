@@ -11,12 +11,12 @@ impl MemoryHandler for IO {
             MemoryRegion::EWRAM => IO::read_mem(&self.ewram, addr & IO::EWRAM_MASK),
             MemoryRegion::IWRAM => IO::read_mem(&self.iwram, addr & IO::IWRAM_MASK),
             MemoryRegion::IO => IO::read_from_bytes(self, &IO::read_io_register, addr),
-            MemoryRegion::PALETTE => IO::read_from_bytes(&self.ppu, &PPU::read_palette_ram, addr),
+            MemoryRegion::Palette => IO::read_from_bytes(&self.ppu, &PPU::read_palette_ram, addr),
             MemoryRegion::VRAM => IO::read_mem(&self.ppu.vram, PPU::parse_vram_addr(addr)),
             MemoryRegion::OAM => IO::read_mem(&self.ppu.oam, PPU::parse_oam_addr(addr)),
             MemoryRegion::ROM => self.read_rom(addr),
             MemoryRegion::SRAM => IO::read_mem(&self.cart_ram, addr - 0x0E000000),
-            MemoryRegion::UNUSED => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
+            MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
         }
     }
 
@@ -26,12 +26,12 @@ impl MemoryHandler for IO {
             MemoryRegion::EWRAM => IO::write_mem(&mut self.ewram, addr & IO::EWRAM_MASK, value),
             MemoryRegion::IWRAM => IO::write_mem(&mut self.iwram, addr & IO::IWRAM_MASK, value),
             MemoryRegion::IO => IO::write_from_bytes(self, &IO::write_register, addr, value),
-            MemoryRegion::PALETTE => IO::write_from_bytes(&mut self.ppu, &PPU::write_palette_ram, addr, value),
+            MemoryRegion::Palette => IO::write_from_bytes(&mut self.ppu, &PPU::write_palette_ram, addr, value),
             MemoryRegion::VRAM => IO::write_mem(&mut self.ppu.vram, PPU::parse_vram_addr(addr), value),
             MemoryRegion::OAM => IO::write_mem(&mut self.ppu.oam, PPU::parse_oam_addr(addr), value),
             MemoryRegion::ROM => (),
             MemoryRegion::SRAM => IO::write_mem(&mut self.cart_ram, addr - 0x0E000000, value),
-            MemoryRegion::UNUSED => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
+            MemoryRegion::Unused => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
         }
     }
 }
@@ -41,12 +41,12 @@ pub enum MemoryRegion {
     EWRAM,
     IWRAM,
     IO,
-    PALETTE,
+    Palette,
     VRAM,
     OAM,
     ROM,
     SRAM,
-    UNUSED,
+    Unused,
 }
 
 impl MemoryRegion {
@@ -56,12 +56,12 @@ impl MemoryRegion {
             0x02 => MemoryRegion::EWRAM,
             0x03 => MemoryRegion::IWRAM,
             0x04 => MemoryRegion::IO,
-            0x05 => MemoryRegion::PALETTE,
+            0x05 => MemoryRegion::Palette,
             0x06 => MemoryRegion::VRAM,
             0x07 => MemoryRegion::OAM,
             0x08 ..= 0x0D => MemoryRegion::ROM,
             0x0E => MemoryRegion::SRAM,
-            _ => MemoryRegion::UNUSED,
+            _ => MemoryRegion::Unused,
         }
     }
 }
