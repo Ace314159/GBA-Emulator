@@ -106,7 +106,7 @@ impl IORegister for Wave {
             },
             4 => self.sample_rate = self.sample_rate & !0xFF | value as u16,
             5 => {
-                self.sample_rate = self.sample_rate & !0x700 | (value as u16) << 8;
+                self.sample_rate = self.sample_rate & !0x700 | ((value & 0x7) as u16) << 8;
                 self.use_length = value >> 6 & 0x1 != 0;
                 if value & 0x80 != 0 {
                     self.wave_ram_i = 0;
