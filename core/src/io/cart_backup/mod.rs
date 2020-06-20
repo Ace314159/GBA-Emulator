@@ -55,7 +55,8 @@ impl dyn CartBackup {
                 CartBackupType::Flash1M => Box::new(Flash::new(save_file, 0x20000)),
             }
         } else {
-            panic!("Unable to Detect Cart Backup Type!");
+            warn!("Unable to detect Cartr Backup Type - Defaulting to SRAM");
+            Box::new(SRAM::new(save_file))
         }
     }
 
