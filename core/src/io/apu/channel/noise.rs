@@ -36,7 +36,7 @@ impl Noise {
     }
 
     fn calc_reload(&self) -> u16 {
-        4 * (Noise::DIVISORS[self.divisor_code as usize] << self.clock_shift)
+        std::cmp::max(1, 4 * (Noise::DIVISORS[self.divisor_code as usize] << self.clock_shift))
     }
 
     pub fn clock(&mut self) {
