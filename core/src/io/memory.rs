@@ -15,7 +15,7 @@ impl MemoryHandler for IO {
             MemoryRegion::VRAM => IO::read_mem(&self.ppu.vram, PPU::parse_vram_addr(addr)),
             MemoryRegion::OAM => IO::read_mem(&self.ppu.oam, PPU::parse_oam_addr(addr)),
             MemoryRegion::ROM => self.read_rom(addr),
-            MemoryRegion::CartBackup => if self.cart_backup.is_eeprom() {
+            MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
                 IO::read_from_bytes(self, &IO::read_cart_backup, addr - 0x0E000000) } else { num::zero() },
             MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
         }
@@ -200,8 +200,7 @@ impl IO {
 
     fn write_oam<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
         if size_of::<T>() == 1 { return }
-        IO::write_mem(&mut self.ppu.vram, addr, value);
-
+        IO::write_mem(&mut self.ppu.oam, addr, value);
     }
 
     fn write_rom<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
