@@ -4,6 +4,7 @@ extern crate imgui;
 mod display;
 mod debug;
 
+use std::fs::File;
 use std::path::PathBuf;
 use std::thread;
 use std::collections::VecDeque;
@@ -34,6 +35,16 @@ fn main() {
             .add_filter_allow_str("core::cpu")
             .build(),
             TerminalMode::Mixed),//std::fs::File::create("stdout.log").unwrap()),
+        WriteLogger::new(LevelFilter::Debug,
+            ConfigBuilder::new()
+            .set_time_level(LevelFilter::Off)
+            .set_thread_level(LevelFilter::Off)
+            .set_target_level(LevelFilter::Off)
+            .set_location_level(LevelFilter::Off)
+            .set_time_level(LevelFilter::Off)
+            .add_filter_allow_str("core::io::mgba_test_suite")
+            .build(),
+            File::create("suite.log").unwrap()),
     ]).unwrap();
 
     let (render_tx, render_rx) = flume::unbounded();
@@ -41,7 +52,7 @@ fn main() {
     let (mutexes_tx, mutexes_rx) = flume::unbounded();
     let _gba_thread = thread::spawn(move || {
         let (mut gba, pixels_mutex, debug_windows_spec_mutex) =
-        GBA::new(PathBuf::from("Pokemon - Emerald Version (USA, Europe).gba"), render_tx, keypad_rx);
+        GBA::new(PathBuf::from("suite.gba"), render_tx, keypad_rx);
         mutexes_tx.send((pixels_mutex, debug_windows_spec_mutex)).unwrap();
         loop { gba.emulate() }
     });
