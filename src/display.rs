@@ -214,7 +214,7 @@ impl Display {
         self.prepare_render(&ui);
         self.imgui_renderer.render(ui);
 
-        while Instant::now().duration_since(self.prev_frame_time) < gba::FRAME_PERIOD {}
+        // while Instant::now().duration_since(self.prev_frame_time) < gba::FRAME_PERIOD {}
         self.window.swap_buffers();
         self.prev_frame_time = Instant::now();
         self.frames_passed += 1;

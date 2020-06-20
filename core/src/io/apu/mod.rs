@@ -5,7 +5,7 @@ mod channel;
 use super::IORegister;
 use crate::gba;
 
-use audio::Audio;
+use audio::{Audio, AudioDevice};
 use registers::*;
 use channel::Timer;
 use channel::*;
@@ -24,7 +24,7 @@ pub struct APU {
     master_enable: bool,
     
     // Sound Generation
-    audio: Audio,
+    audio: AudioDevice<Audio>,
     sequencer_step: u8,
     sequencer_clock: Timer<u16>,
     sample_clock: usize,
@@ -143,7 +143,7 @@ impl APU {
             dma_r += self.sound_a.enable_right as i16 * sound_a_sample;
             dma_r += self.sound_b.enable_right as i16 * sound_b_sample;
 
-            self.audio.queue(psg_l + dma_l, psg_r + dma_r);
+            self.audio.lock().queue(psg_l + dma_l, psg_r + dma_r);
             self.sample_clock = APU::CLOCKS_PER_SAMPLE;
         }
     }
