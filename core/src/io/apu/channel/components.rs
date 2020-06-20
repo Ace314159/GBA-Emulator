@@ -164,6 +164,7 @@ impl Envelope {
 
     pub fn write(&mut self, value: u8) {
         self.initial_volume = value >> 4;
+        self.cur_volume = self.initial_volume;
         self.inc = value >> 3 & 0x1 != 0;
         self.step_period = value & 0x7;
     }
