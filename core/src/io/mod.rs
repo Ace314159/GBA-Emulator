@@ -141,6 +141,7 @@ impl IO {
             self.ppu.hblank_called(), self.ppu.vblank_called(), [self.apu.fifo_a_req(), self.apu.fifo_b_req()]
         );
         if dma_channel < 4 {
+            self.dma.in_dma = true;
             let channel = &mut self.dma.channels[dma_channel];
             let is_fifo = (channel.num == 1 || channel.num == 2) && channel.cnt.start_timing == 3;
             let count = if is_fifo { 4 } else { channel.count_latch };
@@ -153,6 +154,7 @@ impl IO {
             channel.cnt.enable = channel.cnt.start_timing != 0 && channel.cnt.repeat;
             info!("Running DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", dma_channel, count, dest_addr,
             src_addr, if transfer_32 { 32 } else { 16 });
+            if self.cart_backup.is_eeprom_access(dest_addr, self.rom.len()) { self.cart_backup.init_eeprom(count) }
 
             let (access_width, addr_change, addr_mask) = if transfer_32 { (2, 4, 0x3) } else { (1, 2, 0x1) };
             src_addr &= !addr_mask;
@@ -195,6 +197,7 @@ impl IO {
                 3 => InterruptRequest::DMA3,
                 _ => unreachable!(),
             } }
+            self.dma.in_dma = false;
         }
     }
 }

@@ -6,6 +6,7 @@ use registers::*;
 
 pub struct DMA {
     pub channels: [DMAChannel; 4],
+    pub in_dma: bool,
 }
 
 impl DMA {
@@ -16,7 +17,8 @@ impl DMA {
                 DMAChannel::new(1, true, true, false),
                 DMAChannel::new(2, true, false, false),
                 DMAChannel::new(3, true, true, true),
-            ]
+            ],
+            in_dma: false,
         }
     }
 

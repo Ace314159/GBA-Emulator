@@ -15,8 +15,8 @@ impl MemoryHandler for IO {
             MemoryRegion::VRAM => IO::read_mem(&self.ppu.vram, PPU::parse_vram_addr(addr)),
             MemoryRegion::OAM => IO::read_mem(&self.ppu.oam, PPU::parse_oam_addr(addr)),
             MemoryRegion::ROM => self.read_rom(addr),
-            MemoryRegion::CartBackup => IO::read_from_bytes(self, &IO::read_cart_backup,
-                addr - 0x0E000000),
+            MemoryRegion::CartBackup => if self.cart_backup.is_eeprom() {
+                IO::read_from_bytes(self, &IO::read_cart_backup, addr - 0x0E000000) } else { num::zero() },
             MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
         }
     }
@@ -30,9 +30,9 @@ impl MemoryHandler for IO {
             MemoryRegion::Palette => IO::write_from_bytes(&mut self.ppu, &PPU::write_palette_ram, addr, value),
             MemoryRegion::VRAM => IO::write_mem(&mut self.ppu.vram, PPU::parse_vram_addr(addr), value),
             MemoryRegion::OAM => IO::write_mem(&mut self.ppu.oam, PPU::parse_oam_addr(addr), value),
-            MemoryRegion::ROM => (),
-            MemoryRegion::CartBackup => IO::write_from_bytes(self, &IO::write_cart_backup,
-                addr - 0x0E000000, value),
+            MemoryRegion::ROM => self.write_rom(addr, value),
+            MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
+                IO::write_from_bytes(self, &IO::write_cart_backup, addr - 0x0E000000, value) },
             MemoryRegion::Unused => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
         }
     }
@@ -166,9 +166,23 @@ impl IO {
     }
 
     fn read_rom<T>(&self, addr: u32) -> T where T: MemoryValue {
-        let addr = addr - 0x08000000;
-        if (addr as usize) < self.rom.len() { IO::read_mem(&self.rom, addr) }
-        else { warn!("Returning Invalid ROM Read at 0x{:08X}", addr + 0x08000000); num::zero() }
+        if self.cart_backup.is_eeprom_access(addr, self.rom.len()) && size_of::<T>() == 2 {
+            if self.dma.in_dma {
+                FromPrimitive::from_u16(self.cart_backup.read_eeprom(addr)).unwrap()
+            } else { num::one() }
+        } else {
+            let addr = addr - 0x08000000;
+            if (addr as usize) < self.rom.len() { IO::read_mem(&self.rom, addr) }
+            else { warn!("Returning Invalid ROM Read at 0x{:08X}", addr + 0x08000000); num::zero() }
+        }
+    }
+
+    fn write_rom<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
+        if self.cart_backup.is_eeprom_access(addr, self.rom.len()) {
+            if self.dma.in_dma {
+                self.cart_backup.write_eeprom(addr, num::cast::<T, u16>(value).unwrap());
+            } else { warn!("Bad EEPROM Write: {:X}", addr); }
+        }
     }
 
     fn read_cart_backup(&self, addr: u32) -> u8 { self.cart_backup.read(addr) }

@@ -1,19 +1,25 @@
 use std::fs;
 use std::path::PathBuf;
 
+mod eeprom;
 mod sram;
 mod flash;
 
+use eeprom::EEPROM;
 use sram::SRAM;
 use flash::Flash;
 
 pub trait CartBackup {
     fn read(&self, addr: u32) -> u8;
     fn write(&mut self, addr: u32, value: u8);
+    fn read_eeprom(&self, addr: u32) -> u16;
+    fn write_eeprom(&mut self, addr: u32, value: u16);
+    fn init_eeprom(&mut self, dma_count: u32);
 
     fn is_dirty(&mut self) -> bool;
     fn get_save_file(&self) -> &PathBuf;
     fn get_mem(&self) -> &Vec<u8>;
+    fn is_eeprom(&self) -> bool;
 }
 
 impl dyn CartBackup {
@@ -42,7 +48,7 @@ impl dyn CartBackup {
     pub fn get(rom: &Vec<u8>, save_file: PathBuf) -> Box<dyn CartBackup> {
         if let Some(cart_backup_type) = CartBackup::get_type(rom) {
             match cart_backup_type {
-                CartBackupType::EEPROM => unimplemented!("EEPROM not implemented!"),
+                CartBackupType::EEPROM => Box::new(EEPROM::new(save_file)),
                 CartBackupType::SRAM => Box::new(SRAM::new(save_file)),
                 CartBackupType::Flash => Box::new(Flash::new(save_file, 0x10000)),
                 CartBackupType::Flash512 => Box::new(Flash::new(save_file, 0x10000)),
@@ -51,6 +57,10 @@ impl dyn CartBackup {
         } else {
             panic!("Unable to Detect Cart Backup Type!");
         }
+    }
+
+    pub fn is_eeprom_access(&self, addr: u32, rom_size: usize) -> bool {
+        self.is_eeprom() && addr >= 0x0D000000 && addr < 0x0E000000 && (rom_size <= 0x1000000 || addr >= 0x0DFFFF00)
     }
 
     fn get_initial_mem(save_file: &PathBuf, default_val: u8, size: usize) -> Vec<u8> {

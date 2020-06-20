@@ -31,7 +31,11 @@ impl CartBackup for SRAM {
         if addr < SRAM::SIZE { self.is_dirty = true; self.mem[addr] = value }
     }
 
+    fn init_eeprom(&mut self, _dma_count: u32) {}
+    fn read_eeprom(&self, _addr: u32) -> u16 { unreachable!() }
+    fn write_eeprom(&mut self, _addr: u32, _value: u16) { unreachable!() }
     fn is_dirty(&mut self) -> bool { let is_dirty = self.is_dirty; self.is_dirty = false; is_dirty }
     fn get_save_file(&self) -> &PathBuf { &self.save_file }
     fn get_mem(&self) -> &Vec<u8> { &self.mem }
+    fn is_eeprom(&self) -> bool { false }
 }
