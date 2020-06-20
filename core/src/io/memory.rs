@@ -27,9 +27,9 @@ impl MemoryHandler for IO {
             MemoryRegion::EWRAM => IO::write_mem(&mut self.ewram, addr & IO::EWRAM_MASK, value),
             MemoryRegion::IWRAM => IO::write_mem(&mut self.iwram, addr & IO::IWRAM_MASK, value),
             MemoryRegion::IO => IO::write_from_bytes(self, &IO::write_register, addr, value),
-            MemoryRegion::Palette => IO::write_from_bytes(&mut self.ppu, &PPU::write_palette_ram, addr, value),
-            MemoryRegion::VRAM => IO::write_mem(&mut self.ppu.vram, PPU::parse_vram_addr(addr), value),
-            MemoryRegion::OAM => IO::write_mem(&mut self.ppu.oam, PPU::parse_oam_addr(addr), value),
+            MemoryRegion::Palette => self.write_palette_ram(addr, value),
+            MemoryRegion::VRAM => self.write_vram(PPU::parse_vram_addr(addr), value),
+            MemoryRegion::OAM => self.write_oam(PPU::parse_oam_addr(addr), value),
             MemoryRegion::ROM => self.write_rom(addr, value),
             MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
                 IO::write_from_bytes(self, &IO::write_cart_backup, addr - 0x0E000000, value) },
@@ -175,6 +175,33 @@ impl IO {
             if (addr as usize) < self.rom.len() { IO::read_mem(&self.rom, addr) }
             else { warn!("Returning Invalid ROM Read at 0x{:08X}", addr + 0x08000000); num::zero() }
         }
+    }
+
+    fn write_palette_ram<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
+        if size_of::<T>() == 1 {
+            let value = num::cast::<T, u8>(value).unwrap();
+            self.ppu.write_palette_ram(addr & !0x1, value);
+            self.ppu.write_palette_ram(addr | 0x1, value);
+        } else {
+            IO::write_from_bytes(&mut self.ppu, &PPU::write_palette_ram, addr, value)
+        }
+    }
+
+    fn write_vram<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
+        if size_of::<T>() == 1 {
+            let addr = (addr & !0x1) as usize;
+            let value = num::cast::<T, u8>(value).unwrap();
+            self.ppu.vram[addr] = value;
+            self.ppu.vram[addr + 1] = value;
+        } else {
+            IO::write_mem(&mut self.ppu.vram, addr, value);
+        }
+    }
+
+    fn write_oam<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
+        if size_of::<T>() == 1 { return }
+        IO::write_mem(&mut self.ppu.vram, addr, value);
+
     }
 
     fn write_rom<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
