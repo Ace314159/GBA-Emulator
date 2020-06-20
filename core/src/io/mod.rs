@@ -151,7 +151,7 @@ impl IO {
             let transfer_32 = if is_fifo { true } else { channel.cnt.transfer_32 };
             let irq = channel.cnt.irq;
             channel.cnt.enable = channel.cnt.start_timing != 0 && channel.cnt.repeat;
-            info!("Running DMA{}: Writing to {:08X} from {:08X}, size: {}", dma_channel, dest_addr,
+            info!("Running DMA{}: Writing {} values to {:08X} from {:08X}, size: {}", dma_channel, count, dest_addr,
             src_addr, if transfer_32 { 32 } else { 16 });
 
             let (access_width, addr_change, addr_mask) = if transfer_32 { (2, 4, 0x3) } else { (1, 2, 0x1) };
