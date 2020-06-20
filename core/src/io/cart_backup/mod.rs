@@ -71,7 +71,10 @@ impl dyn CartBackup {
     }
 
     pub fn save_to_file(&mut self) {
-        if self.is_dirty() { fs::write(self.get_save_file(), self.get_mem()).unwrap() }
+        if self.is_dirty() {
+            fs::write(self.get_save_file(), self.get_mem())
+            .unwrap_or_else(|err| warn!("Unable to Save to Fil: {}!", err))
+        }
     }
 }
 
