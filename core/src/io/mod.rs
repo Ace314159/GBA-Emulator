@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
-pub use memory::MemoryHandler;
+pub use memory::{MemoryHandler, MemoryValue};
 use dma::DMA;
 use timers::Timers;
 use ppu::PPU;
@@ -210,6 +210,21 @@ pub trait IORegister {
 pub trait IORegisterController {
     fn read_register(&self, addr: u32) -> u8;
     fn write_register(&mut self, addr: u32, value: u8);
+}
+
+#[derive(Clone, Copy)]
+pub enum AccessType {
+    N,
+    S,
+}
+
+impl std::convert::Into<Cycle> for AccessType {
+    fn into(self) -> Cycle {
+        match self {
+            AccessType::N => Cycle::N,
+            AccessType::S => Cycle::S,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

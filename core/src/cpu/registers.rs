@@ -70,7 +70,7 @@ impl StatusReg {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RegValues {
     usr: [u32; 15],
     fiq: [u32; 7],

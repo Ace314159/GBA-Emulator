@@ -3,12 +3,13 @@ mod thumb;
 mod registers;
 mod luts;
 
-use crate::io::{Cycle, IO};
+use crate::io::{AccessType, Cycle, IO, MemoryHandler, MemoryValue};
 use registers::{Mode, Reg, RegValues};
 
 pub struct CPU {
     regs: RegValues,
     instr_buffer: [u32; 2],
+    next_access_type: AccessType,
     condition_lut: [bool; 256],
 }
 
@@ -17,6 +18,7 @@ impl CPU {
         let mut cpu = CPU {
             regs: if bios { RegValues::new() } else { RegValues::_no_bios() },
             instr_buffer: [0; 2],
+            next_access_type: AccessType::N,
             condition_lut: luts::gen_condition_table(),
         };
         cpu.fill_arm_instr_buffer(io);
@@ -28,15 +30,42 @@ impl CPU {
         else { self.emulate_arm_instr(io) }
     }
 
+    pub fn read<T>(&mut self, io: &mut IO, access_type: AccessType, addr: u32) -> T where T: MemoryValue {
+        io.inc_clock(self.next_access_type.into(), addr, match std::mem::size_of::<T>() {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            _ => unreachable!(),
+        });
+        self.next_access_type = access_type;
+        io.read::<T>(addr)
+    }
+
+    pub fn write<T>(&mut self, io: &mut IO, access_type: AccessType, addr: u32, value: T) where T: MemoryValue {
+        io.inc_clock(self.next_access_type.into(), addr, match std::mem::size_of::<T>() {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            _ => unreachable!(),
+        });
+        self.next_access_type = access_type;
+        io.write::<T>(addr, value);
+    }
+
+    pub fn internal(&self, io: &mut IO) {
+        io.inc_clock(Cycle::I, 0, 0);
+    }
+
     pub fn handle_irq(&mut self, io: &mut IO) {
         if self.regs.get_i() || !io.interrupts_requested() { return }
         self.regs.change_mode(Mode::IRQ);
-        let (access_width, lr) = if self.regs.get_t() {
-            (1, self.regs.pc.wrapping_sub(2).wrapping_add(4))
+        let lr = if self.regs.get_t() {
+            self.read::<u16>(io, AccessType::N, self.regs.pc);
+            self.regs.pc.wrapping_sub(2).wrapping_add(4)
         } else {
-            (2, self.regs.pc.wrapping_sub(4).wrapping_add(4))
+            self.read::<u32>(io, AccessType::N, self.regs.pc);
+            self.regs.pc.wrapping_sub(4).wrapping_add(4)
         };
-        io.inc_clock(Cycle::N, self.regs.pc, access_width);
         self.regs.set_reg(Reg::R14, lr);
         self.regs.set_t(false);
         self.regs.set_i(true);
@@ -75,7 +104,7 @@ impl CPU {
             }
         } else if shift > 31 {
             assert_eq!(immediate, false);
-            if !immediate { io.inc_clock(Cycle::I, 0, 0) }
+            if !immediate { self.internal(io) }
             match shift_type {
                 // LSL
                 0 => {
@@ -108,7 +137,7 @@ impl CPU {
                 _ => unreachable!(),
             }
         } else {
-            if !immediate { io.inc_clock(Cycle::I, 0, 0) }
+            if !immediate { self.internal(io) }
             let change_status = change_status && shift != 0;
             match shift_type {
                 // LSL
@@ -163,7 +192,7 @@ impl CPU {
     pub(self) fn inc_mul_clocks(&mut self, io: &mut IO, op1: u32, signed: bool) {
         let mut mask = 0xFF_FF_FF_00;
         loop {
-            io.inc_clock(Cycle::I, 0, 0);
+            self.internal(io);
             let value = op1 & mask;
             if mask == 0 || value == 0 || signed && value == mask { break }
             mask <<= 8;
