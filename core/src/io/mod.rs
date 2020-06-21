@@ -214,31 +214,34 @@ pub trait IORegisterController {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Cycle {
-    S = 0,
-    N = 1,
+    N,
+    S,
     I,
     // C - No coprocessor in GBA
 }
 
 struct WaitStateControl {
     cart_ram: usize,
-    wait_states: [[usize; 2]; 3],
+    n_wait_state_settings: [usize; 3],
+    s_wait_state_settings: [usize; 3],
     phi_terminal_out: usize,
     prefetch_buffer: bool,
     type_flag: bool,
 }
 
 impl WaitStateControl {
-    const ACCESS_TIMINGS: [[[u32; 4]; 2]; 3] = [
-        [[4, 3, 2, 8], [2, 1, 0, 0]],
-        [[4, 3, 2, 8], [4, 1, 0, 0]],
-        [[4, 3, 2, 8], [8, 1, 0, 0]]
+    const N_ACCESS_TIMINGS: [u32; 4] = [4, 2, 3, 8];
+    const S_ACCESS_TIMINGS: [[u32; 2]; 3] = [
+        [2, 1],
+        [4, 1],
+        [8, 1],
     ];
 
     pub fn new() -> WaitStateControl {
         WaitStateControl {
             cart_ram: 0,
-            wait_states: [[0; 2]; 3],
+            n_wait_state_settings: [0; 3],
+            s_wait_state_settings: [0; 3],
             phi_terminal_out: 0,
             prefetch_buffer: false,
             type_flag: false,
@@ -248,11 +251,16 @@ impl WaitStateControl {
     pub fn get_access_time(&self, wait_state: usize, cycle_type: Cycle, access_len: u32) -> u32 {
         assert_ne!(cycle_type, Cycle::I);
         assert_eq!(access_len <= 2, true);
-        let wait_state_setting = self.wait_states[wait_state][cycle_type as usize];
-        WaitStateControl::ACCESS_TIMINGS[wait_state][cycle_type as usize][wait_state_setting] + if access_len < 2 { 0 }
-        else {
-            WaitStateControl::ACCESS_TIMINGS[wait_state][Cycle::S as usize]
-                [self.wait_states[wait_state][Cycle::S as usize]]
+        1 +
+        if access_len == 2 { self.get_access_time(wait_state, Cycle::S, 1) } else { 0 } +
+        match cycle_type {
+            Cycle::N => {
+                WaitStateControl::N_ACCESS_TIMINGS[self.n_wait_state_settings[wait_state]]
+            },
+            Cycle::S => {
+                WaitStateControl::S_ACCESS_TIMINGS[wait_state][self.s_wait_state_settings[wait_state]]
+            },
+            Cycle::I => unreachable!(),
         }
     }
 }
@@ -260,10 +268,10 @@ impl WaitStateControl {
 impl IORegister for WaitStateControl {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => (self.wait_states[1][1] << 7 | self.wait_states[1][0] << 5 |
-                    self.wait_states[0][1] << 4 |self.wait_states[0][0] << 2 | self.cart_ram) as u8,
+            0 => (self.s_wait_state_settings[1] << 7 | self.n_wait_state_settings[1] << 5 |
+                    self.s_wait_state_settings[0] << 4 | self.n_wait_state_settings[0] << 2 | self.cart_ram) as u8,
             1 => ((self.type_flag as usize) << 7 | (self.prefetch_buffer as usize) << 6 | self.phi_terminal_out << 3 |
-                self.wait_states[2][1] << 2 | self.wait_states[2][0]) as u8,
+                self.s_wait_state_settings[2] << 2 | self.n_wait_state_settings[2]) as u8,
             _ => unreachable!(),
         }
     }
@@ -273,15 +281,15 @@ impl IORegister for WaitStateControl {
             0 => {
                 let value = value as usize;
                 self.cart_ram = value & 0x3;
-                self.wait_states[0][0] = (value >> 2) & 0x3;
-                self.wait_states[0][1] = (value >> 4) & 0x1;
-                self.wait_states[1][0] = (value >> 5) & 0x3;
-                self.wait_states[1][1] = (value >> 7) & 0x1;
+                self.n_wait_state_settings[0] = (value >> 2) & 0x3;
+                self.s_wait_state_settings[0] = (value >> 4) & 0x1;
+                self.n_wait_state_settings[1] = (value >> 5) & 0x3;
+                self.s_wait_state_settings[1] = (value >> 7) & 0x1;
             },
             1 => {
                 let value = value as usize;
-                self.wait_states[2][0] = (value >> 0) & 0x3;
-                self.wait_states[2][1] = (value >> 2) & 0x1;
+                self.n_wait_state_settings[2] = (value >> 0) & 0x3;
+                self.s_wait_state_settings[2] = (value >> 2) & 0x1;
                 self.phi_terminal_out = (value >> 3) & 0x3;
                 self.prefetch_buffer = (value >> 6) & 0x1 != 0;
                 // Type Flag is read only
