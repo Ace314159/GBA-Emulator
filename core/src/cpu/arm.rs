@@ -231,6 +231,7 @@ impl CPU {
         let op2 = self.regs.get_reg_i(instr & 0xF);
 
         self.instruction_prefetch::<u32>(io, AccessType::S);
+        self.internal(io);
         self.inc_mul_clocks(io, op1 as u32, signed);
         let result = if signed { (op1 as i32 as u64).wrapping_mul(op2 as i32 as u64) }
         else { (op1 as u64) * (op2 as u64) }.wrapping_add(
