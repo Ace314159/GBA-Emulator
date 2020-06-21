@@ -111,6 +111,7 @@ impl CPU {
     // THUMB.4: ALU operations
     fn alu(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 10 & 0x3F, 0b010000);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
         let opcode = instr >> 6 & 0xF;
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let dest_reg = (instr & 0x7) as u32;
@@ -138,7 +139,6 @@ impl CPU {
         self.regs.set_z(result == 0);
 
         if ![0x8, 0xA, 0xB].contains(&opcode) { self.regs.set_reg_i(dest_reg, result) }
-        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.5: Hi register operations/branch exchange
