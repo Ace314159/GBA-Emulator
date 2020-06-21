@@ -3,13 +3,15 @@ mod thumb;
 mod registers;
 mod luts;
 
-use crate::io::{AccessType, Cycle, IO, MemoryHandler, MemoryValue};
+use crate::io::{AccessType, Cycle, IO, MemoryHandler, MemoryValue, num};
 use registers::{Mode, Reg, RegValues};
 
 pub struct CPU {
     regs: RegValues,
     instr_buffer: [u32; 2],
     next_access_type: AccessType,
+    do_internal: bool,
+
     condition_lut: [bool; 256],
 }
 
@@ -19,6 +21,8 @@ impl CPU {
             regs: if bios { RegValues::new() } else { RegValues::_no_bios() },
             instr_buffer: [0; 2],
             next_access_type: AccessType::N,
+            do_internal: false,
+
             condition_lut: luts::gen_condition_table(),
         };
         cpu.fill_arm_instr_buffer(io);
@@ -31,6 +35,7 @@ impl CPU {
     }
 
     pub fn read<T>(&mut self, io: &mut IO, access_type: AccessType, addr: u32) -> T where T: MemoryValue {
+        let value = io.read::<T>(addr);
         io.inc_clock(self.next_access_type.into(), addr, match std::mem::size_of::<T>() {
             1 => 0,
             2 => 1,
@@ -38,7 +43,7 @@ impl CPU {
             _ => unreachable!(),
         });
         self.next_access_type = access_type;
-        io.read::<T>(addr)
+        value
     }
 
     pub fn write<T>(&mut self, io: &mut IO, access_type: AccessType, addr: u32, value: T) where T: MemoryValue {
@@ -52,8 +57,15 @@ impl CPU {
         io.write::<T>(addr, value);
     }
 
-    pub fn internal(&self, io: &mut IO) {
+    pub fn instruction_prefetch<T>(&mut self, io: &mut IO, access_type: AccessType) where T: MemoryValue {
+        // Internal Cycle merges with instruction prefetch
+        self.instr_buffer[1] = num::cast::<T, u32>(self.read::<T>(io, access_type, self.regs.pc)).unwrap();
+        self.do_internal = false;
+    }
+
+    pub fn internal(&mut self, io: &mut IO) {
         io.inc_clock(Cycle::I, 0, 0);
+        self.next_access_type = AccessType::N;
     }
 
     pub fn handle_irq(&mut self, io: &mut IO) {

@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
-pub use memory::{MemoryHandler, MemoryValue};
+pub use memory::{MemoryHandler, MemoryValue, num};
 use dma::DMA;
 use timers::Timers;
 use ppu::PPU;

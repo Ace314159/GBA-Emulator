@@ -3,7 +3,7 @@ use super::{
     registers::{Reg, Mode}
 };
 
-use crate::io::{AccessType, MemoryHandler};
+use crate::io::AccessType;
 
 impl CPU {
     pub(super) fn fill_thumb_instr_buffer(&mut self, io: &mut IO) {
@@ -30,8 +30,6 @@ impl CPU {
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(2);
-        // TODO: Change
-        self.instr_buffer[1] = io.read::<u16>(self.regs.pc & !0x1) as u32;
 
         if instr & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { self.add_sub(io, instr) }
         else if instr & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { self.move_shifted_reg(io, instr) }
@@ -68,7 +66,7 @@ impl CPU {
         self.regs.set_n(result & 0x8000_0000 != 0);
         self.regs.set_z(result == 0);
         self.regs.set_reg_i(dest_reg, result);
-        self.read::<u16>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.2: add/subtract
@@ -86,7 +84,7 @@ impl CPU {
             self.add(src, operand, true)
         };
         self.regs.set_reg_i(dest_reg, result);
-        self.read::<u16>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.3: move/compare/add/subtract immediate
@@ -107,7 +105,7 @@ impl CPU {
         self.regs.set_n(result & 0x8000_0000 != 0);
 
         if opcode != 0b01 { self.regs.set_reg_i(dest_reg as u32, result) }
-        self.read::<u16>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.4: ALU operations
@@ -140,7 +138,7 @@ impl CPU {
         self.regs.set_z(result == 0);
 
         if ![0x8, 0xA, 0xB].contains(&opcode) { self.regs.set_reg_i(dest_reg, result) }
-        self.read::<u16>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.5: Hi register operations/branch exchange
@@ -174,9 +172,9 @@ impl CPU {
         };
         if opcode & 0x1 == 0 { self.regs.set_reg_i(dest_reg, result) }
         if dest_reg == 15 {
-            self.read::<u16>(io, AccessType::N, self.regs.pc);
+            self.instruction_prefetch::<u16>(io, AccessType::N);
             self.fill_thumb_instr_buffer(io);
-        } else { self.read::<u16>(io, AccessType::S, self.regs.pc); }
+        } else { self.instruction_prefetch::<u16>(io, AccessType::S); }
     }
 
     // THUMB.6: load PC-relative
@@ -185,7 +183,7 @@ impl CPU {
         let dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) as u32;
         let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         let value = self.read::<u32>(io, AccessType::N, addr & !0x3).rotate_right((addr & 0x3) * 8);
         self.regs.set_reg_i(dest_reg, value);
         self.internal(io);
@@ -200,7 +198,7 @@ impl CPU {
         let base_reg = (instr >> 3 & 0x7) as u32;
         let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
         let src_dest_reg = (instr & 0x7) as u32;
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         if opcode & 0b10 != 0 { // Load
             let value = if opcode & 0b01 != 0 {
                 self.read::<u8>(io, AccessType::S, addr) as u32 // LDRB
@@ -228,7 +226,7 @@ impl CPU {
         let src_dest_reg = (instr & 0x7) as u32;
         let addr = self.regs.get_reg_i(base_reg).wrapping_add(self.regs.get_reg_i(offset_reg));
 
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         if opcode == 0 { // STRH
             self.write::<u16>(io, AccessType::N, addr & !0x1, self.regs.get_reg_i(src_dest_reg) as u16);
         } else { // Load
@@ -254,7 +252,7 @@ impl CPU {
         let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let src_dest_reg = (instr & 0x7) as u32;
 
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         if load {
             // Is access width 1? Probably not, could be just bug in prev version
             let value = if byte {
@@ -286,7 +284,7 @@ impl CPU {
         let src_dest_reg = (instr & 0x7) as u32;
         let addr = base + offset * 2;
 
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         if load {
             let value = (self.read::<u16>(io, AccessType::S, addr & !0x1) as u32).rotate_right((addr & 0x1) * 8);
             self.regs.set_reg_i(src_dest_reg, value);
@@ -303,7 +301,7 @@ impl CPU {
         let src_dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) * 4;
         let addr = self.regs.get_reg(Reg::R13).wrapping_add(offset as u32);
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         if load {
             let value = self.read::<u32>(io, AccessType::S, addr & !0x3).rotate_right((addr & 0x3) * 8);
             self.regs.set_reg_i(src_dest_reg, value);
@@ -324,7 +322,7 @@ impl CPU {
         let dest_reg = (instr >> 8 & 0x7) as u32;
         let offset = (instr & 0xFF) as u32;
         self.regs.set_reg_i(dest_reg, src.wrapping_add(offset * 4));
-        self.read::<u16>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.13: add offset to stack pointer
@@ -335,7 +333,7 @@ impl CPU {
         let sp = self.regs.get_reg(Reg::R13);
         let value = if sub { sp.wrapping_sub(offset) } else { sp.wrapping_add(offset) };
         self.regs.set_reg(Reg::R13, value);
-        self.read::<u16>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::S);
     }
 
     // THUMB.14: push/pop registers
@@ -345,7 +343,7 @@ impl CPU {
         assert_eq!(instr >> 9 & 0x3, 0b10);
         let pc_lr = instr >> 8 & 0x1 != 0;
         let mut r_list = (instr & 0xFF) as u8;
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         if pop {
             let mut sp = self.regs.get_reg(Reg::R13);
             let mut stack_pop = |sp, last_access, reg: u32| {
@@ -404,7 +402,7 @@ impl CPU {
         base -= base_offset;
         let mut r_list = (instr & 0xFF) as u8;
     
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         let mut reg = 0;
         let mut first = true;
         let final_base = base.wrapping_add(4 * r_list.count_ones()) + base_offset;
@@ -450,18 +448,18 @@ impl CPU {
         assert_eq!(condition < 0xE, true);
         let offset = (instr & 0xFF) as i8 as u32;
         if self.should_exec(condition as u32) {
-            self.read::<u16>(io, AccessType::N, self.regs.pc);
+            self.instruction_prefetch::<u16>(io, AccessType::N);
             self.regs.pc = self.regs.pc.wrapping_add(offset.wrapping_mul(2));
             self.fill_thumb_instr_buffer(io);
         } else {
-            self.read::<u16>(io, AccessType::S, self.regs.pc);
+            self.instruction_prefetch::<u16>(io, AccessType::S);
         }
     }
 
     // THUMB.17: software interrupt
     fn thumb_software_interrupt(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 8 & 0xFF, 0b11011111);
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         self.regs.change_mode(Mode::SVC);
         self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(2));
         self.regs.set_t(false);
@@ -476,7 +474,7 @@ impl CPU {
         let offset = (instr & 0x7FF) as u32;
         let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
 
-        self.read::<u16>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u16>(io, AccessType::N);
         self.regs.pc = self.regs.pc.wrapping_add(offset << 1);
         self.fill_thumb_instr_buffer(io);
     }
@@ -486,7 +484,7 @@ impl CPU {
         assert_eq!(instr >> 12, 0xF);
         let offset = (instr & 0x7FF) as u32;
         if instr >> 11 & 0x1 != 0 { // Second Instruction
-            self.read::<u16>(io, AccessType::N, self.regs.pc);
+            self.instruction_prefetch::<u16>(io, AccessType::N);
             let next_instr_pc = self.regs.pc.wrapping_sub(2);
             self.regs.pc = self.regs.get_reg(Reg::R14).wrapping_add(offset << 1);
             self.regs.set_reg(Reg::R14, next_instr_pc | 0x1);
@@ -495,7 +493,7 @@ impl CPU {
             let offset = if offset >> 10 & 0x1 != 0 { 0xFFFF_F800 | offset } else { offset };
             assert_eq!(instr >> 11, 0b11110);
             self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_add(offset << 12));
-            self.read::<u16>(io, AccessType::S, self.regs.pc);
+            self.instruction_prefetch::<u16>(io, AccessType::S);
         }
     }
 }

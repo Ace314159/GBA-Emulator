@@ -3,7 +3,7 @@ use super::{
     registers::{Reg, Mode}
 };
 
-use crate::io::{AccessType, MemoryHandler};
+use crate::io::AccessType;
 
 impl CPU {
     pub(super) fn fill_arm_instr_buffer(&mut self, io: &mut IO) {
@@ -28,8 +28,6 @@ impl CPU {
         }
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(4);
-        // TODO: Change
-        self.instr_buffer[1] = io.read(self.regs.pc & !0x3);
 
         if self.should_exec((instr >> 28) & 0xF) {
             if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
@@ -63,13 +61,13 @@ impl CPU {
                 self.undefined_instr(io, instr);
             }
         } else {
-            self.instr_buffer[1] = self.read::<u32>(io, AccessType::S, self.regs.pc & !0x3);
+            self.instruction_prefetch::<u32>(io, AccessType::S);
         }
     }
 
     // ARM.3: Branch and Exchange (BX)
     fn branch_and_exchange(&mut self, io: &mut IO, instr: u32) {
-        self.read::<u32>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
         self.regs.pc = self.regs.get_reg_i(instr & 0xF);
         if self.regs.pc & 0x1 != 0 {
             self.regs.pc -= 1;
@@ -84,7 +82,7 @@ impl CPU {
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
-        self.read::<u32>(io, AccessType::N, self.regs.pc & !0x3);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
         if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
         self.fill_arm_instr_buffer(io);
@@ -118,6 +116,7 @@ impl CPU {
             };
             let shift_type = (instr >> 5) & 0x3;
             let op2 = self.regs.get_reg_i(instr & 0xF);
+            // TODO: I Cycle occurs too early
             self.shift(io, shift_type, op2, shift, !shift_by_reg,
                 change_status && (opcode < 0x5 || opcode > 0x7))
         };
@@ -147,14 +146,14 @@ impl CPU {
             self.regs.set_reg_i(dest_reg, result);
             if dest_reg == 15 {
                 clocked = true;
-                self.read::<u32>(io, AccessType::N, self.regs.pc);
+                self.instruction_prefetch::<u32>(io, AccessType::N);
                 if self.regs.get_t() { self.fill_thumb_instr_buffer(io) }
                 else { self.fill_arm_instr_buffer(io) }
             }
         }
         if !clocked {
-            self.read::<u32>(io, AccessType::S, self.regs.pc);
             if temp_inc_pc { self.regs.pc = self.regs.pc.wrapping_sub(4) } // Dec after temp inc
+            self.instruction_prefetch::<u32>(io, AccessType::S);
         }
     }
 
@@ -166,7 +165,7 @@ impl CPU {
         let status_reg = if instr >> 22 & 0x1 != 0 { Reg::SPSR } else { Reg::CPSR };
         let msr = instr >> 21 & 0x1 != 0;
         assert_eq!(instr >> 20 & 0b1, 0b0);
-        self.read::<u32>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::S);
 
         if msr {
             let mut mask = 0u32;
@@ -203,7 +202,7 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op3 = self.regs.get_reg_i(instr & 0xF);
         
-        self.read::<u32>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::S);
         self.inc_mul_clocks(io, op2, true);
         let result = if accumulate {
             self.internal(io);
@@ -231,7 +230,7 @@ impl CPU {
         assert_eq!(instr >> 4 & 0xF, 0b1001);
         let op2 = self.regs.get_reg_i(instr & 0xF);
 
-        self.read::<u32>(io, AccessType::S, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::S);
         self.inc_mul_clocks(io, op1 as u32, signed);
         let result = if signed { (op1 as i32 as u64).wrapping_mul(op2 as i32 as u64) }
         else { (op1 as u64) * (op2 as u64) }.wrapping_add(
@@ -260,7 +259,7 @@ impl CPU {
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
-        self.read::<u32>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
 
         let offset = if shifted_reg_offset {
             let shift = instr >> 7 & 0x1F;
@@ -275,13 +274,13 @@ impl CPU {
         };
 
         let mut exec = |addr| if load {
-            self.internal(io);
             let access_type = if src_dest_reg == 15 { AccessType::N } else { AccessType::S };
             let value = if transfer_byte {
                 self.read::<u8>(io, access_type, addr) as u32
             } else {
                 self.read::<u32>(io, access_type, addr & !0x3).rotate_right((addr & 0x3) * 8)
             };
+            self.internal(io);
             self.regs.set_reg_i(src_dest_reg, value);
             if src_dest_reg == base_reg { write_back = false }
             if src_dest_reg == 15 { self.fill_arm_instr_buffer(io) }
@@ -324,7 +323,7 @@ impl CPU {
         let opcode = instr >> 5 & 0x3;
         assert_eq!(instr >> 4 & 0x1, 1);
         let offset_low = instr & 0xF;
-        self.read::<u32>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
         
         let offset = if immediate_offset { offset_hi << 4 | offset_low }
         else {
@@ -335,6 +334,7 @@ impl CPU {
         let mut exec = |addr| if load {
             if src_dest_reg == base_reg { write_back = false }
             let access_type = if src_dest_reg == 15 { AccessType::N } else { AccessType::S };
+            // TODO: Make all access 16 bit
             let value = match opcode {
                 1 => (self.read::<u16>(io, access_type, addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
                 2 => self.read::<u8>(io, access_type, addr) as i8 as u32,
@@ -342,6 +342,7 @@ impl CPU {
                 3 => self.read::<u16>(io, access_type, addr) as i16 as u32,
                 _ => unreachable!(),
             };
+            self.internal(io);
             self.regs.set_reg_i(src_dest_reg, value);
             if src_dest_reg == 15 { self.fill_arm_instr_buffer(io) }
         } else {
@@ -380,7 +381,7 @@ impl CPU {
         let actual_mode = self.regs.get_mode();
         if psr_force_usr && !(load && r_list & 0x80 != 0) { self.regs.set_mode(Mode::USR) }
 
-        self.read::<u32>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
         let mut loaded_pc = false;
         let num_regs = r_list.count_ones();
         let start_addr = if add_offset { base } else { base.wrapping_sub(num_regs * 4) };
@@ -440,7 +441,7 @@ impl CPU {
         let src_reg = instr & 0xF;
         let src = self.regs.get_reg_i(src_reg);
 
-        self.read::<u32>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
         let value = if byte {
             let value = self.read::<u8>(io, AccessType::N, base) as u32;
             self.write::<u8>(io, AccessType::S, base, src as u8);
@@ -457,7 +458,7 @@ impl CPU {
     // ARM.13: Software Interrupt (SWI)
     fn arm_software_interrupt(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 24 & 0xF, 0b1111);
-        self.read::<u32>(io, AccessType::N, self.regs.pc);
+        self.instruction_prefetch::<u32>(io, AccessType::N);
         self.regs.change_mode(Mode::SVC);
         self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4));
         self.regs.set_i(true);

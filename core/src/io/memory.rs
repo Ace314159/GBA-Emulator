@@ -1,4 +1,4 @@
-extern crate num_traits as num;
+pub extern crate num_traits as num;
 
 use std::mem::size_of;
 use num::{cast::FromPrimitive, NumCast, PrimInt, Unsigned};
