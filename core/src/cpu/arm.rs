@@ -288,12 +288,13 @@ impl CPU {
         } else {
             let value = self.regs.get_reg_i(src_dest_reg);
             let value = if src_dest_reg == 15 { value.wrapping_add(4) } else { value };
-            let addr = if transfer_byte {
-                io.write::<u8>(addr, value as u8); addr
+            if transfer_byte {
+                io.inc_clock(Cycle::N, addr, 2);
+                io.write::<u8>(addr, value as u8);
             } else {
-                io.write::<u32>(addr & !0x3, value); addr & !0x3
-            };
-            io.inc_clock(Cycle::N, addr, 2);
+                io.inc_clock(Cycle::N, addr & !0x3, 2);
+                io.write::<u32>(addr & !0x3, value);
+            }
         };
         let offset_applied = if add_offset { base.wrapping_add(offset) } else { base.wrapping_sub(offset) };
         if pre_offset {
@@ -334,6 +335,11 @@ impl CPU {
         
         let mut exec = |addr| if load {
             io.inc_clock(Cycle::I, 0, 0);
+            if src_dest_reg == base_reg { write_back = false }
+            if src_dest_reg == 15 {
+                io.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
+                self.fill_arm_instr_buffer(io);
+            } else { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
             self.regs.set_reg_i(src_dest_reg, match opcode {
                 1 => (io.read::<u16>(addr & !0x1) as u32).rotate_right((addr & 0x1) * 8),
                 2 => io.read::<u8>(addr) as i8 as u32,
@@ -341,11 +347,6 @@ impl CPU {
                 3 => io.read::<u16>(addr) as i16 as u32,
                 _ => unreachable!(),
             });
-            if src_dest_reg == base_reg { write_back = false }
-            if src_dest_reg == 15 {
-                io.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2);
-                self.fill_arm_instr_buffer(io);
-            } else { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2); }
         } else {
             assert_eq!(opcode, 1);
             let addr = addr & !0x1;
