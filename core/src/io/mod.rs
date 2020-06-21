@@ -45,6 +45,7 @@ pub struct IO {
     waitcnt: WaitStateControl,
 
     mgba_test_suite: mgba_test_suite::MGBATestSuite,
+    cycle: usize,
 }
 
 impl IO {
@@ -80,6 +81,7 @@ impl IO {
             waitcnt: WaitStateControl::new(),
 
             mgba_test_suite: mgba_test_suite::MGBATestSuite::new(),
+            cycle: 0,
         }, pixels, debug_windows_spec)
     }
 
@@ -108,6 +110,7 @@ impl IO {
 
         for _ in 0..clocks_inc {
             let (timer_interrupts, timers_overflowed) = self.timers.clock();
+            self.cycle = self.cycle.wrapping_add(1);
             self.interrupt_controller.request |= timer_interrupts;
             self.apu.clock(timers_overflowed);
         }
