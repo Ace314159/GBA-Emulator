@@ -39,6 +39,7 @@ impl Timers {
 pub struct Timer {
     pub reload: u16,
     pub cnt: TMCNT,
+    pub started: bool,
     counter: u16,
     prescaler_counter: u16,
     interrupt: InterruptRequest,
@@ -49,6 +50,7 @@ impl Timer {
         Timer {
             reload: 0,
             cnt: TMCNT::new(),
+            started: false,
             counter: 0,
             prescaler_counter: 1,
             interrupt,
@@ -56,7 +58,7 @@ impl Timer {
     }
 
     pub fn clock(&mut self, prev_timer_overflowed: bool) -> (bool, InterruptRequest) {
-        if self.cnt.start {
+        if self.started {
             let clock = if self.cnt.count_up {
                 prev_timer_overflowed
             } else {
@@ -73,6 +75,7 @@ impl Timer {
                 } else { self.counter = new_counter }
             }
         }
+        self.started = self.cnt.start;
         (false, InterruptRequest::empty())
     }
 }
