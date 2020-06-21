@@ -387,14 +387,15 @@ mod mgba_test_suite {
                     self.flags = self.flags & !0xFF00 | (value as u16) << 8 & 0xFF00;
                     if self.flags & 0x100 != 0 {
                         use MGBALogLevel::*;
-                        let message: String = self.buffer.iter().collect();
-                        let str = message.trim_end_matches('\0').replace('\0', " ");
+                        let null_byte_pos = self.buffer.iter().position(|&c| c == '\0')
+                            .unwrap_or(self.buffer.len());
+                        let message: String = self.buffer.iter().take(null_byte_pos).collect();
                         match MGBALogLevel::new(self.flags & 0x7) {
-                            Fatal => error!("{}", str),
-                            Error => error!("{}", str),
-                            Warn => warn!("{}", str),
-                            Info => info!("{}", str),
-                            Debug => debug!("{}", str),
+                            Fatal => error!("{}", message),
+                            Error => error!("{}", message),
+                            Warn => warn!("{}", message),
+                            Info => info!("{}", message),
+                            Debug => debug!("{}", message),
                         }
                     }
                 },
