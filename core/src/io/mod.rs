@@ -248,7 +248,7 @@ struct WaitStateControl {
 }
 
 impl WaitStateControl {
-    const N_ACCESS_TIMINGS: [u32; 4] = [4, 2, 3, 8];
+    const N_ACCESS_TIMINGS: [u32; 4] = [4, 3, 2, 8];
     const S_ACCESS_TIMINGS: [[u32; 2]; 3] = [
         [2, 1],
         [4, 1],
