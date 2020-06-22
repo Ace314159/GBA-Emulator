@@ -156,8 +156,8 @@ impl CPU {
             0b10 => src,
             0b11 => {
                 assert_eq!(dest_reg_msb, 0);
+                self.instruction_prefetch::<u16>(io, AccessType::N);
                 self.regs.pc = src;
-                self.read::<u16>(io, AccessType::N, self.regs.pc);
                 if src & 0x1 != 0 {
                     self.regs.pc = self.regs.pc & !0x1;
                     self.fill_thumb_instr_buffer(io);
