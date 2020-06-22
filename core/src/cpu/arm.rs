@@ -143,13 +143,13 @@ impl CPU {
         else { assert_eq!(opcode & 0xC != 0x8, true) }
         let mut clocked = false;
         if opcode & 0xC != 0x8 {
-            self.regs.set_reg_i(dest_reg, result);
             if dest_reg == 15 {
                 clocked = true;
                 self.instruction_prefetch::<u32>(io, AccessType::N);
+                self.regs.pc = result;
                 if self.regs.get_t() { self.fill_thumb_instr_buffer(io) }
                 else { self.fill_arm_instr_buffer(io) }
-            }
+            } else { self.regs.set_reg_i(dest_reg, result) }
         }
         if !clocked {
             if temp_inc_pc { self.regs.pc = self.regs.pc.wrapping_sub(4) } // Dec after temp inc
