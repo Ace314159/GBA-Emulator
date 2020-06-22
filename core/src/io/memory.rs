@@ -14,7 +14,9 @@ impl MemoryHandler for IO {
             MemoryRegion::Palette => IO::read_from_bytes(&self.ppu, &PPU::read_palette_ram, addr),
             MemoryRegion::VRAM => IO::read_mem(&self.ppu.vram, PPU::parse_vram_addr(addr)),
             MemoryRegion::OAM => IO::read_mem(&self.ppu.oam, PPU::parse_oam_addr(addr)),
-            MemoryRegion::ROM => self.read_rom(addr),
+            MemoryRegion::ROM0L | MemoryRegion::ROM0H |
+            MemoryRegion::ROM1L | MemoryRegion::ROM1H |
+            MemoryRegion::ROM2L | MemoryRegion::ROM2H => self.read_rom(addr),
             MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
                 IO::read_from_bytes(self, &IO::read_cart_backup, addr - 0x0E000000) } else { num::zero() },
             MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
@@ -30,7 +32,9 @@ impl MemoryHandler for IO {
             MemoryRegion::Palette => self.write_palette_ram(addr, value),
             MemoryRegion::VRAM => self.write_vram(PPU::parse_vram_addr(addr), value),
             MemoryRegion::OAM => self.write_oam(PPU::parse_oam_addr(addr), value),
-            MemoryRegion::ROM => self.write_rom(addr, value),
+            MemoryRegion::ROM0L | MemoryRegion::ROM0H |
+            MemoryRegion::ROM1L | MemoryRegion::ROM1H |
+            MemoryRegion::ROM2L | MemoryRegion::ROM2H => self.write_rom(addr, value),
             MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
                 IO::write_from_bytes(self, &IO::write_cart_backup, addr - 0x0E000000, value) },
             MemoryRegion::Unused => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
@@ -46,7 +50,12 @@ pub enum MemoryRegion {
     Palette,
     VRAM,
     OAM,
-    ROM,
+    ROM0L,
+    ROM0H,
+    ROM1L,
+    ROM1H,
+    ROM2L,
+    ROM2H,
     CartBackup,
     Unused,
 }
@@ -61,7 +70,12 @@ impl MemoryRegion {
             0x05 => MemoryRegion::Palette,
             0x06 => MemoryRegion::VRAM,
             0x07 => MemoryRegion::OAM,
-            0x08 ..= 0x0D => MemoryRegion::ROM,
+            0x08 => MemoryRegion::ROM0L,
+            0x09 => MemoryRegion::ROM0H,
+            0x0A => MemoryRegion::ROM1L,
+            0x0B => MemoryRegion::ROM1H,
+            0x0C => MemoryRegion::ROM2L,
+            0x0D => MemoryRegion::ROM2H,
             0x0E => MemoryRegion::CartBackup,
             _ => MemoryRegion::Unused,
         }

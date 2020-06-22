@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
-pub use memory::{MemoryHandler, MemoryValue, num};
+pub use memory::{MemoryHandler, MemoryRegion, MemoryValue, num};
 use dma::DMA;
 use timers::Timers;
 use ppu::PPU;
@@ -87,25 +87,22 @@ impl IO {
 
     pub fn inc_clock(&mut self, cycle_type: Cycle, addr: u32, access_width: u32) {
         let clocks_inc = if cycle_type == Cycle::I { 1 }
-        else { match addr {
-            0x00000000 ..= 0x00003FFF => 1, // BIOS ROM
-            0x00004000 ..= 0x01FFFFFF => 1, // Unused Memory
-            0x02000000 ..= 0x0203FFFF => [3, 3, 6][access_width as usize], // WRAM - On-board 256K
-            0x02040000 ..= 0x02FFFFFF => 1, // Unused Memory
-            0x03000000 ..= 0x03007FFF => 1, // WRAM - In-chip 32K
-            0x03008000 ..= 0x03FFFFFF => 1, // Unused Memory
-            0x04000000 ..= 0x040003FE => 1, // IO
-            0x04000400 ..= 0x04FFFFFF => 1, // Unused Memory
-            0x05000000 ..= 0x05FFFFFF => if access_width < 2 { 1 } else { 2 }, // Palette RAM
-            0x06000000 ..= 0x06FFFFFF => if access_width < 2 { 1 } else { 2 }, // VRAM
-            0x07000000 ..= 0x07FFFFFF => 1, // OAM
-            0x08000000 ..= 0x09FFFFFF => self.waitcnt.get_access_time(0, cycle_type, access_width),
-            0x0A000000 ..= 0x0BFFFFFF => self.waitcnt.get_access_time(1, cycle_type, access_width),
-            0x0C000000 ..= 0x0DFFFFFF => self.waitcnt.get_access_time(2, cycle_type, access_width),
-            0x0E000000 ..= 0x0E00FFFF => 1,
-            0x0E010000 ..= 0x0FFFFFFF => 1,
-            _ if addr & 0xF0000000 != 0 => 1,
-            _ => unimplemented!("Clock Cycle for 0x{:08X} not implemented!", addr),
+        else { match MemoryRegion::get_region(addr) {
+            MemoryRegion::BIOS => 1, // BIOS ROM
+            MemoryRegion::EWRAM => [3, 3, 6][access_width as usize], // WRAM - On-board 256K
+            MemoryRegion::IWRAM => 1,
+            MemoryRegion::IO => 1,
+            MemoryRegion::Palette => if access_width < 2 { 1 } else { 2 },
+            MemoryRegion::VRAM => if access_width < 2 { 1 } else { 2 },
+            MemoryRegion::OAM => 1,
+            MemoryRegion::ROM0L | MemoryRegion::ROM0H =>
+                self.waitcnt.get_access_time(0, cycle_type, access_width),
+            MemoryRegion::ROM1L | MemoryRegion::ROM1H =>
+                self.waitcnt.get_access_time(1, cycle_type, access_width),
+            MemoryRegion::ROM2L | MemoryRegion::ROM2H =>
+                self.waitcnt.get_access_time(2, cycle_type, access_width),
+            MemoryRegion::CartBackup => 1,
+            MemoryRegion::Unused => 1,
         }};
 
         for _ in 0..clocks_inc {
