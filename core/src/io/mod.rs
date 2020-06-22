@@ -387,12 +387,17 @@ mod mgba_test_suite {
                         let null_byte_pos = self.buffer.iter().position(|&c| c == '\0')
                             .unwrap_or(self.buffer.len());
                         let message: String = self.buffer.iter().take(null_byte_pos).collect();
+                        
+                        if message.contains("PASS") { return }
+                        let show_info = message.contains("FAIL") &&
+                            !message.split(' ').skip(1).take(1).collect::<String>().contains("P");
+                        let show_debug = !message.split(' ').rev().take(1).collect::<String>().contains("P");
                         match MGBALogLevel::new(self.flags & 0x7) {
                             Fatal => error!("{}", message),
                             Error => error!("{}", message),
                             Warn => warn!("{}", message),
-                            Info => info!("{}", message),
-                            Debug => debug!("{}", message),
+                            Info => if show_info { info!("{}", message) },
+                            Debug => if show_debug { debug!("{}", message) },
                         }
                     }
                 },
