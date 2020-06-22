@@ -61,7 +61,7 @@ impl dyn CartBackup {
     }
 
     pub fn is_eeprom_access(&self, addr: u32, rom_size: usize) -> bool {
-        self.is_eeprom() && addr >= 0x0D000000 && addr < 0x0E000000 && (rom_size <= 0x1000000 || addr >= 0x0DFFFF00)
+        self.is_eeprom() && (rom_size <= 0x1000000 || addr >= 0x0DFFFF00)
     }
 
     fn get_initial_mem(save_file: &PathBuf, default_val: u8, size: usize) -> Vec<u8> {
