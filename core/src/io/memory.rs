@@ -17,7 +17,7 @@ impl MemoryHandler for IO {
             MemoryRegion::ROM0L | MemoryRegion::ROM0H |
             MemoryRegion::ROM1L | MemoryRegion::ROM1H |
             MemoryRegion::ROM2L | MemoryRegion::ROM2H => self.read_rom(addr),
-            MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
+            MemoryRegion::SRAM => if !self.cart_backup.is_eeprom() {
                 IO::read_from_bytes(self, &IO::read_cart_backup, addr - 0x0E000000) } else { num::zero() },
             MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
         }
@@ -35,7 +35,7 @@ impl MemoryHandler for IO {
             MemoryRegion::ROM0L | MemoryRegion::ROM0H |
             MemoryRegion::ROM1L | MemoryRegion::ROM1H |
             MemoryRegion::ROM2L | MemoryRegion::ROM2H => self.write_rom(addr, value),
-            MemoryRegion::CartBackup => if !self.cart_backup.is_eeprom() {
+            MemoryRegion::SRAM => if !self.cart_backup.is_eeprom() {
                 IO::write_from_bytes(self, &IO::write_cart_backup, addr - 0x0E000000, value) },
             MemoryRegion::Unused => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
         }
@@ -56,7 +56,7 @@ pub enum MemoryRegion {
     ROM1H,
     ROM2L,
     ROM2H,
-    CartBackup,
+    SRAM,
     Unused,
 }
 
@@ -76,7 +76,7 @@ impl MemoryRegion {
             0x0B => MemoryRegion::ROM1H,
             0x0C => MemoryRegion::ROM2L,
             0x0D => MemoryRegion::ROM2H,
-            0x0E => MemoryRegion::CartBackup,
+            0x0E => MemoryRegion::SRAM,
             _ => MemoryRegion::Unused,
         }
     }

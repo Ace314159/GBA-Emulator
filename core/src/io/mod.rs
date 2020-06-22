@@ -96,12 +96,12 @@ impl IO {
             MemoryRegion::VRAM => if access_width < 2 { 1 } else { 2 },
             MemoryRegion::OAM => 1,
             MemoryRegion::ROM0L | MemoryRegion::ROM0H =>
-                self.waitcnt.get_access_time(0, cycle_type, access_width),
+                self.waitcnt.get_rom_access_time(0, cycle_type, access_width),
             MemoryRegion::ROM1L | MemoryRegion::ROM1H =>
-                self.waitcnt.get_access_time(1, cycle_type, access_width),
+                self.waitcnt.get_rom_access_time(1, cycle_type, access_width),
             MemoryRegion::ROM2L | MemoryRegion::ROM2H =>
-                self.waitcnt.get_access_time(2, cycle_type, access_width),
-            MemoryRegion::CartBackup => 1,
+                self.waitcnt.get_rom_access_time(2, cycle_type, access_width),
+            MemoryRegion::SRAM => self.waitcnt.get_sram_access_time(cycle_type),
             MemoryRegion::Unused => 1,
         }};
 
@@ -236,7 +236,7 @@ pub enum Cycle {
 }
 
 struct WaitStateControl {
-    cart_ram: usize,
+    sram_setting: usize,
     n_wait_state_settings: [usize; 3],
     s_wait_state_settings: [usize; 3],
     phi_terminal_out: usize,
@@ -251,10 +251,11 @@ impl WaitStateControl {
         [4, 1],
         [8, 1],
     ];
+    const SRAM_ACCESS_TIMINGS: [u32; 4] = [4, 3, 2, 8];
 
     pub fn new() -> WaitStateControl {
         WaitStateControl {
-            cart_ram: 0,
+            sram_setting: 0,
             n_wait_state_settings: [0; 3],
             s_wait_state_settings: [0; 3],
             phi_terminal_out: 0,
@@ -263,11 +264,11 @@ impl WaitStateControl {
         }
     }
 
-    pub fn get_access_time(&self, wait_state: usize, cycle_type: Cycle, access_len: u32) -> u32 {
+    pub fn get_rom_access_time(&self, wait_state: usize, cycle_type: Cycle, access_len: u32) -> u32 {
         assert_ne!(cycle_type, Cycle::I);
-        assert_eq!(access_len <= 2, true);
+        assert!(access_len <= 2);
         1 +
-        if access_len == 2 { self.get_access_time(wait_state, Cycle::S, 1) } else { 0 } +
+        if access_len == 2 { self.get_rom_access_time(wait_state, Cycle::S, 1) } else { 0 } +
         match cycle_type {
             Cycle::N => {
                 WaitStateControl::N_ACCESS_TIMINGS[self.n_wait_state_settings[wait_state]]
@@ -278,13 +279,18 @@ impl WaitStateControl {
             Cycle::I => unreachable!(),
         }
     }
+
+    pub fn get_sram_access_time(&self, cycle_type: Cycle) -> u32 {
+        assert_ne!(cycle_type, Cycle::I);
+        1 + WaitStateControl::SRAM_ACCESS_TIMINGS[self.sram_setting]
+    }
 }
 
 impl IORegister for WaitStateControl {
     fn read(&self, byte: u8) -> u8 {
         match byte {
             0 => (self.s_wait_state_settings[1] << 7 | self.n_wait_state_settings[1] << 5 |
-                    self.s_wait_state_settings[0] << 4 | self.n_wait_state_settings[0] << 2 | self.cart_ram) as u8,
+                    self.s_wait_state_settings[0] << 4 | self.n_wait_state_settings[0] << 2 | self.sram_setting) as u8,
             1 => ((self.type_flag as usize) << 7 | (self.prefetch_buffer as usize) << 6 | self.phi_terminal_out << 3 |
                 self.s_wait_state_settings[2] << 2 | self.n_wait_state_settings[2]) as u8,
             _ => unreachable!(),
@@ -295,7 +301,7 @@ impl IORegister for WaitStateControl {
         match byte {
             0 => {
                 let value = value as usize;
-                self.cart_ram = value & 0x3;
+                self.sram_setting = value & 0x3;
                 self.n_wait_state_settings[0] = (value >> 2) & 0x3;
                 self.s_wait_state_settings[0] = (value >> 4) & 0x1;
                 self.n_wait_state_settings[1] = (value >> 5) & 0x3;
