@@ -17,8 +17,7 @@ impl MemoryHandler for IO {
             MemoryRegion::ROM0L | MemoryRegion::ROM0H |
             MemoryRegion::ROM1L | MemoryRegion::ROM1H |
             MemoryRegion::ROM2L | MemoryRegion::ROM2H => self.read_rom(addr),
-            MemoryRegion::SRAM => if !self.cart_backup.is_eeprom() {
-                IO::read_from_bytes(self, &IO::read_cart_backup, addr - 0x0E000000) } else { num::zero() },
+            MemoryRegion::SRAM => self.read_sram(addr),
             MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
         }
     }
@@ -35,8 +34,7 @@ impl MemoryHandler for IO {
             MemoryRegion::ROM0L | MemoryRegion::ROM0H |
             MemoryRegion::ROM1L | MemoryRegion::ROM1H |
             MemoryRegion::ROM2L | MemoryRegion::ROM2H => self.write_rom(addr, value),
-            MemoryRegion::SRAM => if !self.cart_backup.is_eeprom() {
-                IO::write_from_bytes(self, &IO::write_cart_backup, addr - 0x0E000000, value) },
+            MemoryRegion::SRAM => self.write_sram(addr, value),
             MemoryRegion::Unused => warn!("Writng Unused Memory at {:08X} {:08X}", addr, num::cast::<T, u32>(value).unwrap()),
         }
     }
@@ -191,6 +189,17 @@ impl IO {
         }
     }
 
+    fn read_sram<T>(&self, addr: u32) -> T where T: MemoryValue {
+        if self.cart_backup.is_eeprom() { return num::zero() }
+        let byte = FromPrimitive::from_u8(self.read_cart_backup(addr - 0x0E000000)).unwrap();
+        match size_of::<T>() {
+            1 => byte,
+            2 => byte * FromPrimitive::from_u16(0x0101).unwrap(),
+            4 => byte * FromPrimitive::from_u32(0x01010101).unwrap(),
+            _ => unreachable!(),
+        }
+    }
+
     fn write_palette_ram<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
         if size_of::<T>() == 1 {
             let value = num::cast::<T, u8>(value).unwrap();
@@ -223,6 +232,12 @@ impl IO {
                 self.cart_backup.write_eeprom(addr, num::cast::<T, u16>(value).unwrap());
             } else { warn!("Bad EEPROM Write: {:X}", addr); }
         }
+    }
+
+    fn write_sram<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
+        if self.cart_backup.is_eeprom() { return }
+        let mask = FromPrimitive::from_u8(0xFF).unwrap();
+        self.write_cart_backup(addr - 0x0E000000, num::cast::<T, u8>(value.rotate_right(addr * 8) & mask).unwrap());
     }
 
     fn read_cart_backup(&self, addr: u32) -> u8 { self.cart_backup.read(addr) }
