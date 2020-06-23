@@ -5,6 +5,7 @@ mod dma;
 mod timers;
 pub mod keypad;
 mod interrupt_controller;
+mod gpio;
 mod cart_backup;
 
 use std::fs;
@@ -19,6 +20,7 @@ use ppu::PPU;
 use apu::APU;
 use keypad::{Keypad, KEYINPUT};
 use interrupt_controller::{InterruptController, InterruptRequest};
+use gpio::{GPIO, RTC};
 use cart_backup::CartBackup;
 
 use crate::gba::VisibleMemoryRegion;
@@ -38,6 +40,7 @@ pub struct IO {
     timers: Timers,
     keypad: Keypad,
     interrupt_controller: InterruptController,
+    rtc: RTC,
     cart_backup: Box<dyn CartBackup>,
 
     // Registers
@@ -60,6 +63,7 @@ impl IO {
         save_file.set_extension("sav");
         let rom = fs::read(rom_file).unwrap();
         let cart_backup = CartBackup::get(&rom, save_file);
+        let rtc = RTC::new(&rom);
         (IO {
             bios,
             ewram: vec![0; 0x40000],
@@ -74,6 +78,7 @@ impl IO {
             timers: Timers::new(),
             keypad: Keypad::new(keypad_rx),
             interrupt_controller: InterruptController::new(),
+            rtc,
             cart_backup,
 
             // Registers
@@ -107,6 +112,7 @@ impl IO {
 
         for _ in 0..clocks_inc {
             let (timer_interrupts, timers_overflowed) = self.timers.clock();
+            self.rtc.clock();
             self.cycle = self.cycle.wrapping_add(1);
             self.interrupt_controller.request |= timer_interrupts;
             self.apu.clock(timers_overflowed);

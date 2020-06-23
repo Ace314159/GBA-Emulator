@@ -2,7 +2,7 @@ pub extern crate num_traits as num;
 
 use std::mem::size_of;
 use num::{cast::FromPrimitive, NumCast, PrimInt, Unsigned};
-use super::{PPU, IO, IORegister};
+use super::{PPU, GPIO, IO, IORegister};
 
 impl MemoryHandler for IO {
     fn read<T>(&self, addr: u32) -> T where T: MemoryValue {
@@ -14,9 +14,10 @@ impl MemoryHandler for IO {
             MemoryRegion::Palette => IO::read_from_bytes(&self.ppu, &PPU::read_palette_ram, addr),
             MemoryRegion::VRAM => IO::read_mem(&self.ppu.vram, PPU::parse_vram_addr(addr)),
             MemoryRegion::OAM => IO::read_mem(&self.ppu.oam, PPU::parse_oam_addr(addr)),
-            MemoryRegion::ROM0L | MemoryRegion::ROM0H |
-            MemoryRegion::ROM1L | MemoryRegion::ROM1H |
-            MemoryRegion::ROM2L => self.read_rom(addr),
+            MemoryRegion::ROM0L => if (0x080000C4..=0x80000C9).contains(&addr) && self.rtc.is_used() && !self.rtc.write_only() {
+                IO::read_from_bytes(&self.rtc, &GPIO::read_register, addr - 0x080000C4)
+            } else { self.read_rom(addr) },
+            MemoryRegion::ROM0H | MemoryRegion::ROM1L | MemoryRegion::ROM1H | MemoryRegion::ROM2L => self.read_rom(addr),
             MemoryRegion::ROM2H => if self.cart_backup.is_eeprom_access(addr, self.rom.len()) && size_of::<T>() == 2 {
                 if self.dma.in_dma {
                     FromPrimitive::from_u16(self.cart_backup.read_eeprom(addr)).unwrap()
@@ -36,9 +37,10 @@ impl MemoryHandler for IO {
             MemoryRegion::Palette => self.write_palette_ram(addr, value),
             MemoryRegion::VRAM => self.write_vram(PPU::parse_vram_addr(addr), value),
             MemoryRegion::OAM => self.write_oam(PPU::parse_oam_addr(addr), value),
-            MemoryRegion::ROM0L | MemoryRegion::ROM0H |
-            MemoryRegion::ROM1L | MemoryRegion::ROM1H |
-            MemoryRegion::ROM2L => self.write_rom(addr, value),
+            MemoryRegion::ROM0L => if (0x080000C4..=0x80000C9).contains(&addr) && self.rtc.is_used() {
+                IO::write_from_bytes(&mut self.rtc, &GPIO::write_register, addr - 0x080000C4, value)
+            },
+            MemoryRegion::ROM0H | MemoryRegion::ROM1L | MemoryRegion::ROM1H | MemoryRegion::ROM2L => self.write_rom(addr, value),
             MemoryRegion::ROM2H => if self.cart_backup.is_eeprom_access(addr, self.rom.len()) {
                 if self.dma.in_dma { self.cart_backup.write_eeprom(addr, num::cast::<T, u16>(value).unwrap()) }
                 else { warn!("EEPROM Write not in DMA!") }
