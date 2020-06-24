@@ -457,6 +457,7 @@ impl PPU {
             (obj_y..y_end).contains(&y)
         }).collect::<Vec<_>>();
         objs.sort_by_key(|a| (*a)[2] >> 10 & 0x3);
+        let obj_window_enabled = self.dispcnt.flags.contains(DISPCNTFlags::DISPLAY_OBJ_WINDOW);
 
         for dot_x in 0..gba::WIDTH {
             self.objs_line[dot_x] = OBJPixel::none();
@@ -520,7 +521,7 @@ impl PPU {
                 if color_num == 0 { continue }
                 let mode = obj[0] >> 10 & 0x3;
                 if mode == 2 {
-                    self.windows_lines[2][dot_x] = true;
+                    self.windows_lines[2][dot_x] = obj_window_enabled;
                     if set_color { break } // Continue to look for color pixels
                 } else if !set_color {
                     self.objs_line[dot_x] = OBJPixel {
@@ -529,7 +530,8 @@ impl PPU {
                         semitransparent: mode == 1,
                     };
                     set_color = true;
-                    if self.windows_lines[2][dot_x] { break } // Continue to look for OBJ window pixels
+                    // Continue to look for OBJ window pixels if not yet found and window is enabled
+                    if self.windows_lines[2][dot_x] || !obj_window_enabled { break }
                 }
             }
         }
