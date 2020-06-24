@@ -484,7 +484,7 @@ impl PPU {
                     let (x_diff, y_diff) = if double_size {
                         (x_diff - obj_width / 2, y_diff as i16 - obj_height as i16 / 2)
                     } else { (x_diff, y_diff as i16) };
-                    let aff_param = obj[1] >> 9 & 0xF;
+                    let aff_param = obj[1] >> 9 & 0x1F;
                     let params = affine_params[aff_param as usize];
                     let (pa, pb, pc, pd) = (
                         RotationScalingParameter::get_float_from_u16(params[0]),
