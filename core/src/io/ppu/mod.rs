@@ -436,11 +436,12 @@ impl PPU {
     fn render_objs_line(&mut self) {
         let mut oam_parsed = [[0u16; 3]; 0x80];
         let mut affine_params = [[0u16; 4]; 0x20];
-        (0..self.oam.len()).filter(|i| i % 2 == 0)
-        .for_each(|i| {
-            if i & 0x7 == 6 {
-                affine_params[(i - 6) / 32][(i - 6) / 8 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]);
-            } else { oam_parsed[i / 8][i / 2 % 4] = u16::from_le_bytes([self.oam[i], self.oam[i + 1]]) }
+        self.oam.chunks(8).enumerate() // 1 OAM Entry, 1 Affine Parameter
+        .for_each(|(i, chunk)| {
+            oam_parsed[i][0] = u16::from_le_bytes([chunk[0], chunk[1]]);
+            oam_parsed[i][1] = u16::from_le_bytes([chunk[2], chunk[3]]);
+            oam_parsed[i][2] = u16::from_le_bytes([chunk[4], chunk[5]]);
+            affine_params[i / 4][i % 4] = u16::from_le_bytes([chunk[6], chunk[7]]);
         });
         let mut objs = oam_parsed.iter().filter(|obj| {
             let obj_shape = (obj[0] >> 14 & 0x3) as usize;
