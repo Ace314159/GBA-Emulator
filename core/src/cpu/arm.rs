@@ -426,9 +426,6 @@ impl CPU {
         }
 
         self.regs.set_mode(actual_mode);
-        // TODO: Test what this is for
-        //if loaded_pc { io.inc_clock(Cycle::N, self.regs.pc.wrapping_add(4), 2) }
-        //else if load { io.inc_clock(Cycle::S, self.regs.pc.wrapping_add(4), 2) }
     }
 
     // ARM.12: Single Data Swap (SWP)
