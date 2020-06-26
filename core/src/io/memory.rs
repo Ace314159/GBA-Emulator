@@ -117,7 +117,7 @@ impl IO {
             4 => 0xFFFF_FFFF,
             _ => unreachable!(),
         };
-        FromPrimitive::from_u32(value.rotate_right(addr * 8) & mask).unwrap()
+        FromPrimitive::from_u32((value >> ((addr & 3) * 8)) & mask).unwrap()
     }
 
     fn read_mem<T>(mem: &Vec<u8>, addr: u32) -> T where T: MemoryValue {
@@ -227,7 +227,7 @@ impl IO {
                 4 => 0xFFFF_FFFF,
                 _ => unreachable!(),
             };
-            FromPrimitive::from_u32(self.bios_latch.get() & mask).unwrap()
+            FromPrimitive::from_u32((self.bios_latch.get() >> ((addr & 3) * 8)) & mask).unwrap()
         }
     }
 
