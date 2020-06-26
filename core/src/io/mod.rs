@@ -8,6 +8,7 @@ mod interrupt_controller;
 mod gpio;
 mod cart_backup;
 
+use std::cell::Cell;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -47,6 +48,12 @@ pub struct IO {
     haltcnt: u16,
     waitcnt: WaitStateControl,
 
+    // Open Bus
+    pc: u32,
+    in_thumb: bool,
+    instr_buffer: [u32; 2],
+    bios_latch: Cell<u32>,
+
     mgba_test_suite: mgba_test_suite::MGBATestSuite,
     cycle: usize,
 }
@@ -84,6 +91,12 @@ impl IO {
             // Registers
             haltcnt: 0,
             waitcnt: WaitStateControl::new(),
+
+            // Open Bus
+            pc: 0,
+            in_thumb: false,
+            instr_buffer: [0; 2],
+            bios_latch: Cell::new(0),
 
             mgba_test_suite: mgba_test_suite::MGBATestSuite::new(),
             cycle: 0,

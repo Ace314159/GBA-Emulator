@@ -35,6 +35,7 @@ impl CPU {
     }
 
     pub fn read<T>(&mut self, io: &mut IO, access_type: AccessType, addr: u32) -> T where T: MemoryValue {
+        io.setup_openbus(self.regs.pc, self.regs.get_t(), &self.instr_buffer);
         let value = io.read::<T>(addr);
         io.inc_clock(self.next_access_type.into(), addr, match std::mem::size_of::<T>() {
             1 => 0,
@@ -47,6 +48,7 @@ impl CPU {
     }
 
     pub fn write<T>(&mut self, io: &mut IO, access_type: AccessType, addr: u32, value: T) where T: MemoryValue {
+        io.setup_openbus(self.regs.pc, self.regs.get_t(), &self.instr_buffer);
         io.inc_clock(self.next_access_type.into(), addr, match std::mem::size_of::<T>() {
             1 => 0,
             2 => 1,
@@ -64,6 +66,7 @@ impl CPU {
     }
 
     pub fn internal(&mut self, io: &mut IO) {
+        io.setup_openbus(self.regs.pc, self.regs.get_t(), &self.instr_buffer);
         io.inc_clock(Cycle::I, 0, 0);
         self.next_access_type = AccessType::N;
     }

@@ -7,7 +7,7 @@ use super::{PPU, GPIO, IO, IORegister};
 impl MemoryHandler for IO {
     fn read<T>(&self, addr: u32) -> T where T: MemoryValue {
         match MemoryRegion::get_region(addr) {
-            MemoryRegion::BIOS => IO::read_mem(&self.bios, addr),
+            MemoryRegion::BIOS => self.read_bios(addr),
             MemoryRegion::EWRAM => IO::read_mem(&self.ewram, addr & IO::EWRAM_MASK),
             MemoryRegion::IWRAM => IO::read_mem(&self.iwram, addr & IO::IWRAM_MASK),
             MemoryRegion::IO => IO::read_from_bytes(self, &IO::read_io_register, addr),
@@ -24,7 +24,7 @@ impl MemoryHandler for IO {
                 } else { num::one() }
             } else { self.read_rom(addr) },
             MemoryRegion::SRAM => self.read_sram(addr),
-            MemoryRegion::Unused => { warn!("Reading Unused Memory at {:08X}", addr); num::zero() }
+            MemoryRegion::Unused => { self.read_openbus(addr) }
         }
     }
 
@@ -51,6 +51,7 @@ impl MemoryHandler for IO {
     }
 }
 
+#[derive(PartialEq)]
 pub enum MemoryRegion {
     BIOS,
     EWRAM,
@@ -92,6 +93,33 @@ impl MemoryRegion {
 }
 
 impl IO {
+    pub fn setup_openbus(&mut self, pc: u32, in_thumb: bool, instr_buffer: &[u32; 2]) {
+        self.pc = pc;
+        self.in_thumb = in_thumb;
+        self.instr_buffer = instr_buffer.clone();
+    }
+
+    fn read_openbus<T>(&self, addr: u32) -> T where T: MemoryValue {
+        let value = if self.in_thumb {
+            match MemoryRegion::get_region(self.pc) {
+                MemoryRegion::EWRAM | MemoryRegion::Palette | MemoryRegion::VRAM | MemoryRegion::ROM0H |
+                MemoryRegion::ROM1L | MemoryRegion::ROM1H | MemoryRegion::ROM2L | MemoryRegion::ROM2H =>
+                    self.instr_buffer[1] * 0x00010001,
+                MemoryRegion::BIOS | MemoryRegion::OAM => self.instr_buffer[0] | self.instr_buffer[1] << 16,
+                MemoryRegion::IWRAM if self.pc & 0x3 != 0 => self.instr_buffer[0] | self.instr_buffer[1] << 16,
+                MemoryRegion::IWRAM => self.instr_buffer[1] | self.instr_buffer[0] << 16,
+                MemoryRegion::IO | MemoryRegion::ROM0L | MemoryRegion::SRAM | MemoryRegion::Unused => 0,
+            }
+        } else { self.instr_buffer[1] };
+        let mask = match std::mem::size_of::<T>() {
+            1 => 0xFF,
+            2 => 0xFFFF,
+            4 => 0xFFFF_FFFF,
+            _ => unreachable!(),
+        };
+        FromPrimitive::from_u32(value.rotate_right(addr * 8) & mask).unwrap()
+    }
+
     fn read_mem<T>(mem: &Vec<u8>, addr: u32) -> T where T: MemoryValue {
         unsafe {
             *(&mem[addr as usize] as *const u8 as *const T)
@@ -185,6 +213,21 @@ impl IO {
             0x04FFF600 ..= 0x04FFF701 => self.mgba_test_suite.write_register(addr, value),
             0x04FFF780 ..= 0x04FFF781 => self.mgba_test_suite.write_enable(addr, value),
             _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, 0),
+        }
+    }
+
+    fn read_bios<T>(&self, addr: u32) -> T where T: MemoryValue {
+        if self.pc < 0x4000 {
+            self.bios_latch.set(IO::read_mem(&self.bios, addr)); // Always 32 bit read
+            IO::read_mem(&self.bios, addr)
+        } else {
+            let mask = match std::mem::size_of::<T>() {
+                1 => 0xFF,
+                2 => 0xFFFF,
+                4 => 0xFFFF_FFFF,
+                _ => unreachable!(),
+            };
+            FromPrimitive::from_u32(self.bios_latch.get() & mask).unwrap()
         }
     }
 
