@@ -86,7 +86,7 @@ impl MemoryRegion {
             0x0B => MemoryRegion::ROM1H,
             0x0C => MemoryRegion::ROM2L,
             0x0D => MemoryRegion::ROM2H,
-            0x0E => MemoryRegion::SRAM,
+            0x0E | 0x0F => MemoryRegion::SRAM,
             _ => MemoryRegion::Unused,
         }
     }
@@ -244,6 +244,7 @@ impl IO {
             4 => FromPrimitive::from_u32(0xFFFF_FFFF).unwrap(),
             _ => unreachable!(),
         } }
+        let addr = addr & 0x0EFFFFFF;
         let byte = FromPrimitive::from_u8(self.read_cart_backup(addr - 0x0E000000)).unwrap();
         match size_of::<T>() {
             1 => byte,
@@ -283,6 +284,7 @@ impl IO {
 
     fn write_sram<T>(&mut self, addr: u32, value: T) where T: MemoryValue {
         if self.cart_backup.is_eeprom() { return }
+        let addr = addr & 0x0EFFFFFF;
         let mask = FromPrimitive::from_u8(0xFF).unwrap();
         self.write_cart_backup(addr - 0x0E000000, num::cast::<T, u8>(value.rotate_right(addr * 8) & mask).unwrap());
     }
