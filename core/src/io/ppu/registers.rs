@@ -148,7 +148,11 @@ impl IORegister for DISPSTAT {
 
     fn write(&mut self, byte: u8, value: u8) {
         match byte {
-            0 => self.flags.bits = (value as u16) & DISPSTATFlags::all().bits,
+            0 => {
+                let old_bits = self.flags.bits;
+                self.flags.bits = self.flags.bits & 0x7 | ((value as u16) & !0x7 & DISPSTATFlags::all().bits);
+                assert_eq!(old_bits & 0x7, self.flags.bits & 0x7);
+            },
             1 => self.vcount_setting = value as u8,
             _ => unreachable!(),
         }
