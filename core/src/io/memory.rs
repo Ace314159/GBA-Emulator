@@ -102,13 +102,13 @@ impl IO {
     fn read_openbus<T>(&self, addr: u32) -> T where T: MemoryValue {
         let value = if self.in_thumb {
             match MemoryRegion::get_region(self.pc) {
-                MemoryRegion::EWRAM | MemoryRegion::Palette | MemoryRegion::VRAM | MemoryRegion::ROM0H |
+                MemoryRegion::EWRAM | MemoryRegion::Palette | MemoryRegion::VRAM | MemoryRegion::ROM0L | MemoryRegion::ROM0H |
                 MemoryRegion::ROM1L | MemoryRegion::ROM1H | MemoryRegion::ROM2L | MemoryRegion::ROM2H =>
                     self.instr_buffer[1] * 0x00010001,
                 MemoryRegion::BIOS | MemoryRegion::OAM => self.instr_buffer[0] | self.instr_buffer[1] << 16,
                 MemoryRegion::IWRAM if self.pc & 0x3 != 0 => self.instr_buffer[0] | self.instr_buffer[1] << 16,
                 MemoryRegion::IWRAM => self.instr_buffer[1] | self.instr_buffer[0] << 16,
-                MemoryRegion::IO | MemoryRegion::ROM0L | MemoryRegion::SRAM | MemoryRegion::Unused => 0,
+                MemoryRegion::IO | MemoryRegion::SRAM | MemoryRegion::Unused => 0,
             }
         } else { self.instr_buffer[1] };
         let mask = match std::mem::size_of::<T>() {
