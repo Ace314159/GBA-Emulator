@@ -23,7 +23,7 @@ impl Keypad {
     pub fn poll(&mut self) {
         for (key, pressed) in self.rx.try_iter() {
             if pressed {
-                self.keyinput.remove(key)
+                self.keyinput.remove(key);
             } else {
                 self.keyinput.insert(key);
             }
