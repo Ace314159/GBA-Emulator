@@ -238,7 +238,12 @@ impl IO {
     }
 
     fn read_sram<T>(&self, addr: u32) -> T where T: MemoryValue {
-        if self.cart_backup.is_eeprom() { return num::zero() }
+        if self.cart_backup.is_eeprom() { return match size_of::<T>() {
+            1 => FromPrimitive::from_u8(0xFF).unwrap(),
+            2 => FromPrimitive::from_u16(0xFFFF).unwrap(),
+            4 => FromPrimitive::from_u32(0xFFFF_FFFF).unwrap(),
+            _ => unreachable!(),
+        } }
         let byte = FromPrimitive::from_u8(self.read_cart_backup(addr - 0x0E000000)).unwrap();
         match size_of::<T>() {
             1 => byte,
