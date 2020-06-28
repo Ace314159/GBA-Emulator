@@ -13,7 +13,11 @@ pub struct CPU {
     do_internal: bool,
 
     condition_lut: [bool; 256],
+    arm_lut: [InstructionHandler<u32>; 4096],
+    thumb_lut: [InstructionHandler<u16>; 256],
 }
+
+pub type InstructionHandler<T> = fn(&mut CPU, &mut IO, T);
 
 impl CPU {
     pub fn new(bios: bool, io: &mut IO) -> CPU {
@@ -24,6 +28,8 @@ impl CPU {
             do_internal: false,
 
             condition_lut: luts::gen_condition_table(),
+            arm_lut: arm::gen_lut(),
+            thumb_lut: thumb::gen_lut(),
         };
         cpu.fill_arm_instr_buffer(io);
         cpu

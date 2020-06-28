@@ -1,5 +1,5 @@
 use super::{
-    CPU, IO,
+    CPU, InstructionHandler, IO,
     registers::{Reg, Mode}
 };
 
@@ -31,26 +31,7 @@ impl CPU {
         self.instr_buffer[0] = self.instr_buffer[1];
         self.regs.pc = self.regs.pc.wrapping_add(2);
 
-        if instr & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { self.add_sub(io, instr) }
-        else if instr & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { self.move_shifted_reg(io, instr) }
-        else if instr & 0b1110_0000_0000_0000 == 0b0010_0000_0000_0000 { self.immediate(io, instr) }
-        else if instr & 0b1111_1100_0000_0000 == 0b0100_0000_0000_0000 { self.alu(io, instr) }
-        else if instr & 0b1111_1100_0000_0000 == 0b0100_0100_0000_0000 { self.hi_reg_bx(io, instr) }
-        else if instr & 0b1111_1000_0000_0000 == 0b0100_1000_0000_0000 { self.load_pc_rel(io, instr) }
-        else if instr & 0b1111_0010_0000_0000 == 0b0101_0000_0000_0000 { self.load_store_reg_offset(io, instr) }
-        else if instr & 0b1111_0010_0000_0000 == 0b0101_0010_0000_0000 { self.load_store_sign_ext(io, instr) }
-        else if instr & 0b1110_0000_0000_0000 == 0b0110_0000_0000_0000 { self.load_store_imm_offset(io, instr) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1000_0000_0000_0000 { self.load_store_halfword(io, instr) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1001_0000_0000_0000 { self.load_store_sp_rel(io, instr) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1010_0000_0000_0000 { self.get_rel_addr(io, instr) }
-        else if instr & 0b1111_1111_0000_0000 == 0b1011_0000_0000_0000 { self.add_offset_sp(io, instr) }
-        else if instr & 0b1111_0110_0000_0000 == 0b1011_0100_0000_0000 { self.push_pop_regs(io, instr) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1100_0000_0000_0000 { self.multiple_load_store(io, instr) }
-        else if instr & 0b1111_1111_0000_0000 == 0b1101_1111_0000_0000 { self.thumb_software_interrupt(io, instr) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1101_0000_0000_0000 { self.cond_branch(io, instr) }
-        else if instr & 0b1111_1000_0000_0000 == 0b1110_0000_0000_0000 { self.uncond_branch(io, instr) }
-        else if instr & 0b1111_0000_0000_0000 == 0b1111_0000_0000_0000 { self.branch_with_link(io, instr) }
-        else { panic!("Unexpected Instruction: {:08X}", instr) }
+        self.thumb_lut[(instr >> 8) as usize](self, io, instr);
     }
     
     // THUMB.1: move shifted register
@@ -496,4 +477,39 @@ impl CPU {
             self.instruction_prefetch::<u16>(io, AccessType::S);
         }
     }
+
+    fn undefined_instr_thumb(&mut self, _io: &mut IO, _instr: u16) {
+        panic!("Undefined Thumb Instruction!")
+    }
+}
+
+pub(super) fn gen_lut() -> [InstructionHandler<u16>; 256] {
+    // Bits 0-7 of opcode = Bits 16-31 of instr
+    let mut lut: [InstructionHandler<u16>; 256] = [CPU::undefined_instr_thumb; 256]; // Temp handler
+
+    for opcode in 0..256 {
+        let skeleton = opcode << 8;
+        lut[opcode] = if skeleton & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { CPU::add_sub }
+        else if skeleton & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { CPU::move_shifted_reg }
+        else if skeleton & 0b1110_0000_0000_0000 == 0b0010_0000_0000_0000 { CPU::immediate }
+        else if skeleton & 0b1111_1100_0000_0000 == 0b0100_0000_0000_0000 { CPU::alu }
+        else if skeleton & 0b1111_1100_0000_0000 == 0b0100_0100_0000_0000 { CPU::hi_reg_bx }
+        else if skeleton & 0b1111_1000_0000_0000 == 0b0100_1000_0000_0000 { CPU::load_pc_rel }
+        else if skeleton & 0b1111_0010_0000_0000 == 0b0101_0000_0000_0000 { CPU::load_store_reg_offset }
+        else if skeleton & 0b1111_0010_0000_0000 == 0b0101_0010_0000_0000 { CPU::load_store_sign_ext }
+        else if skeleton & 0b1110_0000_0000_0000 == 0b0110_0000_0000_0000 { CPU::load_store_imm_offset }
+        else if skeleton & 0b1111_0000_0000_0000 == 0b1000_0000_0000_0000 { CPU::load_store_halfword }
+        else if skeleton & 0b1111_0000_0000_0000 == 0b1001_0000_0000_0000 { CPU::load_store_sp_rel }
+        else if skeleton & 0b1111_0000_0000_0000 == 0b1010_0000_0000_0000 { CPU::get_rel_addr }
+        else if skeleton & 0b1111_1111_0000_0000 == 0b1011_0000_0000_0000 { CPU::add_offset_sp }
+        else if skeleton & 0b1111_0110_0000_0000 == 0b1011_0100_0000_0000 { CPU::push_pop_regs }
+        else if skeleton & 0b1111_0000_0000_0000 == 0b1100_0000_0000_0000 { CPU::multiple_load_store }
+        else if skeleton & 0b1111_1111_0000_0000 == 0b1101_1111_0000_0000 { CPU::thumb_software_interrupt }
+        else if skeleton & 0b1111_0000_0000_0000 == 0b1101_0000_0000_0000 { CPU::cond_branch }
+        else if skeleton & 0b1111_1000_0000_0000 == 0b1110_0000_0000_0000 { CPU::uncond_branch }
+        else if skeleton & 0b1111_0000_0000_0000 == 0b1111_0000_0000_0000 { CPU::branch_with_link }
+        else { CPU::undefined_instr_thumb };
+    }
+
+    lut
 }

@@ -1,5 +1,5 @@
 use super::{
-    CPU, IO,
+    CPU, InstructionHandler, IO,
     registers::{Reg, Mode}
 };
 
@@ -30,36 +30,7 @@ impl CPU {
         self.regs.pc = self.regs.pc.wrapping_add(4);
 
         if self.should_exec((instr >> 28) & 0xF) {
-            if instr & 0b1111_1111_1111_1111_1111_1111_0000 == 0b0001_0010_1111_1111_1111_0001_0000 {
-                self.branch_and_exchange(io, instr);
-            } else if instr & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.mul_mula(io, instr);
-            } else if instr & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
-                self.mul_long(io, instr);
-            } else if instr & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
-                self.single_data_swap(io, instr);
-            } else if instr & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-                self.halfword_and_signed_data_transfer(io, instr);
-            } else if instr & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
-                self.psr_transfer(io, instr);
-            } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
-                self.data_proc(io, instr);
-            } else if instr & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0100_0000_0000_0000_0000_0000_0000 {
-                self.single_data_transfer(io, instr);
-            } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1000_0000_0000_0000_0000_0000_0000 {
-                self.block_data_transfer(io, instr);
-            } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
-                self.branch_branch_with_link(io, instr);
-            } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
-                self.arm_software_interrupt(io, instr);
-            } else if instr & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
-                self.coprocessor(io, instr);
-            } else if instr & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
-                self.coprocessor(io, instr);
-            } else {
-                assert_eq!(instr & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
-                self.undefined_instr(io, instr);
-            }
+            self.arm_lut[((instr as usize) >> 16 & 0xFF0) | ((instr as usize) >> 4 & 0xF)](self, io, instr);
         } else {
             self.instruction_prefetch::<u32>(io, AccessType::S);
         }
@@ -472,7 +443,49 @@ impl CPU {
     }
 
     // ARM.17: Undefined Instruction
-    fn undefined_instr(&mut self, _io: &mut IO, _instr: u32) {
+    fn undefined_instr_arm(&mut self, _io: &mut IO, _instr: u32) {
         unimplemented!("ARM.17: Undefined Instruction not implemented!");
     }
+}
+
+pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
+    // Bits 0-3 of opcode = Bits 4-7 of instr
+    // Bits 4-11 of opcode = Bits Bits 20-27 of instr
+    let mut lut: [InstructionHandler<u32>; 4096] = [CPU::undefined_instr_arm; 4096];
+
+    for opcode in 0..4096 {
+        let skeleton = ((opcode & 0xFF0) << 16) | ((opcode & 0xF) << 4);
+        lut[opcode] = if skeleton & 0b1111_1111_0000_0000_0000_1111_0000 == 0b0001_0010_0000_0000_0000_0001_0000 {
+            CPU::branch_and_exchange
+        } else if skeleton & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
+            CPU::mul_mula
+        } else if skeleton & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
+            CPU::mul_long
+        } else if skeleton & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
+            CPU::single_data_swap
+        } else if skeleton & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
+            CPU::halfword_and_signed_data_transfer
+        } else if skeleton & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
+            CPU::psr_transfer
+        } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
+            CPU::data_proc
+        } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0100_0000_0000_0000_0000_0000_0000 {
+            CPU::single_data_transfer
+        } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1000_0000_0000_0000_0000_0000_0000 {
+            CPU::block_data_transfer
+        } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
+            CPU::branch_branch_with_link
+        } else if skeleton & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
+            CPU::arm_software_interrupt
+        } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
+            CPU::coprocessor
+        } else if skeleton & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1110_0000_0000_0000_0000_0000_0000 {
+            CPU::coprocessor
+        } else {
+            assert_eq!(skeleton & 0b1110_0000_0000_0000_0000_0001_0000, 0b1110_0000_0000_0000_0000_0001_0000);
+            CPU::undefined_instr_arm
+        };
+    }
+
+    lut
 }
