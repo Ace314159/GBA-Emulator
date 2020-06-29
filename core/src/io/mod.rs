@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
-pub use memory::{MemoryHandler, MemoryRegion, MemoryValue, num};
+pub use memory::{MemoryHandler, MemoryRegion, MemoryValue};
 use dma::DMA;
 use timers::Timers;
 use ppu::PPU;

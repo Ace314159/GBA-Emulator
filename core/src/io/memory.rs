@@ -1,5 +1,3 @@
-pub extern crate num_traits as num;
-
 use std::mem::size_of;
 use num::{cast::FromPrimitive, NumCast, PrimInt, Unsigned};
 use super::{PPU, GPIO, IO, IORegister};

@@ -3,7 +3,7 @@ mod thumb;
 mod registers;
 mod luts;
 
-use crate::io::{AccessType, Cycle, IO, MemoryHandler, MemoryValue, num};
+use crate::io::{AccessType, Cycle, IO, MemoryHandler, MemoryValue};
 use registers::{Mode, Reg, RegValues};
 
 pub struct CPU {
