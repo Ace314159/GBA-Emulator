@@ -12,6 +12,7 @@ pub use crate::io::{
 pub struct GBA {
     cpu: CPU,
     io: IO,
+    next_frame_cycle: usize,
 }
 
 impl GBA {
@@ -23,14 +24,19 @@ impl GBA {
         (GBA {
             cpu: CPU::new(false, &mut io),
             io,
+            next_frame_cycle: 0,
         }, pixels, debug_windows_spec)
     }
 
-    pub fn emulate(&mut self) {
+    pub fn emulate_frame(&mut self) {
         self.io.poll_keypad_updates();
-        self.io.run_dma();
-        self.cpu.handle_irq(&mut self.io);
-        self.cpu.emulate_instr(&mut self.io);
+        // TODO: This will overflow on 32-bit systems
+        self.next_frame_cycle += CLOCKS_PER_FRAME;
+        while self.io.cycle < self.next_frame_cycle {
+            self.io.run_dma();
+            self.cpu.handle_irq(&mut self.io);
+            self.cpu.emulate_instr(&mut self.io);
+        }
     }
 
     pub fn peek_mem(&self, region: VisibleMemoryRegion, addr: usize) -> u8 {
@@ -45,7 +51,10 @@ pub const SCALE: usize = 2;
 pub const AUDIO_SAMPLE_RATE: usize = 0x8000;
 pub const AUDIO_BUFFER_LEN: usize = 4096;
 pub const CLOCK_FREQ: usize = 1 << 24;
-pub const FRAME_PERIOD: std::time::Duration = std::time::Duration::from_nanos(1e9 as u64 * 280896 / CLOCK_FREQ as u64);
+pub const CLOCKS_PER_FRAME: usize = 280896;
+pub const FRAME_PERIOD: std::time::Duration = std::time::Duration::from_nanos(
+    1e9 as u64 * CLOCKS_PER_FRAME as u64 / CLOCK_FREQ as u64
+);
 
 #[derive(Clone, Copy)]
 pub enum VisibleMemoryRegion {

@@ -55,7 +55,7 @@ pub struct IO {
     bios_latch: Cell<u32>,
 
     mgba_test_suite: mgba_test_suite::MGBATestSuite,
-    cycle: usize,
+    pub cycle: usize,
 }
 
 impl IO {

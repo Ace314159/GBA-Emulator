@@ -54,7 +54,7 @@ fn main() {
         let (mut gba, pixels_mutex, debug_windows_spec_mutex) =
         GBA::new(PathBuf::from("suite.gba"), render_tx, keypad_rx);
         mutexes_tx.send((pixels_mutex, debug_windows_spec_mutex)).unwrap();
-        loop { gba.emulate() }
+        loop { gba.emulate_frame() }
     });
     let (pixels_mutex, debug_windows_spec_mutex) = mutexes_rx.recv().unwrap();
     let mut pixels_lock = None; 
