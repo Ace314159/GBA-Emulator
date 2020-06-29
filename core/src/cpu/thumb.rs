@@ -1,5 +1,6 @@
 use super::{
-    CPU, InstructionHandler, IO,
+    CPU, IO,
+    instructions::InstructionHandler,
     registers::{Reg, Mode}
 };
 

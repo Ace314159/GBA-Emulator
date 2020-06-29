@@ -1,5 +1,6 @@
 use super::{
-    CPU, InstructionHandler, IO,
+    CPU, IO,
+    instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},
     registers::{Reg, Mode}
 };
 
@@ -48,21 +49,20 @@ impl CPU {
     }
 
     // ARM.4: Branch and Branch with Link (B, BL)
-    fn branch_branch_with_link(&mut self, io: &mut IO, instr: u32) {
-        let opcode = (instr >> 24) & 0x1;
+    fn branch_branch_with_link<L: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         let offset = instr & 0xFF_FFFF;
         let offset = if (offset >> 23) == 1 { 0xFF00_0000 | offset } else { offset };
 
         self.instruction_prefetch::<u32>(io, AccessType::N);
-        if opcode == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
+        if L::num() == 1 { self.regs.set_reg(Reg::R14, self.regs.pc.wrapping_sub(4)) } // Branch with Link
         self.regs.pc = self.regs.pc.wrapping_add(offset << 2);
         self.fill_arm_instr_buffer(io);
     }
 
     // ARM.5: Data Processing
-    fn data_proc(&mut self, io: &mut IO, instr: u32) {
-        let change_status = (instr >> 20) & 0x1 != 0;
-        let immediate_op2 = (instr >> 25) & 0x1 != 0;
+    fn data_proc<I: InstructionFlag, S: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
+        let immediate_op2 = I::bool();
+        let change_status = S::bool();
         let mut temp_inc_pc = false;
         let opcode = (instr >> 21) & 0xF;
         let dest_reg = (instr >> 12) & 0xF;
@@ -129,12 +129,12 @@ impl CPU {
     }
 
     // ARM.6: PSR Transfer (MRS, MSR)
-    fn psr_transfer(&mut self, io: &mut IO, instr: u32) {
+    fn psr_transfer<I: InstructionFlag, P: InstructionFlag, L: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 26 & 0b11, 0b00);
-        let immediate_operand = (instr >> 25) & 0x1 != 0;
+        let immediate_operand = I::bool();
         assert_eq!(instr >> 23 & 0b11, 0b10);
-        let status_reg = if instr >> 22 & 0x1 != 0 { Reg::SPSR } else { Reg::CPSR };
-        let msr = instr >> 21 & 0x1 != 0;
+        let status_reg = if P::bool() { Reg::SPSR } else { Reg::CPSR };
+        let msr = L::bool();
         assert_eq!(instr >> 20 & 0b1, 0b0);
         self.instruction_prefetch::<u32>(io, AccessType::S);
 
@@ -162,10 +162,10 @@ impl CPU {
     }
     
     // ARM.7: Multiply and Multiply-Accumulate (MUL, MLA)
-    fn mul_mula(&mut self, io: &mut IO, instr: u32) {
+    fn mul_mula<A: InstructionFlag, S: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 22 & 0x3F, 0b000000);
-        let accumulate = instr >> 21 & 0x1 != 0;
-        let change_status = instr >> 20 & 0x1 != 0;
+        let accumulate = A::bool();
+        let change_status = S::bool();
         let dest_reg = instr >> 16 & 0xF;
         let op1_reg = instr >> 12 & 0xF;
         let op1 = self.regs.get_reg_i(op1_reg);
@@ -190,11 +190,11 @@ impl CPU {
     }
 
     // ARM.8: Multiply Long and Multiply-Accumulate Long (MULL, MLAL)
-    fn mul_long(&mut self, io: &mut IO, instr: u32) {
+    fn mul_long<U: InstructionFlag, A: InstructionFlag, S: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00001);
-        let signed = instr >> 22 & 0x1 != 0;
-        let accumulate = instr >> 21 & 0x1 != 0;
-        let change_status = instr >> 20 & 0x1 != 0;
+        let signed = U::bool();
+        let accumulate = A::bool();
+        let change_status = S::bool();
         let src_dest_reg_high = instr >> 16 & 0xF;
         let src_dest_reg_low = instr >> 12 & 0xF;
         let op1 = self.regs.get_reg_i(instr >> 8 & 0xF);
@@ -220,13 +220,14 @@ impl CPU {
     }
 
     // ARM.9: Single Data Transfer (LDR, STR)
-    fn single_data_transfer(&mut self, io: &mut IO, instr: u32) {
+    fn single_data_transfer<I: InstructionFlag, P: InstructionFlag, U: InstructionFlag,
+                            B: InstructionFlag, W: InstructionFlag, L: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 26 & 0b11, 0b01);
-        let shifted_reg_offset = instr >> 25 & 0x1 != 0;
-        let pre_offset = instr >> 24 & 0x1 != 0;
-        let transfer_byte = instr >> 22 & 0x1 != 0;
-        let mut write_back = instr >> 21 & 0x1 != 0 || !pre_offset;
-        let add_offset = instr >> 23 & 0x1 != 0;
+        let shifted_reg_offset = I::bool();
+        let pre_offset = P::bool();
+        let add_offset = U::bool();
+        let transfer_byte = B::bool();
+        let mut write_back = W::bool() || !pre_offset;
         let load = instr >> 20 & 0x1 != 0;
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
@@ -280,19 +281,22 @@ impl CPU {
     }
 
     // ARM.10: Halfword and Signed Data Transfer (STRH,LDRH,LDRSB,LDRSH)
-    fn halfword_and_signed_data_transfer(&mut self, io: &mut IO, instr: u32) {
+    fn halfword_and_signed_data_transfer<P: InstructionFlag, U: InstructionFlag, I: InstructionFlag, W: InstructionFlag,
+        L: InstructionFlag, S: InstructionFlag, H: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 25 & 0x7, 0b000);
-        let pre_offset = instr >> 24 & 0x1 != 0;
-        let add_offset = instr >> 23 & 0x1 != 0;
-        let immediate_offset = instr >> 22 & 0x1 != 0;
-        let mut write_back = instr >> 21 & 0x1 != 0 || !pre_offset;
-        let load = instr >> 20 & 0x1 != 0;
+        let pre_offset = P::bool();
+        let add_offset = U::bool();
+        let immediate_offset = I::bool();
+        let mut write_back = W::bool() || !pre_offset;
+        let load = L::bool();
         let base_reg = instr >> 16 & 0xF;
         let base = self.regs.get_reg_i(base_reg);
         let src_dest_reg = instr >> 12 & 0xF;
         let offset_hi = instr >> 8 & 0xF;
         assert_eq!(instr >> 7 & 0x1, 1);
-        let opcode = instr >> 5 & 0x3;
+        let signed = S::bool();
+        let halfword = H::bool();
+        let opcode = (signed as u8) << 1 | (halfword as u8);
         assert_eq!(instr >> 4 & 0x1, 1);
         let offset_low = instr & 0xF;
         self.instruction_prefetch::<u32>(io, AccessType::N);
@@ -336,13 +340,14 @@ impl CPU {
     }
 
     // ARM.11: Block Data Transfer (LDM,STM)
-    fn block_data_transfer(&mut self, io: &mut IO, instr: u32) {
+    fn block_data_transfer<P: InstructionFlag, U: InstructionFlag, S: InstructionFlag, W: InstructionFlag, L: InstructionFlag>
+        (&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 25 & 0x7, 0b100);
-        let add_offset = instr >> 23 & 0x1 != 0;
-        let pre_offset = (instr >> 24 & 0x1 != 0) ^ !add_offset;
-        let psr_force_usr = instr >> 22 & 0x1 != 0;
-        let load = instr >> 20 & 0x1 != 0;
-        let write_back = instr >> 21 & 0x1 != 0;
+        let add_offset = U::bool();
+        let pre_offset = P::bool() ^ !add_offset;
+        let psr_force_usr = S::bool();
+        let write_back = W::bool();
+        let load = L::bool();
         let base_reg = instr >> 16 & 0xF;
         assert_ne!(base_reg, 0xF);
         let base = self.regs.get_reg_i(base_reg);
@@ -400,9 +405,9 @@ impl CPU {
     }
 
     // ARM.12: Single Data Swap (SWP)
-    fn single_data_swap(&mut self, io: &mut IO, instr: u32) {
+    fn single_data_swap<B: InstructionFlag>(&mut self, io: &mut IO, instr: u32) {
         assert_eq!(instr >> 23 & 0x1F, 0b00010);
-        let byte = instr >> 22 & 0x1 != 0;
+        let byte = B::bool();
         assert_eq!(instr >> 20 & 0x3, 0b00);
         let base = self.regs.get_reg_i(instr >> 16 & 0xF);
         let dest_reg = instr >> 12 & 0xF;
@@ -458,23 +463,23 @@ pub(super) fn gen_lut() -> [InstructionHandler<u32>; 4096] {
         lut[opcode] = if skeleton & 0b1111_1111_0000_0000_0000_1111_0000 == 0b0001_0010_0000_0000_0000_0001_0000 {
             CPU::branch_and_exchange
         } else if skeleton & 0b1111_1100_0000_0000_0000_1111_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-            CPU::mul_mula
+            compose_instr_handler!(mul_mula, skeleton, 21, 20)
         } else if skeleton & 0b1111_1000_0000_0000_0000_1111_0000 == 0b0000_1000_0000_0000_0000_1001_0000 {
-            CPU::mul_long
+            compose_instr_handler!(mul_long, skeleton, 22, 21, 20)
         } else if skeleton & 0b1111_1000_0000_0000_1111_1111_0000 == 0b0001_0000_0000_0000_0000_1001_0000 {
-            CPU::single_data_swap
+            compose_instr_handler!(single_data_swap, skeleton, 22)
         } else if skeleton & 0b1110_0000_0000_0000_0000_1001_0000 == 0b0000_0000_0000_0000_0000_1001_0000 {
-            CPU::halfword_and_signed_data_transfer
+            compose_instr_handler!(halfword_and_signed_data_transfer, skeleton, 24, 23, 22, 21, 20, 6, 5)
         } else if skeleton & 0b1101_1001_0000_0000_0000_0000_0000 == 0b0001_0000_0000_0000_0000_0000_0000 {
-            CPU::psr_transfer
+            compose_instr_handler!(psr_transfer, skeleton, 25, 22, 21)
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0000_0000_0000_0000_0000_0000_0000 {
-            CPU::data_proc
+            compose_instr_handler!(data_proc, skeleton, 25, 20)
         } else if skeleton & 0b1100_0000_0000_0000_0000_0000_0000 == 0b0100_0000_0000_0000_0000_0000_0000 {
-            CPU::single_data_transfer
+            compose_instr_handler!(single_data_transfer, skeleton, 25, 24, 23, 22, 21, 20)
         } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1000_0000_0000_0000_0000_0000_0000 {
-            CPU::block_data_transfer
+            compose_instr_handler!(block_data_transfer, skeleton, 24, 23, 22, 21, 20)
         } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1010_0000_0000_0000_0000_0000_0000 {
-            CPU::branch_branch_with_link
+            compose_instr_handler!(branch_branch_with_link, skeleton, 24)
         } else if skeleton & 0b1111_0000_0000_0000_0000_0000_0000 == 0b1111_0000_0000_0000_0000_0000_0000 {
             CPU::arm_software_interrupt
         } else if skeleton & 0b1110_0000_0000_0000_0000_0000_0000 == 0b1100_0000_0000_0000_0000_0000_0000 {
