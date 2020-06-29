@@ -1,6 +1,6 @@
 use super::{
     CPU, IO,
-    instructions::InstructionHandler,
+    instructions::{InstructionFlag, InstructionHandler, InstrFlagSet, InstrFlagClear},
     registers::{Reg, Mode}
 };
 
@@ -36,9 +36,9 @@ impl CPU {
     }
     
     // THUMB.1: move shifted register
-    fn move_shifted_reg(&mut self, io: &mut IO, instr: u16) {
+    fn move_shifted_reg<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 13, 0b000);
-        let opcode = (instr >> 11 & 0x3) as u32;
+        let opcode = OpH::num() << 1 | OpL::num();
         let offset = (instr >> 6 & 0x1F) as u32;
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let dest_reg = (instr & 0x7) as u32;
@@ -52,11 +52,12 @@ impl CPU {
     }
 
     // THUMB.2: add/subtract
-    fn add_sub(&mut self, io: &mut IO, instr: u16) {
+    fn add_sub<I: InstructionFlag, SUB: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 11, 0b00011);
-        let sub = instr >> 9 & 0x1 != 0;
+        let immediate = I::bool();
+        let sub = SUB::bool();
         let operand = (instr >> 6 & 0x7) as u32;
-        let operand = if instr >> 10 & 0x1 != 0 { operand } else { self.regs.get_reg_i(operand) };
+        let operand = if immediate { operand } else { self.regs.get_reg_i(operand) };
         let src = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let dest_reg = (instr & 0x7) as u32;
 
@@ -70,10 +71,11 @@ impl CPU {
     }
 
     // THUMB.3: move/compare/add/subtract immediate
-    fn immediate(&mut self, io: &mut IO, instr: u16) {
+    fn immediate<OpH: InstructionFlag, OpL: InstructionFlag, Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>
+        (&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 13, 0b001);
-        let opcode = instr >> 11 & 0x3;
-        let dest_reg = instr >> 8 & 0x7;
+        let opcode = OpH::num() << 1 | OpL::num();
+        let dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
         let immediate = (instr & 0xFF) as u32;
         let op1 = self.regs.get_reg_i(dest_reg as u32);
         let result = match opcode {
@@ -124,9 +126,9 @@ impl CPU {
     }
 
     // THUMB.5: Hi register operations/branch exchange
-    fn hi_reg_bx(&mut self, io: &mut IO, instr: u16) {
+    fn hi_reg_bx<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 10, 0b010001);
-        let opcode = instr >> 8 & 0x3;
+        let opcode = OpH::num() << 1 | OpL::num();
         let dest_reg_msb = instr >> 7 & 0x1;
         let src_reg_msb = instr >> 6 & 0x1;
         let src = self.regs.get_reg_i((src_reg_msb << 3 | instr >> 3 & 0x7) as u32);
@@ -160,9 +162,9 @@ impl CPU {
     }
 
     // THUMB.6: load PC-relative
-    fn load_pc_rel(&mut self, io: &mut IO, instr: u16) {
+    fn load_pc_rel<Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 11, 0b01001);
-        let dest_reg = (instr >> 8 & 0x7) as u32;
+        let dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
         let offset = (instr & 0xFF) as u32;
         let addr = (self.regs.pc & !0x2).wrapping_add(offset * 4);
         self.instruction_prefetch::<u16>(io, AccessType::N);
@@ -172,9 +174,9 @@ impl CPU {
     }
 
     // THUMB.7: load/store with register offset
-    fn load_store_reg_offset(&mut self, io: &mut IO, instr: u16) {
+    fn load_store_reg_offset<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b0101);
-        let opcode = instr >> 10 & 0x3; 
+        let opcode = OpH::num() << 1 | OpL::num(); 
         assert_eq!(instr >> 9 & 0x1, 0);
         let offset_reg = (instr >> 6 & 0x7) as u32;
         let base_reg = (instr >> 3 & 0x7) as u32;
@@ -199,9 +201,9 @@ impl CPU {
     }
 
     // THUMB.8: load/store sign-extended byte/halfword
-    fn load_store_sign_ext(&mut self, io: &mut IO, instr: u16) {
+    fn load_store_sign_ext<OpH: InstructionFlag, OpL: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b0101);
-        let opcode = instr >> 10 & 0x3;
+        let opcode = OpH::num() << 1 | OpL::num();
         assert_eq!(instr >> 9 & 0x1, 1);
         let offset_reg = (instr >> 6 & 0x7) as u32;
         let base_reg = (instr >> 3 & 0x7) as u32;
@@ -226,10 +228,10 @@ impl CPU {
     }
 
     // THUMB.9: load/store with immediate offset
-    fn load_store_imm_offset(&mut self, io: &mut IO, instr: u16) {
+    fn load_store_imm_offset<B: InstructionFlag, H: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 13, 0b011);
-        let load = instr >> 11 & 0x1 != 0;
-        let byte = instr >> 12 & 0x1 != 0;
+        let byte = B::bool();
+        let load = H::bool();
         let offset = (instr >> 6 & 0x1F) as u32;
         let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let src_dest_reg = (instr & 0x7) as u32;
@@ -258,9 +260,9 @@ impl CPU {
     }
 
     // THUMB.10: load/store halfword
-    fn load_store_halfword(&mut self, io: &mut IO, instr: u16) {
+    fn load_store_halfword<L: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b1000);
-        let load = instr >> 11 & 0x1 != 0;
+        let load = L::bool();
         let offset = (instr >> 6 & 0x1F) as u32;
         let base = self.regs.get_reg_i((instr >> 3 & 0x7) as u32);
         let src_dest_reg = (instr & 0x7) as u32;
@@ -277,10 +279,11 @@ impl CPU {
     }
 
     // THUMB.11: load/store SP-relative
-    fn load_store_sp_rel(&mut self, io: &mut IO, instr: u16) {
+    fn load_store_sp_rel<L: InstructionFlag, Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>
+        (&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1001);
-        let load = instr >> 11 & 0x1 != 0;
-        let src_dest_reg = (instr >> 8 & 0x7) as u32;
+        let load = L::bool();
+        let src_dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
         let offset = (instr & 0xFF) * 4;
         let addr = self.regs.get_reg(Reg::R13).wrapping_add(offset as u32);
         self.instruction_prefetch::<u16>(io, AccessType::N);
@@ -294,14 +297,15 @@ impl CPU {
     }
 
     // THUMB.12: get relative address
-    fn get_rel_addr(&mut self, io: &mut IO, instr: u16) {
+    fn get_rel_addr<SP: InstructionFlag, Rd2: InstructionFlag, Rd1: InstructionFlag, Rd0: InstructionFlag>
+        (&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1010);
-        let src = if instr >> 11 & 0x1 != 0 { // SP
+        let src = if SP::bool() { // SP
             self.regs.get_reg(Reg::R13)
         } else { // PC
             self.regs.pc & !0x2
         };
-        let dest_reg = (instr >> 8 & 0x7) as u32;
+        let dest_reg = Rd2::num() << 2 | Rd1::num() << 1 | Rd0::num();
         let offset = (instr & 0xFF) as u32;
         self.regs.set_reg_i(dest_reg, src.wrapping_add(offset * 4));
         self.instruction_prefetch::<u16>(io, AccessType::S);
@@ -319,11 +323,11 @@ impl CPU {
     }
 
     // THUMB.14: push/pop registers
-    fn push_pop_regs(&mut self, io: &mut IO, instr: u16) {
+    fn push_pop_regs<L: InstructionFlag, R: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12 & 0xF, 0b1011);
-        let pop = instr >> 11 & 0x1 != 0;
+        let pop = L::bool();
         assert_eq!(instr >> 9 & 0x3, 0b10);
-        let pc_lr = instr >> 8 & 0x1 != 0;
+        let pc_lr = R::bool();
         let mut r_list = (instr & 0xFF) as u8;
         self.instruction_prefetch::<u16>(io, AccessType::N);
         if pop {
@@ -375,10 +379,11 @@ impl CPU {
     }
 
     // THUMB.15: multiple load/store
-    fn multiple_load_store(&mut self, io: &mut IO, instr: u16) {
+    fn multiple_load_store<L: InstructionFlag, Rb2: InstructionFlag,
+        Rb1: InstructionFlag, Rb0: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b1100);
-        let load = instr >> 11 & 0x1 != 0;
-        let base_reg = (instr >> 8 & 0x7) as u32;
+        let load = L::bool();
+        let base_reg = Rb2::num() << 2 | Rb1::num() << 1 | Rb0::num();
         let mut base = self.regs.get_reg_i(base_reg);
         let base_offset = base & 0x3;
         base -= base_offset;
@@ -424,9 +429,10 @@ impl CPU {
     }
 
     // THUMB.16: conditional branch
-    fn cond_branch(&mut self, io: &mut IO, instr: u16) {
+    fn cond_branch<C3: InstructionFlag, C2: InstructionFlag, C1: InstructionFlag, C0: InstructionFlag>
+        (&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0b1101);
-        let condition = instr >> 8 & 0xF;
+        let condition = C3::num() << 3 | C2::num() << 2 | C1::num() << 1 | C0::num();
         assert_eq!(condition < 0xE, true);
         let offset = (instr & 0xFF) as i8 as u32;
         if self.should_exec(condition as u32) {
@@ -462,10 +468,10 @@ impl CPU {
     }
 
     // THUMB.19: long branch with link
-    fn branch_with_link(&mut self, io: &mut IO, instr: u16) {
+    fn branch_with_link<H: InstructionFlag>(&mut self, io: &mut IO, instr: u16) {
         assert_eq!(instr >> 12, 0xF);
         let offset = (instr & 0x7FF) as u32;
-        if instr >> 11 & 0x1 != 0 { // Second Instruction
+        if H::bool() { // Second Instruction
             self.instruction_prefetch::<u16>(io, AccessType::N);
             let next_instr_pc = self.regs.pc.wrapping_sub(2);
             self.regs.pc = self.regs.get_reg(Reg::R14).wrapping_add(offset << 1);
@@ -490,25 +496,25 @@ pub(super) fn gen_lut() -> [InstructionHandler<u16>; 256] {
 
     for opcode in 0..256 {
         let skeleton = opcode << 8;
-        lut[opcode] = if skeleton & 0b1111_1000_0000_0000 == 0b0001_1000_0000_0000 { CPU::add_sub }
-        else if skeleton & 0b1110_0000_0000_0000 == 0b0000_0000_0000_0000 { CPU::move_shifted_reg }
-        else if skeleton & 0b1110_0000_0000_0000 == 0b0010_0000_0000_0000 { CPU::immediate }
-        else if skeleton & 0b1111_1100_0000_0000 == 0b0100_0000_0000_0000 { CPU::alu }
-        else if skeleton & 0b1111_1100_0000_0000 == 0b0100_0100_0000_0000 { CPU::hi_reg_bx }
-        else if skeleton & 0b1111_1000_0000_0000 == 0b0100_1000_0000_0000 { CPU::load_pc_rel }
-        else if skeleton & 0b1111_0010_0000_0000 == 0b0101_0000_0000_0000 { CPU::load_store_reg_offset }
-        else if skeleton & 0b1111_0010_0000_0000 == 0b0101_0010_0000_0000 { CPU::load_store_sign_ext }
-        else if skeleton & 0b1110_0000_0000_0000 == 0b0110_0000_0000_0000 { CPU::load_store_imm_offset }
-        else if skeleton & 0b1111_0000_0000_0000 == 0b1000_0000_0000_0000 { CPU::load_store_halfword }
-        else if skeleton & 0b1111_0000_0000_0000 == 0b1001_0000_0000_0000 { CPU::load_store_sp_rel }
-        else if skeleton & 0b1111_0000_0000_0000 == 0b1010_0000_0000_0000 { CPU::get_rel_addr }
-        else if skeleton & 0b1111_1111_0000_0000 == 0b1011_0000_0000_0000 { CPU::add_offset_sp }
-        else if skeleton & 0b1111_0110_0000_0000 == 0b1011_0100_0000_0000 { CPU::push_pop_regs }
-        else if skeleton & 0b1111_0000_0000_0000 == 0b1100_0000_0000_0000 { CPU::multiple_load_store }
-        else if skeleton & 0b1111_1111_0000_0000 == 0b1101_1111_0000_0000 { CPU::thumb_software_interrupt }
-        else if skeleton & 0b1111_0000_0000_0000 == 0b1101_0000_0000_0000 { CPU::cond_branch }
-        else if skeleton & 0b1111_1000_0000_0000 == 0b1110_0000_0000_0000 { CPU::uncond_branch }
-        else if skeleton & 0b1111_0000_0000_0000 == 0b1111_0000_0000_0000 { CPU::branch_with_link }
+        lut[opcode] = if opcode & 0b1111_1000 == 0b0001_1000 { compose_instr_handler!(add_sub, skeleton, 10, 9) }
+        else if opcode & 0b1110_0000 == 0b0000_0000 { compose_instr_handler!(move_shifted_reg, skeleton, 12, 11) }
+        else if opcode & 0b1110_0000 == 0b0010_0000 { compose_instr_handler!(immediate, skeleton, 12, 11, 10, 9, 8) }
+        else if opcode & 0b1111_1100 == 0b0100_0000 { CPU::alu }
+        else if opcode & 0b1111_1100 == 0b0100_0100 { compose_instr_handler!(hi_reg_bx, skeleton, 9, 8) }
+        else if opcode & 0b1111_1000 == 0b0100_1000 { compose_instr_handler!(load_pc_rel, skeleton, 10, 9, 8) }
+        else if opcode & 0b1111_0010 == 0b0101_0000 { compose_instr_handler!(load_store_reg_offset, skeleton, 11, 10) }
+        else if opcode & 0b1111_0010 == 0b0101_0010 { compose_instr_handler!(load_store_sign_ext, skeleton, 11, 10) }
+        else if opcode & 0b1110_0000 == 0b0110_0000 { compose_instr_handler!(load_store_imm_offset, skeleton, 12, 11)}
+        else if opcode & 0b1111_0000 == 0b1000_0000 { compose_instr_handler!(load_store_halfword, skeleton, 11) }
+        else if opcode & 0b1111_0000 == 0b1001_0000 { compose_instr_handler!(load_store_sp_rel, skeleton, 11, 10, 9, 8) }
+        else if opcode & 0b1111_0000 == 0b1010_0000 { compose_instr_handler!(get_rel_addr, skeleton, 11, 10, 9, 8) }
+        else if opcode & 0b1111_1111 == 0b1011_0000 { CPU::add_offset_sp }
+        else if opcode & 0b1111_0110 == 0b1011_0100 { compose_instr_handler!(push_pop_regs, skeleton, 11, 8) }
+        else if opcode & 0b1111_0000 == 0b1100_0000 { compose_instr_handler!(multiple_load_store, skeleton, 11, 10, 9, 8)}
+        else if opcode & 0b1111_1111 == 0b1101_1111 { CPU::thumb_software_interrupt }
+        else if opcode & 0b1111_0000 == 0b1101_0000 { compose_instr_handler!(cond_branch, skeleton, 11, 10, 9, 8) }
+        else if opcode & 0b1111_1000 == 0b1110_0000 { CPU::uncond_branch }
+        else if opcode & 0b1111_0000 == 0b1111_0000 { compose_instr_handler!(branch_with_link, skeleton, 11) }
         else { CPU::undefined_instr_thumb };
     }
 
