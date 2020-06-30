@@ -9,6 +9,7 @@ pub struct Audio {
     buffer: [i16; gba::AUDIO_BUFFER_LEN],
     read_i: usize,
     write_i: usize,
+    count: usize,
 }
 
 impl Audio {
@@ -30,6 +31,7 @@ impl Audio {
                 buffer: [0; gba::AUDIO_BUFFER_LEN],
                 read_i: 0,
                 write_i: 0,
+                count: 0,
             }
         }).unwrap();
         device.resume();
@@ -44,16 +46,18 @@ impl Audio {
     fn push(&mut self, sample: i16) {
         self.buffer[self.write_i] = sample;
         self.write_i = (self.write_i + 1) % gba::AUDIO_BUFFER_LEN;
+        self.count = std::cmp::min(self.count + 1, self.buffer.len());
     }
 
     fn pop(&mut self) -> i16 {
-        let read_i = self.read_i;
-        self.read_i = (read_i + 1) % gba::AUDIO_BUFFER_LEN;
-        self.buffer[read_i]
+        let value = self.buffer[self.read_i];
+        self.count -= 1;
+        self.read_i = (self.read_i + 1) % gba::AUDIO_BUFFER_LEN;
+        value
     }
 
     fn peek(&self, i: usize) -> i16 {
-        self.buffer[i]
+        self.buffer[(self.read_i + i) % gba::AUDIO_BUFFER_LEN]
     }
 }
 
@@ -61,7 +65,7 @@ impl AudioCallback for Audio {
     type Channel = i16;
 
     fn callback(&mut self, out: &mut [i16]) {
-        if self.buffer.len() < out.len() {
+        if self.count < out.len() {
             for (i, x) in out.iter_mut().enumerate() {
                 *x = self.peek(i % gba::AUDIO_BUFFER_LEN);
             }
