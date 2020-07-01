@@ -1,6 +1,6 @@
 use super::components::*;
 
-use super::{Channel, IORegister};
+use super::{Channel, Event, IORegister};
 
 pub struct Tone {
     // Registers
@@ -78,7 +78,7 @@ impl IORegister for Tone {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => self.sweep.write(value),
             1 => (),
@@ -102,5 +102,6 @@ impl IORegister for Tone {
             6 | 7 => (),
             _ => unreachable!(),
         }
+        None
     }
 }

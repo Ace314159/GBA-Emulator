@@ -1,6 +1,6 @@
 mod rtc;
 
-use super::IORegister;
+use super::{Event, IORegister};
 
 pub use rtc::RTC;
 

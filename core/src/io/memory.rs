@@ -181,7 +181,7 @@ impl IO {
     }
 
     fn write_register(&mut self, addr: u32, value: u8) {
-        match addr {
+        let event = match addr {
             0x04000000 ..= 0x0400005F => self.ppu.write_register(addr, value),
             0x04000060 ..= 0x040000AF => self.apu.write_register(addr, value),
             0x040000B0 ..= 0x040000BB => self.dma.channels[0].write(addr as u8 - 0xB0, value),
@@ -202,16 +202,17 @@ impl IO {
             0x04000203 => self.interrupt_controller.request.write(1, value),
             0x04000204 => self.waitcnt.write(0, value),
             0x04000205 => self.waitcnt.write(1, value),
-            0x04000206 ..= 0x04000207 => (), // Unused IO Register
+            0x04000206 ..= 0x04000207 => None, // Unused IO Register
             0x04000208 => self.interrupt_controller.master_enable.write(0, value),
             0x04000209 => self.interrupt_controller.master_enable.write(1, value),
-            0x0400020A ..= 0x040002FF => (), // Unused IO Register
-            0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
-            0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
-            0x04FFF600 ..= 0x04FFF701 => self.mgba_test_suite.write_register(addr, value),
-            0x04FFF780 ..= 0x04FFF781 => self.mgba_test_suite.write_enable(addr, value),
-            _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, 0),
-        }
+            0x0400020A ..= 0x040002FF => None, // Unused IO Register
+            0x04000300 => { self.haltcnt = (self.haltcnt & !0x00FF) | value as u16; None },
+            0x04000301 => { self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8; None },
+            0x04FFF600 ..= 0x04FFF701 => { self.mgba_test_suite.write_register(addr, value); None },
+            0x04FFF780 ..= 0x04FFF781 => { self.mgba_test_suite.write_enable(addr, value); None },
+            _ => { warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, 0); None },
+        };
+        if let Some(event) = event { self.event_queue.push(event) }
     }
 
     fn read_bios<T>(&self, addr: u32) -> T where T: MemoryValue {

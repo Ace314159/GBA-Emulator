@@ -1,6 +1,6 @@
 mod registers;
 
-use super::IORegister;
+use super::{Event, IORegister};
 use super::InterruptRequest;
 
 use registers::*;
@@ -90,7 +90,7 @@ impl IORegister for Timer {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => self.reload = self.reload & !0x00FF | (value as u16) << 0,
             1 => self.reload = self.reload & !0xFF00 | (value as u16) << 8,
@@ -102,8 +102,9 @@ impl IORegister for Timer {
                     self.prescaler_counter = self.cnt.prescaler_period;
                 }
             },
-            3 => self.cnt.write(1, value),
+            3 => { self.cnt.write(1, value); () },
             _ => unreachable!(),
         }
+        None
     }
 }

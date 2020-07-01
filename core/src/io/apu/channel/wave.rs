@@ -1,6 +1,6 @@
 use super::components::*;
 
-use super::{Channel, IORegister};
+use super::{Channel, Event, IORegister};
 
 pub struct Wave {
     // Registers
@@ -91,7 +91,7 @@ impl IORegister for Wave {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => {
                 self.enabled = value >> 7 & 0x1 != 0;
@@ -117,5 +117,6 @@ impl IORegister for Wave {
             6 | 7 => (),
             _ => unreachable!(),
         }
+        None
     }
 }

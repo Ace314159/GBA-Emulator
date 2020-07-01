@@ -1,7 +1,7 @@
 mod components;
 pub use components::Timer;
 
-use super::IORegister;
+use super::{Event, IORegister};
 
 mod tone;
 mod wave;

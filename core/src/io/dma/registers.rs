@@ -1,4 +1,4 @@
-use super::super::IORegister;
+use super::super::{Event, IORegister};
 
 pub struct Address {
     pub addr: u32,
@@ -17,13 +17,14 @@ impl Address {
 impl IORegister for Address {
     fn read(&self, _byte: u8) -> u8 { 0 }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         let mask = 0xFF << (8 * byte);
         match byte {
             0 ..= 2 => self.addr = self.addr & !mask | (value as u32) << (8 * byte) & mask,
             3 => self.addr = self.addr & !mask | (value as u32) << (8 * byte) & self.byte3_mask,
             _ => unreachable!(),
         }
+        None
     }
 }
 
@@ -46,12 +47,13 @@ impl WordCount {
 impl IORegister for WordCount {
     fn read(&self, _byte: u8) -> u8 { 0 }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => self.count = self.count & !0x00FF | value as u16,
             1 => self.count = self.count & !0xFF00 | (value as u16) << 8 & self.max,
             _ => unreachable!(),
         }
+        None
     }
 }
 
@@ -95,7 +97,7 @@ impl IORegister for DMACNT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => {
                 self.src_addr_ctrl = self.src_addr_ctrl & !0x1 | value >> 7 & 0x1;
@@ -112,5 +114,6 @@ impl IORegister for DMACNT {
             },
             _ => unreachable!(),
         }
+        None
     }
 }

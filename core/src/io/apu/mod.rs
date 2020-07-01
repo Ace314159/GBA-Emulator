@@ -2,7 +2,7 @@ mod audio;
 mod registers;
 mod channel;
 
-use super::IORegister;
+use super::{Event, IORegister};
 use crate::gba;
 
 use audio::{Audio, AudioDevice};
@@ -202,7 +202,7 @@ impl APU {
         }
     }
 
-    pub fn write_register(&mut self, addr: u32, value: u8) {
+    pub fn write_register(&mut self, addr: u32, value: u8) -> Option<Event> {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x060 => self.tone1.write(0, value),
@@ -215,8 +215,8 @@ impl APU {
             0x067 => self.tone1.write(7, value),
             0x068 => self.tone2.write(0 + 2, value),
             0x069 => self.tone2.write(1 + 2, value),
-            0x06A => (),
-            0x06B => (),
+            0x06A => None,
+            0x06B => None,
             0x06C => self.tone2.write(4, value),
             0x06D => self.tone2.write(5, value),
             0x06E => self.tone2.write(6, value),
@@ -240,7 +240,7 @@ impl APU {
             0x080 => self.cnt.write(0, value),
             0x081 => self.cnt.write(1, value),
             0x082 => self.cnt.write(2, value),
-            0x083 => { self.sound_a.write_cnt(value & 0xF); self.sound_b.write_cnt(value >> 4) },
+            0x083 => { self.sound_a.write_cnt(value & 0xF); self.sound_b.write_cnt(value >> 4); None },
             0x084 => {
                 let prev = self.master_enable;
                 self.master_enable = value >> 7 & 0x1 != 0;
@@ -252,15 +252,16 @@ impl APU {
                     self.cnt.write(0, value);
                     self.cnt.write(1, value);
                 }
+                None
             },
-            0x085 ..= 0x087 => (),
+            0x085 ..= 0x087 => None,
             0x088 => self.bias.write(0, value),
             0x089 => self.bias.write(1, value),
-            0x08A ..= 0x08F => (),
-            0x090 ..= 0x09F => self.wave.write_wave_ram(addr - 0x04000090, value),
-            0x0A0 ..= 0x0A3 => self.sound_a.write_fifo(value),
-            0x0A4 ..= 0x0A7 => self.sound_b.write_fifo(value),
-            _ => warn!("Ignoring APU Write 0x{:08X} = {:02X}", addr, value),
+            0x08A ..= 0x08F => None,
+            0x090 ..= 0x09F => { self.wave.write_wave_ram(addr - 0x04000090, value); None },
+            0x0A0 ..= 0x0A3 => { self.sound_a.write_fifo(value); None },
+            0x0A4 ..= 0x0A7 => { self.sound_b.write_fifo(value); None },
+            _ => { warn!("Ignoring APU Write 0x{:08X} = {:02X}", addr, value); None },
         }
     }
 }

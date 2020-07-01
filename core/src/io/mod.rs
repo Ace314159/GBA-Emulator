@@ -9,6 +9,8 @@ mod gpio;
 mod cart_backup;
 
 use std::cell::Cell;
+use std::cmp::{Eq, PartialEq, Ord, PartialOrd, Ordering};
+use std::collections::BinaryHeap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -33,6 +35,7 @@ pub struct IO {
     iwram: Vec<u8>,
     rom: Vec<u8>,
     clocks_ahead: u32,
+    event_queue: BinaryHeap<Event>,
 
     // IO
     ppu: PPU,
@@ -77,6 +80,7 @@ impl IO {
             iwram: vec![0; 0x8000],
             rom,
             clocks_ahead: 0,
+            event_queue: BinaryHeap::new(),
 
             // IO
             ppu,
@@ -124,6 +128,12 @@ impl IO {
         }};
 
         for _ in 0..clocks_inc {
+            while let Some(event) = self.event_queue.peek() {
+                if event.cycle == self.cycle {
+                    let event = self.event_queue.pop().unwrap();
+                    self.handle_event(event);
+                }
+            }
             let (timer_interrupts, timers_overflowed) = self.timers.clock();
             self.rtc.clock();
             self.cycle = self.cycle.wrapping_add(1);
@@ -152,6 +162,12 @@ impl IO {
         if self.ppu.rendered_frame() {
             self.cart_backup.save_to_file();
             self.keypad.poll();
+        }
+    }
+
+    fn handle_event(&mut self, event: Event) {
+        match event.event_type {
+            
         }
     }
 
@@ -224,9 +240,38 @@ impl IO {
     }
 }
 
+#[derive(Eq)]
+pub struct Event {
+    cycle: usize,
+    event_type: EventType,
+}
+
+impl Ord for Event {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cycle.cmp(&other.cycle)
+    }
+}
+
+impl PartialOrd for Event {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Event {
+    fn eq(&self, other: &Self) -> bool {
+        self.cycle == other.cycle
+    }
+}
+
+#[derive(PartialEq, Eq)]
+enum EventType {
+
+}
+
 pub trait IORegister {
     fn read(&self, byte: u8) -> u8;
-    fn write(&mut self, byte: u8, value: u8);
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event>;
 }
 
 pub trait IORegisterController {
@@ -319,7 +364,7 @@ impl IORegister for WaitStateControl {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => {
                 let value = value as usize;
@@ -339,6 +384,7 @@ impl IORegister for WaitStateControl {
             }
             _ => unreachable!(),
         }
+        None
     }
 }
 

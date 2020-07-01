@@ -1,4 +1,4 @@
-use super::{IORegister, GPIO};
+use super::{Event, IORegister, GPIO};
 use crate::gba;
 
 pub struct RTC {
@@ -237,7 +237,7 @@ impl IORegister for RTC {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => {
                 if self.can_write(0) { self.set_data0(value >> 0 & 0x1 != 0) }
@@ -253,6 +253,7 @@ impl IORegister for RTC {
             5 => (),
             _ => unreachable!(),
         }
+        None
     }
 }
 
@@ -365,7 +366,7 @@ impl IORegister for DateTime {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => self.year.set_value(value),
             1 => self.month.set_value(value),
@@ -379,6 +380,7 @@ impl IORegister for DateTime {
             6 => self.second.set_value(value),
             _ => unreachable!(),
         }
+        None
     }
 }
 

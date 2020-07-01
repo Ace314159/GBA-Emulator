@@ -1,4 +1,4 @@
-use super::IORegister;
+use super::{Event, IORegister};
 
 #[derive(Clone, Copy)]
 pub struct TMCNT {
@@ -18,7 +18,7 @@ impl IORegister for TMCNT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => {
                 self.start = value >> 7 & 0x1 != 0;
@@ -36,6 +36,7 @@ impl IORegister for TMCNT {
             1 => (),
             _ => unreachable!(),
         }
+        None
     }
 }
 

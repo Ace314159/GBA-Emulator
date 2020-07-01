@@ -1,6 +1,6 @@
 mod registers;
 
-use super::IORegister;
+use super::{Event, IORegister};
 
 use registers::*;
 
@@ -103,7 +103,7 @@ impl IORegister for DMAChannel {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0x0 => self.sad.write(0, value),
             0x1 => self.sad.write(1, value),
@@ -120,6 +120,7 @@ impl IORegister for DMAChannel {
                 let prev_enable = self.cnt.enable;
                 self.cnt.write(1, value);
                 if !prev_enable && self.cnt.enable { self.latch() }
+                None
             },
             _ => unreachable!(),
         }

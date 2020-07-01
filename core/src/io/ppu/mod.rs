@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use flume::Sender;
 
 use crate::gba;
-use super::IORegister;
+use super::{Event, IORegister};
 use super::interrupt_controller::InterruptRequest;
 
 use registers::*;
@@ -777,17 +777,17 @@ impl PPU {
         }
     }
 
-    pub fn write_register(&mut self, addr: u32, value: u8) {
+    pub fn write_register(&mut self, addr: u32, value: u8) -> Option<Event> {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
             0x000 => self.dispcnt.write(0, value),
             0x001 => self.dispcnt.write(1, value),
-            0x002 => self.green_swap = value & 0x1 != 0,
-            0x003 => (),
+            0x002 => { self.green_swap = value & 0x1 != 0; None },
+            0x003 => None,
             0x004 => self.dispstat.write(0, value),
             0x005 => self.dispstat.write(1, value),
-            0x006 => (),
-            0x007 => (),
+            0x006 => None,
+            0x007 => None,
             0x008 => self.bgcnts[0].write(0, value),
             0x009 => self.bgcnts[0].write(1, value),
             0x00A => self.bgcnts[1].write(0, value),
@@ -820,14 +820,14 @@ impl PPU {
             0x025 => self.dys[0].write(1, value),
             0x026 => self.dmys[0].write(0, value),
             0x027 => self.dmys[0].write(1, value),
-            0x028 => { self.bgxs[0].write(0, value); self.bgxs_latch[0] = self.bgxs[0].clone() },
-            0x029 => { self.bgxs[0].write(1, value); self.bgxs_latch[0] = self.bgxs[0].clone() },
-            0x02A => { self.bgxs[0].write(2, value); self.bgxs_latch[0] = self.bgxs[0].clone() },
-            0x02B => { self.bgxs[0].write(3, value); self.bgxs_latch[0] = self.bgxs[0].clone() },
-            0x02C => { self.bgys[0].write(0, value); self.bgys_latch[0] = self.bgys[0].clone() },
-            0x02D => { self.bgys[0].write(1, value); self.bgys_latch[0] = self.bgys[0].clone() },
-            0x02E => { self.bgys[0].write(2, value); self.bgys_latch[0] = self.bgys[0].clone() },
-            0x02F => { self.bgys[0].write(3, value); self.bgys_latch[0] = self.bgys[0].clone() },
+            0x028 => { self.bgxs[0].write(0, value); self.bgxs_latch[0] = self.bgxs[0].clone(); None },
+            0x029 => { self.bgxs[0].write(1, value); self.bgxs_latch[0] = self.bgxs[0].clone(); None },
+            0x02A => { self.bgxs[0].write(2, value); self.bgxs_latch[0] = self.bgxs[0].clone(); None },
+            0x02B => { self.bgxs[0].write(3, value); self.bgxs_latch[0] = self.bgxs[0].clone(); None },
+            0x02C => { self.bgys[0].write(0, value); self.bgys_latch[0] = self.bgys[0].clone(); None },
+            0x02D => { self.bgys[0].write(1, value); self.bgys_latch[0] = self.bgys[0].clone(); None },
+            0x02E => { self.bgys[0].write(2, value); self.bgys_latch[0] = self.bgys[0].clone(); None },
+            0x02F => { self.bgys[0].write(3, value); self.bgys_latch[0] = self.bgys[0].clone(); None },
             0x030 => self.dxs[1].write(0, value),
             0x031 => self.dxs[1].write(1, value),
             0x032 => self.dmxs[1].write(0, value),
@@ -864,7 +864,7 @@ impl PPU {
             0x053 => self.bldalpha.write(1, value),
             0x054 => self.bldy.write(0, value),
             0x055 => self.bldy.write(1, value),
-            _ => warn!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value),
+            _ => { warn!("Ignoring PPU Write 0x{:08X} = {:02X}", addr, value); None },
         }
     }
 

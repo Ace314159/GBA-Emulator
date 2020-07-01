@@ -1,6 +1,6 @@
 use super::components::*;
 
-use super::{Channel, IORegister};
+use super::{Channel, Event, IORegister};
 
 pub struct Noise {
     // Registers
@@ -75,7 +75,7 @@ impl IORegister for Noise {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) {
+    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => self.length_reload = value & 0x3F,
             1 => self.envelope.write(value),
@@ -97,5 +97,6 @@ impl IORegister for Noise {
             6 | 7 => (),
             _ => unreachable!(),
         }
+        None
     }
 }
