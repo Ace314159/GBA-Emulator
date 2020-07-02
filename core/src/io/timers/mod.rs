@@ -7,9 +7,12 @@ use registers::*;
 
 pub struct Timers {
     pub timers: [Timer; 4],
+    pub timers_by_prescaler: [Vec<usize>; 5],
 }
 
 impl Timers {
+    pub const PRESCALERS: [usize; 4] = [1, 64, 256, 1024];
+
     pub fn new() -> Timers {
         Timers {
             timers: [
@@ -18,20 +21,23 @@ impl Timers {
                 Timer::new(InterruptRequest::TIMER2_OVERFLOW),
                 Timer::new(InterruptRequest::TIMER3_OVERFLOW),
             ],
+            timers_by_prescaler: [[0, 1, 2, 3].to_vec(), Vec::new(), Vec::new(), Vec::new(), Vec::new()],
         }
     }
 
-    pub fn clock(&mut self, global_cycle: usize) -> (InterruptRequest, [bool; 4]) {
-        let mut prev_timer_overflowed = false;
-        let mut interrupts = InterruptRequest::empty();
-        let mut timers_overflowed = [false; 4];
-        for (i, timer) in self.timers.iter_mut().enumerate() {
-            let out = timer.clock(prev_timer_overflowed, global_cycle);
-            timers_overflowed[i] = out.0;
-            prev_timer_overflowed = out.0;
-            interrupts |= out.1;
+    pub fn write(&mut self, timer_i: usize, byte: u8, value: u8) -> Option<Event> {
+        let timer = &mut self.timers[timer_i];
+        let prev_prescaler = if timer.is_count_up() { 4 } else { timer.cnt.prescaler as usize };
+        let event = timer.write(byte, value);
+        let new_prescaler = if timer.is_count_up() { 4 } else { timer.cnt.prescaler as usize };
+        if prev_prescaler != new_prescaler {
+            let pos = self.timers_by_prescaler[prev_prescaler].iter().position(|t| *t == timer_i).unwrap();
+            // TODO: Use faster method, but maybe not needed
+            self.timers_by_prescaler[prev_prescaler].remove(pos);
+            self.timers_by_prescaler[new_prescaler].push(timer_i);
+            self.timers_by_prescaler[new_prescaler].sort();
         }
-        (interrupts, timers_overflowed)
+        event
     }
 }
 
@@ -41,8 +47,7 @@ pub struct Timer {
     pub cnt: TMCNT,
     pub started: bool,
     counter: u16,
-    prescaler_modulo: usize,
-    interrupt: InterruptRequest,
+    pub interrupt: InterruptRequest,
 }
 
 impl Timer {
@@ -52,34 +57,23 @@ impl Timer {
             cnt: TMCNT::new(),
             started: false,
             counter: 0,
-            prescaler_modulo: 1,
             interrupt,
         }
     }
 
-    pub fn clock(&mut self, prev_timer_overflowed: bool, global_cycle: usize) -> (bool, InterruptRequest) {
-        if self.started {
-            let clock = if self.cnt.count_up {
-                prev_timer_overflowed
-            } else {
-                global_cycle % self.prescaler_modulo == 0
-            };
-            if clock {
-                let (new_counter, overflowed) = self.counter.overflowing_add(1);
-                if overflowed {
-                    self.counter = self.reload;
-                    let interrupt = if self.cnt.irq { self.interrupt } else { InterruptRequest::empty() };
-                    return (true, interrupt)
-                } else { self.counter = new_counter }
-            }
+    pub fn clock(&mut self) -> (bool, InterruptRequest) {
+        if self.cnt.start {
+            let (new_counter, overflowed) = self.counter.overflowing_add(1);
+            if overflowed {
+                self.counter = self.reload;
+                let interrupt = if self.cnt.irq { self.interrupt } else { InterruptRequest::empty() };
+                return (true, interrupt)
+            } else { self.counter = new_counter }
         }
-        self.started = self.cnt.start;
         (false, InterruptRequest::empty())
     }
-}
 
-impl IORegister for Timer {
-    fn read(&self, byte: u8) -> u8 {
+    pub fn read(&self, byte: u8) -> u8 {
         match byte {
             0 => (self.counter >> 0) as u8,
             1 => (self.counter >> 8) as u8,
@@ -88,7 +82,9 @@ impl IORegister for Timer {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    pub fn is_count_up(&self) -> bool { self.cnt.count_up }
+
+    pub fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
         match byte {
             0 => self.reload = self.reload & !0x00FF | (value as u16) << 0,
             1 => self.reload = self.reload & !0xFF00 | (value as u16) << 8,
@@ -96,8 +92,8 @@ impl IORegister for Timer {
                 let prev_start = self.cnt.start;
                 self.cnt.write(0, value);
                 if !prev_start && self.cnt.start {
+                    // TODO: Add 1 cycle delay
                     self.counter = self.reload;
-                    self.prescaler_modulo = self.cnt.prescaler_period;
                 }
             },
             3 => { self.cnt.write(1, value); () },

@@ -10,7 +10,6 @@ mod cart_backup;
 
 use std::cell::Cell;
 use std::cmp::{Eq, PartialEq, Ord, PartialOrd, Ordering};
-use std::collections::BinaryHeap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -35,7 +34,7 @@ pub struct IO {
     iwram: Vec<u8>,
     rom: Vec<u8>,
     clocks_ahead: u32,
-    event_queue: BinaryHeap<Event>,
+    event_queue: Vec<Event>,
 
     // IO
     ppu: PPU,
@@ -80,7 +79,12 @@ impl IO {
             iwram: vec![0; 0x8000],
             rom,
             clocks_ahead: 0,
-            event_queue: BinaryHeap::new(),
+            event_queue: [
+                Event { cycle: Timers::PRESCALERS[3], event_type: EventType::TimerPrescaler(3) },
+                Event { cycle: Timers::PRESCALERS[2], event_type: EventType::TimerPrescaler(2) },
+                Event { cycle: Timers::PRESCALERS[1], event_type: EventType::TimerPrescaler(1) },
+                Event { cycle: Timers::PRESCALERS[0], event_type: EventType::TimerPrescaler(0) },
+            ].to_vec(),
 
             // IO
             ppu,
@@ -128,17 +132,20 @@ impl IO {
         }};
 
         for _ in 0..clocks_inc {
-            while let Some(event) = self.event_queue.peek() {
-                if event.cycle == self.cycle {
-                    let event = self.event_queue.pop().unwrap();
-                    self.handle_event(event);
-                }
-            }
-            let (timer_interrupts, timers_overflowed) = self.timers.clock(self.cycle);
-            self.rtc.clock();
             self.cycle = self.cycle.wrapping_add(1);
-            self.interrupt_controller.request |= timer_interrupts;
-            self.apu.clock(timers_overflowed);
+            // Always at least 1 event
+            let mut i = self.event_queue.len() - 1;
+            while self.event_queue[i].cycle == self.cycle {
+                let event = self.event_queue.swap_remove(i);
+                self.handle_event(event.event_type);
+                if i == 0 { break }
+                i -= 1;
+            }
+            // Events may have been pushed during a handle_event
+            self.event_queue.sort();
+            self.event_queue.reverse();
+            self.rtc.clock();
+            self.apu.clock();
         }
         self.clocks_ahead += clocks_inc;
         while self.clocks_ahead >= 4 {
@@ -165,9 +172,30 @@ impl IO {
         }
     }
 
-    fn handle_event(&mut self, event: Event) {
-        match event.event_type {
-            
+    fn handle_event(&mut self, event: EventType) {
+        match event {
+            EventType::TimerPrescaler(prescaler) => {
+                assert_eq!(self.cycle % Timers::PRESCALERS[prescaler], 0);
+                for timer in self.timers.timers_by_prescaler[prescaler].clone().iter() {
+                    assert!(!self.timers.timers[*timer].is_count_up());
+                    let (overflowed, interrupt_request) = self.timers.timers[*timer].clock();
+                    if overflowed { self.handle_event(EventType::TimerOverflow(*timer)) }
+                    self.interrupt_controller.request |= interrupt_request;
+                }
+                self.event_queue.push(Event {
+                    cycle: self.cycle + Timers::PRESCALERS[prescaler],
+                    event_type: EventType::TimerPrescaler(prescaler),
+                });
+            },
+            EventType::TimerOverflow(timer) => {
+                // Cascade Timers
+                if timer + 1 < self.timers.timers.len() && self.timers.timers[timer + 1].is_count_up() {
+                    let (overflowed, interrupt_request) = self.timers.timers[timer + 1].clock();
+                    if overflowed { self.handle_event(EventType::TimerOverflow(timer + 1)) }
+                    self.interrupt_controller.request |= interrupt_request;
+                }
+                self.apu.on_timer_overflowed(timer);
+            }
         }
     }
 
@@ -240,7 +268,7 @@ impl IO {
     }
 }
 
-#[derive(Eq)]
+#[derive(Clone, Copy, Eq)]
 pub struct Event {
     cycle: usize,
     event_type: EventType,
@@ -248,12 +276,14 @@ pub struct Event {
 
 impl Ord for Event {
     fn cmp(&self, other: &Self) -> Ordering {
+        // Reversed since BinaryHeap is a max heap
         self.cycle.cmp(&other.cycle)
     }
 }
 
 impl PartialOrd for Event {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // Reversed since BinaryHeap is a max heap
         Some(self.cmp(other))
     }
 }
@@ -264,9 +294,10 @@ impl PartialEq for Event {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EventType {
-
+    TimerPrescaler(usize),
+    TimerOverflow(usize),
 }
 
 pub trait IORegister {

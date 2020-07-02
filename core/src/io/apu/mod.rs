@@ -59,19 +59,22 @@ impl APU {
         }
     }
 
-    pub fn clock(&mut self, timers_overflowed: [bool; 4]) {
+    pub fn clock(&mut self) {
         if !self.master_enable { return }
 
         self.tone1.clock();
         self.tone2.clock();
         self.wave.clock();
         self.noise.clock();
-        self.fifo_a_req = self.sound_a.clock(&timers_overflowed) || self.fifo_a_req;
-        self.fifo_b_req = self.sound_b.clock(&timers_overflowed) || self.fifo_b_req;
 
         self.clock_sequencer();
 
         self.generate_sample();
+    }
+
+    pub fn on_timer_overflowed(&mut self, timer: usize) {
+        self.fifo_a_req = self.sound_a.on_timer_overflowed(timer) || self.fifo_a_req;
+        self.fifo_b_req = self.sound_b.on_timer_overflowed(timer) || self.fifo_b_req;
     }
 
     pub fn clock_sequencer(&mut self) {

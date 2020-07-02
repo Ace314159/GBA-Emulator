@@ -188,10 +188,10 @@ impl IO {
             0x040000BC ..= 0x040000C7 => self.dma.channels[1].write(addr as u8 - 0xBC, value),
             0x040000C8 ..= 0x040000D3 => self.dma.channels[2].write(addr as u8 - 0xC8, value),
             0x040000D4 ..= 0x040000DF => self.dma.channels[3].write(addr as u8 - 0xD4, value),
-            0x04000100 ..= 0x04000103 => self.timers.timers[0].write(addr as u8 % 4, value),
-            0x04000104 ..= 0x04000107 => self.timers.timers[1].write(addr as u8 % 4, value),
-            0x04000108 ..= 0x0400010B => self.timers.timers[2].write(addr as u8 % 4, value),
-            0x0400010C ..= 0x0400010F => self.timers.timers[3].write(addr as u8 % 4, value),
+            0x04000100 ..= 0x04000103 => self.timers.write(0, addr as u8 % 4, value),
+            0x04000104 ..= 0x04000107 => self.timers.write(1, addr as u8 % 4, value),
+            0x04000108 ..= 0x0400010B => self.timers.write(2, addr as u8 % 4, value),
+            0x0400010C ..= 0x0400010F => self.timers.write(3, addr as u8 % 4, value),
             0x04000130 => self.keypad.keyinput.write(0, value),
             0x04000131 => self.keypad.keyinput.write(1, value),
             0x04000132 => self.keypad.keycnt.write(0, value),
@@ -212,7 +212,14 @@ impl IO {
             0x04FFF780 ..= 0x04FFF781 => { self.mgba_test_suite.write_enable(addr, value); None },
             _ => { warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, 0); None },
         };
-        if let Some(event) = event { self.event_queue.push(event) }
+        if let Some(event) = event {
+            // TODO: Figure out more efficient way to do this
+            if let Some(i) = self.event_queue.iter().position(|e| e.event_type == event.event_type) {
+                self.event_queue.remove(i);
+            }
+            self.event_queue.push(event);
+            self.event_queue.sort();
+        }
     }
 
     fn read_bios<T>(&self, addr: u32) -> T where T: MemoryValue {

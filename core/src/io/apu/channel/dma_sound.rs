@@ -29,8 +29,8 @@ impl DMASound {
         }
     }
 
-    pub fn clock(&mut self, timers_overflowed: &[bool; 4]) -> bool {
-        if timers_overflowed[self.timer_select as usize] {
+    pub fn on_timer_overflowed(&mut self, timer: usize) -> bool {
+        if timer == self.timer_select as usize {
             self.sample = if let Some(sample) = self.fifo.pop_front() {
                 sample as i16
             } else { 0 };
