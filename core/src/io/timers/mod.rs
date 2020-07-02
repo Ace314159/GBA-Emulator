@@ -7,7 +7,7 @@ use registers::*;
 
 pub struct Timers {
     pub timers: [Timer; 4],
-    pub timers_by_prescaler: [Vec<usize>; 5],
+    pub timers_by_prescaler: [Vec<usize>; 4],
 }
 
 impl Timers {
@@ -21,21 +21,27 @@ impl Timers {
                 Timer::new(InterruptRequest::TIMER2_OVERFLOW),
                 Timer::new(InterruptRequest::TIMER3_OVERFLOW),
             ],
-            timers_by_prescaler: [[0, 1, 2, 3].to_vec(), Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+            timers_by_prescaler: Default::default(),
         }
     }
 
     pub fn write(&mut self, timer_i: usize, byte: u8, value: u8) -> Option<Event> {
         let timer = &mut self.timers[timer_i];
         let prev_prescaler = if timer.is_count_up() { 4 } else { timer.cnt.prescaler as usize };
+        let prev_start = timer.cnt.start;
         let event = timer.write(byte, value);
+        let new_start = timer.cnt.start;
         let new_prescaler = if timer.is_count_up() { 4 } else { timer.cnt.prescaler as usize };
-        if prev_prescaler != new_prescaler {
-            let pos = self.timers_by_prescaler[prev_prescaler].iter().position(|t| *t == timer_i).unwrap();
+        if prev_prescaler != new_prescaler || prev_start != new_start {
             // TODO: Use faster method, but maybe not needed
-            self.timers_by_prescaler[prev_prescaler].remove(pos);
-            self.timers_by_prescaler[new_prescaler].push(timer_i);
-            self.timers_by_prescaler[new_prescaler].sort();
+            if prev_start && prev_prescaler != 4 {
+                let pos = self.timers_by_prescaler[prev_prescaler].iter().position(|t| *t == timer_i).unwrap();
+                self.timers_by_prescaler[prev_prescaler].remove(pos);
+            } else { assert_eq!(self.timers_by_prescaler[prev_prescaler].iter().position(|t| *t == timer_i), None) }
+            if new_start && new_prescaler != 4 {
+                self.timers_by_prescaler[new_prescaler].push(timer_i);
+                self.timers_by_prescaler[new_prescaler].sort();
+            }
         }
         event
     }
