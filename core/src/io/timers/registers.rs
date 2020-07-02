@@ -2,7 +2,7 @@ use super::{Event, IORegister};
 
 #[derive(Clone, Copy)]
 pub struct TMCNT {
-    pub prescaler_period: u16, // Parsed value of prescaler_selection
+    pub prescaler_period: usize, // Parsed value of prescaler_selection
     prescaler_selection: u8,
     pub count_up: bool,
     pub irq: bool,

@@ -134,7 +134,7 @@ impl IO {
                     self.handle_event(event);
                 }
             }
-            let (timer_interrupts, timers_overflowed) = self.timers.clock();
+            let (timer_interrupts, timers_overflowed) = self.timers.clock(self.cycle);
             self.rtc.clock();
             self.cycle = self.cycle.wrapping_add(1);
             self.interrupt_controller.request |= timer_interrupts;

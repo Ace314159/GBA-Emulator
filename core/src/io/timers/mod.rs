@@ -21,12 +21,12 @@ impl Timers {
         }
     }
 
-    pub fn clock(&mut self) -> (InterruptRequest, [bool; 4]) {
+    pub fn clock(&mut self, global_cycle: usize) -> (InterruptRequest, [bool; 4]) {
         let mut prev_timer_overflowed = false;
         let mut interrupts = InterruptRequest::empty();
         let mut timers_overflowed = [false; 4];
         for (i, timer) in self.timers.iter_mut().enumerate() {
-            let out = timer.clock(prev_timer_overflowed);
+            let out = timer.clock(prev_timer_overflowed, global_cycle);
             timers_overflowed[i] = out.0;
             prev_timer_overflowed = out.0;
             interrupts |= out.1;
@@ -41,7 +41,7 @@ pub struct Timer {
     pub cnt: TMCNT,
     pub started: bool,
     counter: u16,
-    prescaler_counter: u16,
+    prescaler_modulo: usize,
     interrupt: InterruptRequest,
 }
 
@@ -52,21 +52,19 @@ impl Timer {
             cnt: TMCNT::new(),
             started: false,
             counter: 0,
-            prescaler_counter: 1,
+            prescaler_modulo: 1,
             interrupt,
         }
     }
 
-    pub fn clock(&mut self, prev_timer_overflowed: bool) -> (bool, InterruptRequest) {
+    pub fn clock(&mut self, prev_timer_overflowed: bool, global_cycle: usize) -> (bool, InterruptRequest) {
         if self.started {
             let clock = if self.cnt.count_up {
                 prev_timer_overflowed
             } else {
-                self.prescaler_counter -= 1;
-                self.prescaler_counter == 0
+                global_cycle % self.prescaler_modulo == 0
             };
             if clock {
-                self.prescaler_counter = self.cnt.prescaler_period;
                 let (new_counter, overflowed) = self.counter.overflowing_add(1);
                 if overflowed {
                     self.counter = self.reload;
@@ -99,7 +97,7 @@ impl IORegister for Timer {
                 self.cnt.write(0, value);
                 if !prev_start && self.cnt.start {
                     self.counter = self.reload;
-                    self.prescaler_counter = self.cnt.prescaler_period;
+                    self.prescaler_modulo = self.cnt.prescaler_period;
                 }
             },
             3 => { self.cnt.write(1, value); () },
