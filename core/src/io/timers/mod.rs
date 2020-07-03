@@ -124,7 +124,6 @@ impl Timer {
                     }
                 } else {
                     if !prev_start && self.cnt.start {
-                        println!("Starting Count-Up Timer");
                         self.counter = self.reload;
                     }
                 }

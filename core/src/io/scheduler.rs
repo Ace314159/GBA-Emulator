@@ -12,19 +12,6 @@ impl IO {
 
     pub fn handle_event(&mut self, event: EventType) {
         match event {
-            /*EventType::TimerPrescaler(prescaler) => {
-                assert_eq!(self.cycle % Timers::PRESCALERS[prescaler], 0);
-                for timer in self.timers.timers_by_prescaler[prescaler].clone().iter() {
-                    assert!(!self.timers.timers[*timer].is_count_up());
-                    let (overflowed, interrupt_request) = self.timers.timers[*timer].clock();
-                    if overflowed { self.handle_event(EventType::TimerOverflow(*timer)) }
-                    self.interrupt_controller.request |= interrupt_request;
-                }
-                self.event_queue.push(Event {
-                    cycle: self.cycle + Timers::PRESCALERS[prescaler],
-                    event_type: EventType::TimerPrescaler(prescaler),
-                });
-            },*/
             EventType::TimerOverflow(timer) => {
                 if self.timers.timers[timer].cnt.irq {
                     self.interrupt_controller.request |= self.timers.timers[timer].interrupt
