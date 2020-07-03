@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 bitflags = "1.2.1"
 flume = "0.7.1"
+priority-queue = "1.0.0"
 log = "0.4.8"
 num-traits = "0.2.12"
 sdl2 = "0.34.1"

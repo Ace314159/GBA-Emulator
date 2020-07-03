@@ -127,7 +127,6 @@ impl Timer {
                         self.counter = self.reload;
                     }
                 }
-                scheduler.sort();
             },
             3 => { self.cnt.write(scheduler, 1, value); () },
             _ => unreachable!(),
