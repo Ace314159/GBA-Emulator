@@ -49,7 +49,7 @@ pub const HEIGHT: usize = 160;
 pub const SCALE: usize = 2;
 
 pub const AUDIO_SAMPLE_RATE: usize = 0x8000;
-pub const AUDIO_BUFFER_LEN: usize = 4096;
+pub const AUDIO_BUFFER_LEN: usize = 0x1000;
 pub const CLOCK_FREQ: usize = 1 << 24;
 pub const CLOCKS_PER_FRAME: usize = 280896;
 pub const FRAME_PERIOD: std::time::Duration = std::time::Duration::from_nanos(

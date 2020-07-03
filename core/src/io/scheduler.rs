@@ -21,7 +21,8 @@ impl IO {
                     if self.timers.timers[timer + 1].clock() { self.handle_event(EventType::TimerOverflow(timer + 1)) }
                 }
                 if !self.timers.timers[timer].is_count_up() {
-                    self.scheduler.add(self.timers.timers[timer].create_event(self.scheduler.cycle));
+                    self.timers.timers[timer].reload();
+                    self.timers.timers[timer].create_event(&mut self.scheduler, 0);
                 }
                 // Sound FIFOs
                 self.apu.on_timer_overflowed(timer);

@@ -68,7 +68,7 @@ impl Timer {
         false
     }
 
-    fn calc_counter(&self, global_cycle: usize) -> u16 {    
+    fn calc_counter(&self, global_cycle: usize) -> u16 {
         let cycles_passed = global_cycle - self.start_cycle;
         // Counter stores the reload value
         if cycles_passed >= self.time_till_first_clock {
@@ -77,18 +77,20 @@ impl Timer {
         } else { self.counter }
     }
 
-    pub fn create_event(&mut self, global_cycle: usize) -> Event {
-        self.counter = self.reload;
+    pub fn reload(&mut self) { self.counter = self.reload }
+
+    pub fn create_event(&mut self, scheduler: &mut Scheduler, delay: usize) {
+        let global_cycle = scheduler.cycle + delay;
         self.start_cycle = global_cycle;
         // Syncs prescaler to global cycle
         let prescaler = Timers::PRESCALERS[self.cnt.prescaler as usize];
         // Add 1 for 1 cycle delay in timer start
         self.time_till_first_clock = prescaler - (global_cycle + 1) % prescaler;
         self.timer_len = prescaler * (0x10000 - self.reload as usize - 1);
-        Event {
+        scheduler.add(Event {
             cycle: global_cycle + self.time_till_first_clock + self.timer_len,
             event_type: EventType::TimerOverflow(self.index),
-        }
+        });
     }
 
     pub fn is_count_up(&self) -> bool { self.cnt.count_up }
@@ -115,12 +117,13 @@ impl Timer {
                 self.cnt.write(scheduler, 0, value);
                 if !self.is_count_up() {
                     if !prev_start && self.cnt.start {
-                        scheduler.add(self.create_event(global_cycle + 1));
+                        self.reload();
+                        self.create_event(scheduler, 1);
                     } else if prev_start && !self.cnt.start {
                         self.counter = self.calc_counter(global_cycle);
                     } else if self.cnt.start {
-                        // TODO: Prescaler Value changed
-                        todo!();
+                        self.counter = self.calc_counter(global_cycle);
+                        self.create_event(scheduler, 0);
                     }
                 } else {
                     if !prev_start && self.cnt.start {
