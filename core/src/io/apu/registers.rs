@@ -84,14 +84,14 @@ impl IORegister for SOUNDCNT {
 }
 
 pub struct SOUNDBIAS {
-    bias_level: u16,
+    pub bias_level: u16,
     amplitude_res: u8,
 }
 
 impl SOUNDBIAS {
     pub fn new() -> SOUNDBIAS {
         SOUNDBIAS {
-            bias_level: 0x100,
+            bias_level: 0x200,
             amplitude_res: 0,
         }
     }
@@ -100,7 +100,7 @@ impl SOUNDBIAS {
 impl IORegister for SOUNDBIAS {
     fn read(&self, byte: u8) -> u8 {
         match byte {
-            0 => (self.bias_level << 1) as u8,
+            0 => self.bias_level as u8,
             1 => self.amplitude_res << 6 | (self.bias_level >> 8) as u8,
             _ => unreachable!(),
         }
@@ -108,9 +108,9 @@ impl IORegister for SOUNDBIAS {
 
     fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
-            0 => self.bias_level = self.bias_level & !0xFF | (value as u16) >> 1,
+            0 => self.bias_level = self.bias_level & !0xFF | value as u16 & !0x1,
             1 => {
-                self.bias_level = self.bias_level & !0x100 | (value as u16) << 8;
+                self.bias_level = self.bias_level & !0x300 | ((value as u16) & 0x3) << 8;
                 self.amplitude_res = (value >> 6) & 0x3;
             },
             _ => unreachable!(),

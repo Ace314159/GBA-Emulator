@@ -134,8 +134,8 @@ impl APU {
             psg_r += self.cnt.psg_enable_r.channel3 as i16 * channel3_sample;
             psg_r += self.cnt.psg_enable_r.channel4 as i16 * channel4_sample;
             
-            psg_l *= self.cnt.psg_master_volume_l as i16;
-            psg_r *= self.cnt.psg_master_volume_r as i16;
+            psg_l *= 1 + self.cnt.psg_master_volume_l as i16;
+            psg_r *= 1 + self.cnt.psg_master_volume_r as i16;
             
             let sound_a_sample = DMASound::VOLUME_FACTORS[self.cnt.dma_sound_a_vol as usize] * self.sound_a.generate_sample();
             let sound_b_sample = DMASound::VOLUME_FACTORS[self.cnt.dma_sound_b_vol as usize] * self.sound_b.generate_sample();
@@ -146,7 +146,14 @@ impl APU {
             dma_r += self.sound_a.enable_right as i16 * sound_a_sample;
             dma_r += self.sound_b.enable_right as i16 * sound_b_sample;
 
-            self.audio.lock().queue(psg_l + dma_l, psg_r + dma_r);
+            let mut samples = [psg_l + dma_l, psg_r + dma_r];
+            for sample in samples.iter_mut() {
+                *sample = *sample + self.bias.bias_level as i16;
+                *sample = num::clamp(*sample, 0, 0x3FF);
+                *sample -= 0x200;
+            }
+
+            self.audio.lock().queue(samples[0], samples[1]);
             self.sample_clock = APU::CLOCKS_PER_SAMPLE;
         }
     }
