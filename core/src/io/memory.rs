@@ -155,10 +155,10 @@ impl IO {
             0x040000BC ..= 0x040000C7 => self.dma.channels[1].read(addr as u8 - 0xBC),
             0x040000C8 ..= 0x040000D3 => self.dma.channels[2].read(addr as u8 - 0xC8),
             0x040000D4 ..= 0x040000DF => self.dma.channels[3].read(addr as u8 - 0xD4),
-            0x04000100 ..= 0x04000103 => self.timers.timers[0].read(self.cycle, addr as u8 % 4),
-            0x04000104 ..= 0x04000107 => self.timers.timers[1].read(self.cycle, addr as u8 % 4),
-            0x04000108 ..= 0x0400010B => self.timers.timers[2].read(self.cycle, addr as u8 % 4),
-            0x0400010C ..= 0x0400010F => self.timers.timers[3].read(self.cycle, addr as u8 % 4),
+            0x04000100 ..= 0x04000103 => self.timers.timers[0].read(&self.scheduler, addr as u8 % 4),
+            0x04000104 ..= 0x04000107 => self.timers.timers[1].read(&self.scheduler, addr as u8 % 4),
+            0x04000108 ..= 0x0400010B => self.timers.timers[2].read(&self.scheduler, addr as u8 % 4),
+            0x0400010C ..= 0x0400010F => self.timers.timers[3].read(&self.scheduler, addr as u8 % 4),
             0x04000130 => self.keypad.keyinput.read(0),
             0x04000131 => self.keypad.keyinput.read(1),
             0x04000132 => self.keypad.keycnt.read(0),
@@ -181,47 +181,37 @@ impl IO {
     }
 
     fn write_register(&mut self, addr: u32, value: u8) {
-        let event = match addr {
-            0x04000000 ..= 0x0400005F => self.ppu.write_register(addr, value),
-            0x04000060 ..= 0x040000AF => self.apu.write_register(addr, value),
-            0x040000B0 ..= 0x040000BB => self.dma.channels[0].write(addr as u8 - 0xB0, value),
-            0x040000BC ..= 0x040000C7 => self.dma.channels[1].write(addr as u8 - 0xBC, value),
-            0x040000C8 ..= 0x040000D3 => self.dma.channels[2].write(addr as u8 - 0xC8, value),
-            0x040000D4 ..= 0x040000DF => self.dma.channels[3].write(addr as u8 - 0xD4, value),
-            0x04000100 ..= 0x04000103 => self.timers.timers[0].write(self.cycle, addr as u8 % 4, value),
-            0x04000104 ..= 0x04000107 => self.timers.timers[1].write(self.cycle, addr as u8 % 4, value),
-            0x04000108 ..= 0x0400010B => self.timers.timers[2].write(self.cycle, addr as u8 % 4, value),
-            0x0400010C ..= 0x0400010F => self.timers.timers[3].write(self.cycle, addr as u8 % 4, value),
-            0x04000130 => self.keypad.keyinput.write(0, value),
-            0x04000131 => self.keypad.keyinput.write(1, value),
-            0x04000132 => self.keypad.keycnt.write(0, value),
-            0x04000133 => self.keypad.keycnt.write(1, value),
-            0x04000200 => self.interrupt_controller.enable.write(0, value),
-            0x04000201 => self.interrupt_controller.enable.write(1, value),
-            0x04000202 => self.interrupt_controller.request.write(0, value),
-            0x04000203 => self.interrupt_controller.request.write(1, value),
-            0x04000204 => self.waitcnt.write(0, value),
-            0x04000205 => self.waitcnt.write(1, value),
-            0x04000206 ..= 0x04000207 => None, // Unused IO Register
-            0x04000208 => self.interrupt_controller.master_enable.write(0, value),
-            0x04000209 => self.interrupt_controller.master_enable.write(1, value),
-            0x0400020A ..= 0x040002FF => None, // Unused IO Register
-            0x04000300 => { self.haltcnt = (self.haltcnt & !0x00FF) | value as u16; None },
-            0x04000301 => { self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8; None },
-            0x04FFF600 ..= 0x04FFF701 => { self.mgba_test_suite.write_register(addr, value); None },
-            0x04FFF780 ..= 0x04FFF781 => { self.mgba_test_suite.write_enable(addr, value); None },
-            _ => { warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, 0); None },
+        let _event = match addr {
+            0x04000000 ..= 0x0400005F => self.ppu.write_register(&mut self.scheduler, addr, value),
+            0x04000060 ..= 0x040000AF => self.apu.write_register(&mut self.scheduler, addr, value),
+            0x040000B0 ..= 0x040000BB => self.dma.channels[0].write(&mut self.scheduler, addr as u8 - 0xB0, value),
+            0x040000BC ..= 0x040000C7 => self.dma.channels[1].write(&mut self.scheduler, addr as u8 - 0xBC, value),
+            0x040000C8 ..= 0x040000D3 => self.dma.channels[2].write(&mut self.scheduler, addr as u8 - 0xC8, value),
+            0x040000D4 ..= 0x040000DF => self.dma.channels[3].write(&mut self.scheduler, addr as u8 - 0xD4, value),
+            0x04000100 ..= 0x04000103 => self.timers.timers[0].write(&mut self.scheduler, addr as u8 % 4, value),
+            0x04000104 ..= 0x04000107 => self.timers.timers[1].write(&mut self.scheduler, addr as u8 % 4, value),
+            0x04000108 ..= 0x0400010B => self.timers.timers[2].write(&mut self.scheduler, addr as u8 % 4, value),
+            0x0400010C ..= 0x0400010F => self.timers.timers[3].write(&mut self.scheduler, addr as u8 % 4, value),
+            0x04000130 => self.keypad.keyinput.write(&mut self.scheduler, 0, value),
+            0x04000131 => self.keypad.keyinput.write(&mut self.scheduler, 1, value),
+            0x04000132 => self.keypad.keycnt.write(&mut self.scheduler, 0, value),
+            0x04000133 => self.keypad.keycnt.write(&mut self.scheduler, 1, value),
+            0x04000200 => self.interrupt_controller.enable.write(&mut self.scheduler, 0, value),
+            0x04000201 => self.interrupt_controller.enable.write(&mut self.scheduler, 1, value),
+            0x04000202 => self.interrupt_controller.request.write(&mut self.scheduler, 0, value),
+            0x04000203 => self.interrupt_controller.request.write(&mut self.scheduler, 1, value),
+            0x04000204 => self.waitcnt.write(&mut self.scheduler, 0, value),
+            0x04000205 => self.waitcnt.write(&mut self.scheduler, 1, value),
+            0x04000206 ..= 0x04000207 => (), // Unused IO Register
+            0x04000208 => self.interrupt_controller.master_enable.write(&mut self.scheduler, 0, value),
+            0x04000209 => self.interrupt_controller.master_enable.write(&mut self.scheduler, 1, value),
+            0x0400020A ..= 0x040002FF => (), // Unused IO Register
+            0x04000300 => self.haltcnt = (self.haltcnt & !0x00FF) | value as u16,
+            0x04000301 => self.haltcnt = (self.haltcnt & !0xFF00) | (value as u16) << 8,
+            0x04FFF600 ..= 0x04FFF701 => self.mgba_test_suite.write_register(addr, value),
+            0x04FFF780 ..= 0x04FFF781 => self.mgba_test_suite.write_enable(addr, value),
+            _ => warn!("Writng Unimplemented IO Register at {:08X} = {:08X}", addr, 0),
         };
-        if let Some(event) = event {
-            // TODO: Figure out more efficient way to do this
-            if let Some(i) = self.event_queue.iter().position(|e| e.event_type == event.event_type) {
-                self.event_queue.remove(i);
-            }
-            if event.cycle >= self.cycle {
-                self.event_queue.push(event);
-                self.event_queue.sort();
-            }
-        }
     }
 
     fn read_bios<T>(&self, addr: u32) -> T where T: MemoryValue {

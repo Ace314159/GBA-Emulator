@@ -1,4 +1,4 @@
-use crate::io::{Event, IORegister};
+use crate::io::{Scheduler, IORegister};
 
 bitflags! {
     pub struct KEYINPUT: u16 {
@@ -41,7 +41,7 @@ impl IORegister for KEYINPUT {
         }
     }
 
-    fn write(&mut self, _byte: u8, _value: u8) -> Option<Event> { None }
+    fn write(&mut self, _scheduler: &mut Scheduler, _byte: u8, _value: u8) {}
 }
 
 impl IORegister for KEYCNT {
@@ -53,12 +53,11 @@ impl IORegister for KEYCNT {
         }
     }
 
-    fn write(&mut self, byte:u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte:u8, value: u8) {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & KEYCNT::all().bits,
             1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & KEYCNT::all().bits,
             _ => unreachable!(),
         }
-        None
     }
 }

@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use super::{Event, IORegister};
+use super::{Scheduler, IORegister};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BGMode {
@@ -86,7 +86,7 @@ impl IORegister for DISPCNT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 self.mode = BGMode::get(value & 0x7);
@@ -95,7 +95,6 @@ impl IORegister for DISPCNT {
             1 => self.flags.bits = self.flags.bits & !0xFF00 | (value as u16) << 8 & DISPCNTFlags::all().bits,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -147,7 +146,7 @@ impl IORegister for DISPSTAT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 let old_bits = self.flags.bits;
@@ -157,7 +156,6 @@ impl IORegister for DISPSTAT {
             1 => self.vcount_setting = value as u8,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -195,7 +193,7 @@ impl IORegister for BGCNT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 self.priority = value & 0x3;
@@ -210,7 +208,6 @@ impl IORegister for BGCNT {
             },
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -236,13 +233,12 @@ impl IORegister for OFS {
         }
     }
     
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.offset = self.offset & !0xFF | value as u16,
             1 => self.offset = self.offset & !0x100 | (value as u16) << 8 & 0x100,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -266,13 +262,12 @@ impl RotationScalingParameter {
 impl IORegister for RotationScalingParameter {
     fn read(&self, _byte: u8) -> u8 { return 0 }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         let offset = byte * 8;
         match byte {
             0 | 1 => self.value = ((self.value as u32) & !(0xFF << offset) | (value as u32) << offset) as i16,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -296,7 +291,7 @@ impl ReferencePointCoord {
 impl IORegister for ReferencePointCoord {
     fn read(&self, _byte: u8) -> u8 { 0 }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         let offset = byte * 8;
         match byte {
             0 ..= 2 => self.value = (self.value as u32 & !(0xFF << offset) | (value as u32) << offset) as i32,
@@ -306,7 +301,6 @@ impl IORegister for ReferencePointCoord {
             },
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -342,13 +336,12 @@ impl IORegister for WindowDimensions {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.coord2 = value,
             1 => self.coord1 = value,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -395,7 +388,7 @@ impl IORegister for WindowControl {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 self.color_special_enable = value >> 5 & 0x1 != 0;
@@ -407,7 +400,6 @@ impl IORegister for WindowControl {
             },
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -457,13 +449,12 @@ impl IORegister for MOSAIC {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.bg_size.write(value),
             1 => self.obj_size.write(value),
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -543,7 +534,7 @@ impl IORegister for BLDCNT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 self.target_pixel1.write(value);
@@ -552,7 +543,6 @@ impl IORegister for BLDCNT {
             1 => self.target_pixel2.write(value),
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -583,7 +573,7 @@ impl IORegister for BLDALPHA {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 self.raw_eva = value & 0x1F;
@@ -595,7 +585,6 @@ impl IORegister for BLDALPHA {
             }
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -614,12 +603,11 @@ impl BLDY {
 impl IORegister for BLDY {
     fn read(&self, _byte: u8) -> u8 { 0 }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, __scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.evy = std::cmp::min(0x10, value & 0x1F),
             1 => (),
             _ => unreachable!(),
         }
-        None
     }
 }

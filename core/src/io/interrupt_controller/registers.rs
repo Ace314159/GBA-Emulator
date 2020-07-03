@@ -1,4 +1,4 @@
-use crate::io::{Event, IORegister};
+use crate::io::{Scheduler, IORegister};
 
 bitflags! {
     pub struct InterruptEnable: u16 {
@@ -53,13 +53,12 @@ impl IORegister for InterruptEnable {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptEnable::all().bits,
             1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & InterruptEnable::all().bits,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -72,13 +71,12 @@ impl IORegister for InterruptMasterEnable {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.bits = self.bits & !0x00FF | (value as u16) & InterruptMasterEnable::all().bits,
             1 => self.bits = self.bits & !0xFF00 | (value as u16) << 8 & InterruptMasterEnable::all().bits,
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -91,12 +89,11 @@ impl IORegister for InterruptRequest {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.bits = self.bits & !((value as u16) << 0),
             1 => self.bits = self.bits & !((value as u16) << 8),
             _ => unreachable!(),
         }
-        None
     }
 }

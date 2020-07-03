@@ -1,4 +1,4 @@
-use super::{Event, IORegister};
+use super::{Scheduler, IORegister};
 
 pub struct SoundEnableFlags {
     pub channel1: u8,
@@ -63,7 +63,7 @@ impl IORegister for SOUNDCNT {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 self.psg_master_volume_r = value & 0x7;
@@ -80,7 +80,6 @@ impl IORegister for SOUNDCNT {
             },
             _ => unreachable!(),
         }
-        None
     }
 }
 
@@ -107,7 +106,7 @@ impl IORegister for SOUNDBIAS {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => self.bias_level = self.bias_level & !0xFF | (value as u16) >> 1,
             1 => {
@@ -116,6 +115,5 @@ impl IORegister for SOUNDBIAS {
             },
             _ => unreachable!(),
         }
-        None
     }
 }

@@ -1,4 +1,4 @@
-use super::{Event, IORegister, GPIO};
+use super::GPIO;
 use crate::gba;
 
 pub struct RTC {
@@ -187,6 +187,44 @@ impl GPIO for RTC {
         };
     }
 
+    // TODO: Switch implementation to GPIO when adding more GPIO
+    fn read(&self, byte: u8) -> u8 {
+        match byte {
+            0 => {
+                let value = 0 |
+                if !self.can_write(0) { (self.data0() as u8) << 0 } else { 0 } |
+                if !self.can_write(1) { (self.data1() as u8) << 1 } else { 0 } |
+                if !self.can_write(2) { (self.data2() as u8) << 2 } else { 0 } |
+                if !self.can_write(3) { (self.data3() as u8) << 3 } else { 0 };
+                value
+            },
+            1 => 0,
+            2 => self.write_mask(),
+            3 => 0,
+            4 => self.write_only() as u8,
+            5 => 0,
+            _ => unreachable!(),
+        }
+    }
+
+    fn write(&mut self, byte: u8, value: u8) {
+        match byte {
+            0 => {
+                if self.can_write(0) { self.set_data0(value >> 0 & 0x1 != 0) }
+                if self.can_write(1) { self.set_data1(value >> 1 & 0x1 != 0) }
+                if self.can_write(2) { self.set_data2(value >> 2 & 0x1 != 0) }
+                if self.can_write(3) { self.set_data3(value >> 3 & 0x1 != 0) }
+                self.process_write();
+            },
+            1 => (),
+            2 => self.set_write_mask(value & 0xF),
+            3 => (),
+            4 => self.set_write_only(value & 0x1 == 0),
+            5 => (),
+            _ => unreachable!(),
+        }
+    }
+
     fn set_data0(&mut self, value: bool) {
         assert_eq!(self.write_mask >> 0 & 0x1, 1);
         self.prev_sck = self.sck;
@@ -214,47 +252,6 @@ impl GPIO for RTC {
 
     fn set_data3(&mut self, _value: bool) { assert_eq!(self.write_mask >> 3 & 0x1, 0) }
     fn data3(&self) -> bool { false }
-}
-
-// TODO: Swiwtch implementation to GPIO when adding more GPIO
-impl IORegister for RTC {
-    fn read(&self, byte: u8) -> u8 {
-        match byte {
-            0 => {
-                let value = 0 |
-                if !self.can_write(0) { (self.data0() as u8) << 0 } else { 0 } |
-                if !self.can_write(1) { (self.data1() as u8) << 1 } else { 0 } |
-                if !self.can_write(2) { (self.data2() as u8) << 2 } else { 0 } |
-                if !self.can_write(3) { (self.data3() as u8) << 3 } else { 0 };
-                value
-            },
-            1 => 0,
-            2 => self.write_mask(),
-            3 => 0,
-            4 => self.write_only() as u8,
-            5 => 0,
-            _ => unreachable!(),
-        }
-    }
-
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
-        match byte {
-            0 => {
-                if self.can_write(0) { self.set_data0(value >> 0 & 0x1 != 0) }
-                if self.can_write(1) { self.set_data1(value >> 1 & 0x1 != 0) }
-                if self.can_write(2) { self.set_data2(value >> 2 & 0x1 != 0) }
-                if self.can_write(3) { self.set_data3(value >> 3 & 0x1 != 0) }
-                self.process_write();
-            },
-            1 => (),
-            2 => self.set_write_mask(value & 0xF),
-            3 => (),
-            4 => self.set_write_only(value & 0x1 == 0),
-            5 => (),
-            _ => unreachable!(),
-        }
-        None
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -346,9 +343,7 @@ impl DateTime {
             second: BCD::new(0x0, 0x59),
         }
     }
-}
 
-impl IORegister for DateTime {
     fn read(&self, byte: u8) -> u8 {
         match byte {
             0 => self.year.value(),
@@ -366,7 +361,7 @@ impl IORegister for DateTime {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, byte: u8, value: u8) {
         match byte {
             0 => self.year.set_value(value),
             1 => self.month.set_value(value),
@@ -380,7 +375,6 @@ impl IORegister for DateTime {
             6 => self.second.set_value(value),
             _ => unreachable!(),
         }
-        None
     }
 }
 

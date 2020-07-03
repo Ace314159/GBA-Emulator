@@ -1,13 +1,13 @@
 mod rtc;
 
-use super::{Event, IORegister};
-
 pub use rtc::RTC;
 
 
-pub trait GPIO: IORegister {
+pub trait GPIO {
     fn clock(&mut self);
     fn process_write(&mut self);
+    fn read(&self, byte: u8) -> u8;
+    fn write(&mut self, byte: u8, value: u8);
 
     fn set_data0(&mut self, value: bool);
     fn set_data1(&mut self, value: bool);

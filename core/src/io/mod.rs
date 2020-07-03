@@ -1,4 +1,5 @@
 mod memory;
+mod scheduler;
 mod ppu;
 mod apu;
 mod dma;
@@ -9,13 +10,13 @@ mod gpio;
 mod cart_backup;
 
 use std::cell::Cell;
-use std::cmp::{Eq, PartialEq, Ord, PartialOrd, Ordering};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use flume::{Receiver, Sender};
 
 pub use memory::{MemoryHandler, MemoryRegion, MemoryValue};
+use scheduler::{Event, EventType, Scheduler};
 use dma::DMA;
 use timers::Timers;
 use ppu::PPU;
@@ -33,8 +34,8 @@ pub struct IO {
     ewram: Vec<u8>,
     iwram: Vec<u8>,
     rom: Vec<u8>,
+    scheduler: Scheduler,
     clocks_ahead: u32,
-    event_queue: Vec<Event>,
 
     // IO
     ppu: PPU,
@@ -57,7 +58,6 @@ pub struct IO {
     bios_latch: Cell<u32>,
 
     mgba_test_suite: mgba_test_suite::MGBATestSuite,
-    pub cycle: usize,
 }
 
 impl IO {
@@ -78,8 +78,8 @@ impl IO {
             ewram: vec![0; 0x40000],
             iwram: vec![0; 0x8000],
             rom,
+            scheduler: Scheduler::new(),
             clocks_ahead: 0,
-            event_queue: Vec::new(),
 
             // IO
             ppu,
@@ -102,7 +102,6 @@ impl IO {
             bios_latch: Cell::new(0),
 
             mgba_test_suite: mgba_test_suite::MGBATestSuite::new(),
-            cycle: 0,
         }, pixels, debug_windows_spec)
     }
 
@@ -127,19 +126,7 @@ impl IO {
         }};
 
         for _ in 0..clocks_inc {
-            self.cycle = self.cycle.wrapping_add(1);
-            if self.event_queue.len() > 0 {
-                let mut i = self.event_queue.len() - 1;
-                while self.event_queue[i].cycle == self.cycle {
-                    let event = self.event_queue.swap_remove(i);
-                    self.handle_event(event.event_type);
-                    if i == 0 { break }
-                    i -= 1;
-                }
-                // Events may have been pushed during a handle_event
-                self.event_queue.sort();
-                self.event_queue.reverse();
-            }
+            self.handle_events();
             self.rtc.clock();
             self.apu.clock();
         }
@@ -161,42 +148,12 @@ impl IO {
         self.read::<u8>(region.get_start_addr() + addr)
     }
 
+    pub fn get_cycle(&self) -> usize { self.scheduler.cycle }
+
     pub fn poll_keypad_updates(&mut self) {
         if self.ppu.rendered_frame() {
             self.cart_backup.save_to_file();
             self.keypad.poll();
-        }
-    }
-
-    fn handle_event(&mut self, event: EventType) {
-        match event {
-            /*EventType::TimerPrescaler(prescaler) => {
-                assert_eq!(self.cycle % Timers::PRESCALERS[prescaler], 0);
-                for timer in self.timers.timers_by_prescaler[prescaler].clone().iter() {
-                    assert!(!self.timers.timers[*timer].is_count_up());
-                    let (overflowed, interrupt_request) = self.timers.timers[*timer].clock();
-                    if overflowed { self.handle_event(EventType::TimerOverflow(*timer)) }
-                    self.interrupt_controller.request |= interrupt_request;
-                }
-                self.event_queue.push(Event {
-                    cycle: self.cycle + Timers::PRESCALERS[prescaler],
-                    event_type: EventType::TimerPrescaler(prescaler),
-                });
-            },*/
-            EventType::TimerOverflow(timer) => {
-                if self.timers.timers[timer].cnt.irq {
-                    self.interrupt_controller.request |= self.timers.timers[timer].interrupt
-                }
-                // Cascade Timers
-                if timer + 1 < self.timers.timers.len() && self.timers.timers[timer + 1].is_count_up() {
-                    if self.timers.timers[timer + 1].clock() { self.handle_event(EventType::TimerOverflow(timer + 1)) }
-                }
-                if !self.timers.timers[timer].is_count_up() {
-                    self.event_queue.push(self.timers.timers[timer].create_event(self.cycle));
-                }
-                // Sound FIFOs
-                self.apu.on_timer_overflowed(timer);
-            }
         }
     }
 
@@ -269,40 +226,9 @@ impl IO {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq)]
-pub struct Event {
-    cycle: usize,
-    event_type: EventType,
-}
-
-impl Ord for Event {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Reversed since BinaryHeap is a max heap
-        self.cycle.cmp(&other.cycle)
-    }
-}
-
-impl PartialOrd for Event {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Reversed since BinaryHeap is a max heap
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for Event {
-    fn eq(&self, other: &Self) -> bool {
-        self.cycle == other.cycle
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum EventType {
-    TimerOverflow(usize),
-}
-
 pub trait IORegister {
     fn read(&self, byte: u8) -> u8;
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event>;
+    fn write(&mut self, scheduler: &mut Scheduler, byte: u8, value: u8);
 }
 
 pub trait IORegisterController {
@@ -395,7 +321,7 @@ impl IORegister for WaitStateControl {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, _scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
             0 => {
                 let value = value as usize;
@@ -415,7 +341,6 @@ impl IORegister for WaitStateControl {
             }
             _ => unreachable!(),
         }
-        None
     }
 }
 

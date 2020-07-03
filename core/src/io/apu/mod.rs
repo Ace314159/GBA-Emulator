@@ -2,7 +2,7 @@ mod audio;
 mod registers;
 mod channel;
 
-use super::{Event, IORegister};
+use super::{Scheduler, IORegister};
 use crate::gba;
 
 use audio::{Audio, AudioDevice};
@@ -205,45 +205,45 @@ impl APU {
         }
     }
 
-    pub fn write_register(&mut self, addr: u32, value: u8) -> Option<Event> {
+    pub fn write_register(&mut self, scheduler: &mut Scheduler, addr: u32, value: u8) {
         assert_eq!(addr >> 12, 0x04000);
         match addr & 0xFFF {
-            0x060 => self.tone1.write(0, value),
-            0x061 => self.tone1.write(1, value),
-            0x062 => self.tone1.write(2, value),
-            0x063 => self.tone1.write(3, value),
-            0x064 => self.tone1.write(4, value),
-            0x065 => self.tone1.write(5, value),
-            0x066 => self.tone1.write(6, value),
-            0x067 => self.tone1.write(7, value),
-            0x068 => self.tone2.write(0 + 2, value),
-            0x069 => self.tone2.write(1 + 2, value),
-            0x06A => None,
-            0x06B => None,
-            0x06C => self.tone2.write(4, value),
-            0x06D => self.tone2.write(5, value),
-            0x06E => self.tone2.write(6, value),
-            0x06F => self.tone2.write(7, value),
-            0x070 => self.wave.write(0, value),
-            0x071 => self.wave.write(1, value),
-            0x072 => self.wave.write(2, value),
-            0x073 => self.wave.write(3, value),
-            0x074 => self.wave.write(4, value),
-            0x075 => self.wave.write(5, value),
-            0x076 => self.wave.write(6, value),
-            0x077 => self.wave.write(7, value),
-            0x078 => self.noise.write(0, value),
-            0x079 => self.noise.write(1, value),
-            0x07A => self.noise.write(2, value),
-            0x07B => self.noise.write(3, value),
-            0x07C => self.noise.write(4, value),
-            0x07D => self.noise.write(5, value),
-            0x07E => self.noise.write(6, value),
-            0x07F => self.noise.write(7, value),
-            0x080 => self.cnt.write(0, value),
-            0x081 => self.cnt.write(1, value),
-            0x082 => self.cnt.write(2, value),
-            0x083 => { self.sound_a.write_cnt(value & 0xF); self.sound_b.write_cnt(value >> 4); None },
+            0x060 => self.tone1.write(scheduler, 0, value),
+            0x061 => self.tone1.write(scheduler, 1, value),
+            0x062 => self.tone1.write(scheduler, 2, value),
+            0x063 => self.tone1.write(scheduler, 3, value),
+            0x064 => self.tone1.write(scheduler, 4, value),
+            0x065 => self.tone1.write(scheduler, 5, value),
+            0x066 => self.tone1.write(scheduler, 6, value),
+            0x067 => self.tone1.write(scheduler, 7, value),
+            0x068 => self.tone2.write(scheduler, 0 + 2, value),
+            0x069 => self.tone2.write(scheduler, 1 + 2, value),
+            0x06A => (),
+            0x06B => (),
+            0x06C => self.tone2.write(scheduler, 4, value),
+            0x06D => self.tone2.write(scheduler, 5, value),
+            0x06E => self.tone2.write(scheduler, 6, value),
+            0x06F => self.tone2.write(scheduler, 7, value),
+            0x070 => self.wave.write(scheduler, 0, value),
+            0x071 => self.wave.write(scheduler, 1, value),
+            0x072 => self.wave.write(scheduler, 2, value),
+            0x073 => self.wave.write(scheduler, 3, value),
+            0x074 => self.wave.write(scheduler, 4, value),
+            0x075 => self.wave.write(scheduler, 5, value),
+            0x076 => self.wave.write(scheduler, 6, value),
+            0x077 => self.wave.write(scheduler, 7, value),
+            0x078 => self.noise.write(scheduler, 0, value),
+            0x079 => self.noise.write(scheduler, 1, value),
+            0x07A => self.noise.write(scheduler, 2, value),
+            0x07B => self.noise.write(scheduler, 3, value),
+            0x07C => self.noise.write(scheduler, 4, value),
+            0x07D => self.noise.write(scheduler, 5, value),
+            0x07E => self.noise.write(scheduler, 6, value),
+            0x07F => self.noise.write(scheduler, 7, value),
+            0x080 => self.cnt.write(scheduler, 0, value),
+            0x081 => self.cnt.write(scheduler, 1, value),
+            0x082 => self.cnt.write(scheduler, 2, value),
+            0x083 => { self.sound_a.write_cnt(value & 0xF); self.sound_b.write_cnt(value >> 4) },
             0x084 => {
                 let prev = self.master_enable;
                 self.master_enable = value >> 7 & 0x1 != 0;
@@ -252,19 +252,18 @@ impl APU {
                     self.tone2 = Tone::new();
                     self.wave = Wave::new();
                     self.noise = Noise::new();
-                    self.cnt.write(0, value);
-                    self.cnt.write(1, value);
+                    self.cnt.write(scheduler, 0, value);
+                    self.cnt.write(scheduler, 1, value);
                 }
-                None
             },
-            0x085 ..= 0x087 => None,
-            0x088 => self.bias.write(0, value),
-            0x089 => self.bias.write(1, value),
-            0x08A ..= 0x08F => None,
-            0x090 ..= 0x09F => { self.wave.write_wave_ram(addr - 0x04000090, value); None },
-            0x0A0 ..= 0x0A3 => { self.sound_a.write_fifo(value); None },
-            0x0A4 ..= 0x0A7 => { self.sound_b.write_fifo(value); None },
-            _ => { warn!("Ignoring APU Write 0x{:08X} = {:02X}", addr, value); None },
+            0x085 ..= 0x087 => (),
+            0x088 => self.bias.write(scheduler, 0, value),
+            0x089 => self.bias.write(scheduler, 1, value),
+            0x08A ..= 0x08F => (),
+            0x090 ..= 0x09F => { self.wave.write_wave_ram(addr - 0x04000090, value) },
+            0x0A0 ..= 0x0A3 => { self.sound_a.write_fifo(value) },
+            0x0A4 ..= 0x0A7 => { self.sound_b.write_fifo(value) },
+            _ => { warn!("Ignoring APU Write 0x{:08X} = {:02X}", addr, value) },
         }
     }
 }

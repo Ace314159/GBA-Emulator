@@ -32,7 +32,7 @@ impl GBA {
         self.io.poll_keypad_updates();
         // TODO: This will overflow on 32-bit systems
         self.next_frame_cycle += CLOCKS_PER_FRAME;
-        while self.io.cycle < self.next_frame_cycle {
+        while self.io.get_cycle() < self.next_frame_cycle {
             self.io.run_dma();
             self.cpu.handle_irq(&mut self.io);
             self.cpu.emulate_instr(&mut self.io);

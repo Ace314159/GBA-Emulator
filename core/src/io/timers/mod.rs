@@ -1,6 +1,6 @@
 mod registers;
 
-use super::{Event, EventType, IORegister};
+use super::{Scheduler, Event, EventType, IORegister};
 use super::InterruptRequest;
 
 use registers::*;
@@ -68,16 +68,6 @@ impl Timer {
         false
     }
 
-    pub fn read(&self, global_cycle: usize, byte: u8) -> u8 {
-        let counter = if self.is_count_up() || !self.cnt.start { self.counter } else { self.calc_counter(global_cycle) };
-        match byte {
-            0 => (counter >> 0) as u8,
-            1 => (counter >> 8) as u8,
-            2 | 3 => self.cnt.read(byte - 2),
-            _ => unreachable!(),
-        }
-    }
-
     fn calc_counter(&self, global_cycle: usize) -> u16 {    
         let cycles_passed = global_cycle - self.start_cycle;
         // Counter stores the reload value
@@ -103,23 +93,31 @@ impl Timer {
 
     pub fn is_count_up(&self) -> bool { self.cnt.count_up }
 
-    pub fn write(&mut self, global_cycle: usize, byte: u8, value: u8) -> Option<Event> {
+    pub fn read(&self, scheduler: &Scheduler, byte: u8) -> u8 {
+        let global_cycle = scheduler.cycle;
+        let counter = if self.is_count_up() || !self.cnt.start { self.counter } else { self.calc_counter(global_cycle) };
+        match byte {
+            0 => (counter >> 0) as u8,
+            1 => (counter >> 8) as u8,
+            2 | 3 => self.cnt.read(byte - 2),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn write(&mut self, scheduler: &mut Scheduler, byte: u8, value: u8) {
+        let global_cycle = scheduler.cycle;
         match byte {
             0 => self.reload = self.reload & !0x00FF | (value as u16) << 0,
             1 => self.reload = self.reload & !0xFF00 | (value as u16) << 8,
             2 => {
+                scheduler.remove(EventType::TimerOverflow(self.index));
                 let prev_start = self.cnt.start;
-                self.cnt.write(0, value);
+                self.cnt.write(scheduler, 0, value);
                 if !self.is_count_up() {
                     if !prev_start && self.cnt.start {
-                        return Some(self.create_event(global_cycle + 1))
+                        scheduler.add(self.create_event(global_cycle + 1));
                     } else if prev_start && !self.cnt.start {
                         self.counter = self.calc_counter(global_cycle);
-                        // Removes event
-                        return Some(Event {
-                            cycle: global_cycle - 1,
-                            event_type: EventType::TimerOverflow(self.index),
-                        })
                     } else if self.cnt.start {
                         // TODO: Prescaler Value changed
                         todo!();
@@ -130,10 +128,10 @@ impl Timer {
                         self.counter = self.reload;
                     }
                 }
+                scheduler.sort();
             },
-            3 => { self.cnt.write(1, value); () },
+            3 => { self.cnt.write(scheduler, 1, value); () },
             _ => unreachable!(),
         }
-        None
     }
 }

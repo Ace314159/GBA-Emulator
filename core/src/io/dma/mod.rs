@@ -1,6 +1,6 @@
 mod registers;
 
-use super::{Event, IORegister};
+use super::{Scheduler, IORegister};
 
 use registers::*;
 
@@ -103,24 +103,23 @@ impl IORegister for DMAChannel {
         }
     }
 
-    fn write(&mut self, byte: u8, value: u8) -> Option<Event> {
+    fn write(&mut self, scheduler: &mut Scheduler, byte: u8, value: u8) {
         match byte {
-            0x0 => self.sad.write(0, value),
-            0x1 => self.sad.write(1, value),
-            0x2 => self.sad.write(2, value),
-            0x3 => self.sad.write(3, value),
-            0x4 => self.dad.write(0, value),
-            0x5 => self.dad.write(1, value),
-            0x6 => self.dad.write(2, value),
-            0x7 => self.dad.write(3, value),
-            0x8 => self.count.write(0, value),
-            0x9 => self.count.write(1, value),
-            0xA => self.cnt.write(0, value),
+            0x0 => self.sad.write(scheduler, 0, value),
+            0x1 => self.sad.write(scheduler, 1, value),
+            0x2 => self.sad.write(scheduler, 2, value),
+            0x3 => self.sad.write(scheduler, 3, value),
+            0x4 => self.dad.write(scheduler, 0, value),
+            0x5 => self.dad.write(scheduler, 1, value),
+            0x6 => self.dad.write(scheduler, 2, value),
+            0x7 => self.dad.write(scheduler, 3, value),
+            0x8 => self.count.write(scheduler, 0, value),
+            0x9 => self.count.write(scheduler, 1, value),
+            0xA => self.cnt.write(scheduler, 0, value),
             0xB => {
                 let prev_enable = self.cnt.enable;
-                self.cnt.write(1, value);
+                self.cnt.write(scheduler, 1, value);
                 if !prev_enable && self.cnt.enable { self.latch() }
-                None
             },
             _ => unreachable!(),
         }
