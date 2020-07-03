@@ -79,12 +79,7 @@ impl IO {
             iwram: vec![0; 0x8000],
             rom,
             clocks_ahead: 0,
-            event_queue: [
-                Event { cycle: Timers::PRESCALERS[3], event_type: EventType::TimerPrescaler(3) },
-                Event { cycle: Timers::PRESCALERS[2], event_type: EventType::TimerPrescaler(2) },
-                Event { cycle: Timers::PRESCALERS[1], event_type: EventType::TimerPrescaler(1) },
-                Event { cycle: Timers::PRESCALERS[0], event_type: EventType::TimerPrescaler(0) },
-            ].to_vec(),
+            event_queue: Vec::new(),
 
             // IO
             ppu,
@@ -133,17 +128,18 @@ impl IO {
 
         for _ in 0..clocks_inc {
             self.cycle = self.cycle.wrapping_add(1);
-            // Always at least 1 event
-            let mut i = self.event_queue.len() - 1;
-            while self.event_queue[i].cycle == self.cycle {
-                let event = self.event_queue.swap_remove(i);
-                self.handle_event(event.event_type);
-                if i == 0 { break }
-                i -= 1;
+            if self.event_queue.len() > 0 {
+                let mut i = self.event_queue.len() - 1;
+                while self.event_queue[i].cycle == self.cycle {
+                    let event = self.event_queue.swap_remove(i);
+                    self.handle_event(event.event_type);
+                    if i == 0 { break }
+                    i -= 1;
+                }
+                // Events may have been pushed during a handle_event
+                self.event_queue.sort();
+                self.event_queue.reverse();
             }
-            // Events may have been pushed during a handle_event
-            self.event_queue.sort();
-            self.event_queue.reverse();
             self.rtc.clock();
             self.apu.clock();
         }
@@ -174,7 +170,7 @@ impl IO {
 
     fn handle_event(&mut self, event: EventType) {
         match event {
-            EventType::TimerPrescaler(prescaler) => {
+            /*EventType::TimerPrescaler(prescaler) => {
                 assert_eq!(self.cycle % Timers::PRESCALERS[prescaler], 0);
                 for timer in self.timers.timers_by_prescaler[prescaler].clone().iter() {
                     assert!(!self.timers.timers[*timer].is_count_up());
@@ -186,14 +182,19 @@ impl IO {
                     cycle: self.cycle + Timers::PRESCALERS[prescaler],
                     event_type: EventType::TimerPrescaler(prescaler),
                 });
-            },
+            },*/
             EventType::TimerOverflow(timer) => {
+                if self.timers.timers[timer].cnt.irq {
+                    self.interrupt_controller.request |= self.timers.timers[timer].interrupt
+                }
                 // Cascade Timers
                 if timer + 1 < self.timers.timers.len() && self.timers.timers[timer + 1].is_count_up() {
-                    let (overflowed, interrupt_request) = self.timers.timers[timer + 1].clock();
-                    if overflowed { self.handle_event(EventType::TimerOverflow(timer + 1)) }
-                    self.interrupt_controller.request |= interrupt_request;
+                    if self.timers.timers[timer + 1].clock() { self.handle_event(EventType::TimerOverflow(timer + 1)) }
                 }
+                if !self.timers.timers[timer].is_count_up() {
+                    self.event_queue.push(self.timers.timers[timer].create_event(self.cycle));
+                }
+                // Sound FIFOs
                 self.apu.on_timer_overflowed(timer);
             }
         }
@@ -268,7 +269,7 @@ impl IO {
     }
 }
 
-#[derive(Clone, Copy, Eq)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct Event {
     cycle: usize,
     event_type: EventType,
@@ -296,7 +297,6 @@ impl PartialEq for Event {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EventType {
-    TimerPrescaler(usize),
     TimerOverflow(usize),
 }
 
