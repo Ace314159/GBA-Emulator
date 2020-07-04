@@ -1,6 +1,9 @@
+use std::cmp::Reverse;
+
 use priority_queue::PriorityQueue;
 
 use super::IO;
+use crate::gba;
 
 impl IO {
     pub fn handle_events(&mut self) {
@@ -26,7 +29,14 @@ impl IO {
                 }
                 // Sound FIFOs
                 self.apu.on_timer_overflowed(timer);
-            }
+            },
+            EventType::FrameSequencer(step) => {
+                self.apu.clock_sequencer(step);
+                self.scheduler.add(Event {
+                    cycle: self.scheduler.cycle + (gba::CLOCK_FREQ / 512),
+                    event_type: EventType::FrameSequencer((step + 1) % 8),
+                });
+            },
         }
     }
 }
@@ -38,6 +48,8 @@ pub struct Scheduler {
 
 impl Scheduler {
     pub fn new() -> Scheduler {
+        let mut queue = PriorityQueue::new();
+        queue.push(EventType::FrameSequencer(0), Reverse(gba::CLOCK_FREQ / 512));
         Scheduler {
             cycle: 0,
             event_queue: queue,
@@ -45,7 +57,7 @@ impl Scheduler {
     }
 
     pub fn get_next_event(&mut self) -> Option<EventType> {
-        if self.event_queue.len() == 0 { return None }
+        // There should always be at least one event
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
         if Reverse(self.cycle) == *cycle {
             Some(self.event_queue.pop().unwrap().0)
@@ -69,4 +81,5 @@ pub struct Event {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EventType {
     TimerOverflow(usize),
+    FrameSequencer(usize),
 }

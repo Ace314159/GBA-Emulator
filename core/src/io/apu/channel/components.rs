@@ -172,7 +172,6 @@ impl Envelope {
 
 pub struct Timer<T: NumAssign + Unsigned + Copy> {
     counter: T,
-    reload: T,
 }
 
 impl<T: NumAssign + Unsigned + Copy> Timer<T> {
@@ -180,13 +179,9 @@ impl<T: NumAssign + Unsigned + Copy> Timer<T> {
         assert!(reload != num::zero());
         Timer {
             counter: reload,
-            reload,
         }
     }
 
-    pub fn clock(&mut self) -> bool {
-        self.clock_with_reload(self.reload)
-    }
 
     pub fn clock_with_reload(&mut self, reload: T) -> bool {
         self.counter -= num::one();
