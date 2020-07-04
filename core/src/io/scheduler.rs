@@ -33,27 +33,27 @@ impl IO {
 
 pub struct Scheduler {
     pub cycle: usize,
-    event_queue: PriorityQueue<EventType, usize>,
+    event_queue: PriorityQueue<EventType, Reverse<usize>>,
 }
 
 impl Scheduler {
     pub fn new() -> Scheduler {
         Scheduler {
             cycle: 0,
-            event_queue: PriorityQueue::new(),
+            event_queue: queue,
         }
     }
 
     pub fn get_next_event(&mut self) -> Option<EventType> {
         if self.event_queue.len() == 0 { return None }
         let (_event_type, cycle) = self.event_queue.peek().unwrap();
-        if self.cycle == *cycle {
+        if Reverse(self.cycle) == *cycle {
             Some(self.event_queue.pop().unwrap().0)
         } else { None }
     }
 
     pub fn add(&mut self, event: Event) {
-        self.event_queue.push(event.event_type, event.cycle);
+        self.event_queue.push(event.event_type, Reverse(event.cycle));
     }
 
     pub fn remove(&mut self, event_type: EventType) {
