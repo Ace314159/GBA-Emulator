@@ -10,6 +10,7 @@ mod gpio;
 mod cart_backup;
 
 use std::cell::Cell;
+use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -116,14 +117,15 @@ impl IO {
             MemoryRegion::VRAM => if access_width < 2 { 1 } else { 2 },
             MemoryRegion::OAM => 1,
             MemoryRegion::ROM0L | MemoryRegion::ROM0H =>
-                self.waitcnt.get_rom_access_time(0, cycle_type, access_width),
+                self.waitcnt.get_rom_access_time(0, cycle_type, access_width, addr),
             MemoryRegion::ROM1L | MemoryRegion::ROM1H =>
-                self.waitcnt.get_rom_access_time(1, cycle_type, access_width),
+                self.waitcnt.get_rom_access_time(1, cycle_type, access_width, addr),
             MemoryRegion::ROM2L | MemoryRegion::ROM2H =>
-                self.waitcnt.get_rom_access_time(2, cycle_type, access_width),
+                self.waitcnt.get_rom_access_time(2, cycle_type, access_width, addr),
             MemoryRegion::SRAM => self.waitcnt.get_sram_access_time(cycle_type),
             MemoryRegion::Unused => 1,
         }};
+        self.waitcnt.clock_prefetch(clocks_inc);
 
         for _ in 0..clocks_inc {
             self.handle_events();
@@ -264,8 +266,14 @@ struct WaitStateControl {
     n_wait_state_settings: [usize; 3],
     s_wait_state_settings: [usize; 3],
     phi_terminal_out: usize,
-    prefetch_buffer: bool,
+    use_prefetch: bool,
     type_flag: bool,
+    // Prefetch Buffer
+    can_prefetch: bool,
+    prefetch: VecDeque<u32>,
+    prefetch_waitstate: usize,
+    prefetch_addr: u32,
+    prefetch_cycles_spent: u32,
 }
 
 impl WaitStateControl {
@@ -283,17 +291,21 @@ impl WaitStateControl {
             n_wait_state_settings: [0; 3],
             s_wait_state_settings: [0; 3],
             phi_terminal_out: 0,
-            prefetch_buffer: false,
+            use_prefetch: false,
             type_flag: false,
+            // Prefetch Buffer
+            can_prefetch: true,
+            prefetch: VecDeque::new(),
+            prefetch_waitstate: 0,
+            prefetch_addr: 0x08000000,
+            prefetch_cycles_spent: 0,
         }
     }
 
-    pub fn get_rom_access_time(&self, wait_state: usize, cycle_type: Cycle, access_len: u32) -> u32 {
+    pub fn get_rom_access_time(&mut self, wait_state: usize, cycle_type: Cycle, access_len: u32, addr: u32) -> u32 {
         assert_ne!(cycle_type, Cycle::I);
         assert!(access_len <= 2);
-        1 +
-        if access_len == 2 { self.get_rom_access_time(wait_state, Cycle::S, 1) } else { 0 } +
-        match cycle_type {
+        let default_stall_time = match cycle_type {
             Cycle::N => {
                 WaitStateControl::N_ACCESS_TIMINGS[self.n_wait_state_settings[wait_state]]
             },
@@ -301,7 +313,40 @@ impl WaitStateControl {
                 WaitStateControl::S_ACCESS_TIMINGS[wait_state][self.s_wait_state_settings[wait_state]]
             },
             Cycle::I => unreachable!(),
+        };
+        self.can_prefetch = false;
+        let addr = addr & !0x1;
+        let stall_time = if self.use_prefetch {
+            if self.prefetch.contains(&addr) {
+                0
+            } else if self.prefetch_addr == addr {
+                self.prefetch_addr = addr + 2;
+                default_stall_time - self.prefetch_cycles_spent
+            } else {
+                self.prefetch_addr = addr + 2;
+                default_stall_time
+            }
+        } else { default_stall_time };
+        1 +
+        if access_len == 2 { self.get_rom_access_time(wait_state, Cycle::S, 1, addr + 2) } else { 0 } +
+        stall_time
+    }
+
+    pub fn clock_prefetch(&mut self, cycles: u32) {
+        if self.use_prefetch && self.can_prefetch {
+            for _ in 0..cycles {
+                let prefetch_time = WaitStateControl::S_ACCESS_TIMINGS[self.prefetch_waitstate]
+                    [self.s_wait_state_settings[self.prefetch_waitstate]];
+                if self.prefetch_cycles_spent >= prefetch_time {
+                    if self.prefetch.len() == 8 { self.prefetch.pop_front(); }
+                    assert!(self.prefetch.len() < 8);
+                    self.prefetch.push_back(self.prefetch_addr);
+                    self.prefetch_addr += 2;
+                    self.prefetch_cycles_spent = 0;
+                } else { self.prefetch_cycles_spent += 1 }
+            }
         }
+        self.can_prefetch = true;
     }
 
     pub fn get_sram_access_time(&self, cycle_type: Cycle) -> u32 {
@@ -315,7 +360,7 @@ impl IORegister for WaitStateControl {
         match byte {
             0 => (self.s_wait_state_settings[1] << 7 | self.n_wait_state_settings[1] << 5 |
                     self.s_wait_state_settings[0] << 4 | self.n_wait_state_settings[0] << 2 | self.sram_setting) as u8,
-            1 => ((self.type_flag as usize) << 7 | (self.prefetch_buffer as usize) << 6 | self.phi_terminal_out << 3 |
+            1 => ((self.type_flag as usize) << 7 | (self.use_prefetch as usize) << 6 | self.phi_terminal_out << 3 |
                 self.s_wait_state_settings[2] << 2 | self.n_wait_state_settings[2]) as u8,
             _ => unreachable!(),
         }
@@ -336,7 +381,7 @@ impl IORegister for WaitStateControl {
                 self.n_wait_state_settings[2] = (value >> 0) & 0x3;
                 self.s_wait_state_settings[2] = (value >> 2) & 0x1;
                 self.phi_terminal_out = (value >> 3) & 0x3;
-                self.prefetch_buffer = (value >> 6) & 0x1 != 0;
+                self.use_prefetch = (value >> 6) & 0x1 != 0;
                 // Type Flag is read only
             }
             _ => unreachable!(),
