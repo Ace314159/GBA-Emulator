@@ -40,7 +40,8 @@ impl Noise {
 
     pub fn clock(&mut self) {
         if !self.is_on() { return }
-        if self.timer.clock_with_reload(self.calc_reload()) {
+        let reload = self.calc_reload();
+        if reload != 0 && self.timer.clock_with_reload(reload) {
             let carry = self.lfsr & 0x1 != 0;
             self.lfsr >>= 1;
             if carry { self.lfsr ^= [0x6000, 0x60][self.counter_width as usize] }
@@ -88,7 +89,10 @@ impl IORegister for Noise {
                 self.use_length = value >> 6 & 0x1 != 0;
                 if value & 0x80 != 0 {
                     self.lfsr = 0x7FFF;
-                    self.timer.reload(self.calc_reload());
+                    let reload = self.calc_reload();
+                    if reload != 0 {
+                        self.timer.reload(reload);
+                    }
                     self.envelope.reset();
                     self.length_counter.reload_length(64 - self.length_reload as u16);
                 }
