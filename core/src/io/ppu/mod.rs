@@ -342,7 +342,7 @@ impl PPU {
                 if color != PPU::TRANSPARENT_COLOR && enabled[*bg_i] {
                     colors[i] = color;
                     layers[i] = Layer::from(*bg_i);
-                    priorities[i] = priority*priority;
+                    priorities[i] = *priority;
                     if i == 0 { i += 1 }
                     else { break }
                 }
