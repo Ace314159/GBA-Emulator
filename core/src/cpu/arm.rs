@@ -377,7 +377,6 @@ impl CPU {
             if reg == 15 {
                 if psr_force_usr { self.regs.restore_cpsr() }
                 loaded_pc = true;
-                // TODO: Verify
                 self.next_access_type = AccessType::N;
                 self.fill_arm_instr_buffer(io);
             }
