@@ -79,9 +79,10 @@ impl CPU {
             let shift_by_reg = (instr >> 4) & 0x1 != 0;
             let shift = if shift_by_reg {
                 assert_eq!((instr >> 7) & 0x1, 0);
+                let shift = self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF;
                 self.regs.pc = self.regs.pc.wrapping_add(4); // Temp inc
                 temp_inc_pc = true;
-                self.regs.get_reg_i((instr >> 8) & 0xF) & 0xFF
+                shift
             } else {
                 (instr >> 7) & 0x1F
             };
